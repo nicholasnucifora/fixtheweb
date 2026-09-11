@@ -7,7 +7,7 @@
  *
  * Code reads the plain `config` object at the bottom, live, every frame;
  * the panel edits it in place. A param added here shows up in the panel
- * automatically.
+ * automatically, under its section's group (tab).
  */
 
 export interface NumberParam {
@@ -32,14 +32,31 @@ export interface ChoiceParam {
   info: string;
 }
 export type Param = NumberParam | ToggleParam | ChoiceParam;
+
+/** Top-level tabs in the tuning panel. */
+export const groups = {
+  string: {
+    label: "String",
+    info: "How the string hangs, swings and reacts to you.",
+  },
+  spidey: {
+    label: "Spidey",
+    info: "The thing on the end of the string. Stand-ins for now: legs, eyes, mouth and mood settings will live here once the real spider is in.",
+  },
+};
+
 export interface Section {
+  group: keyof typeof groups;
   label: string;
   info: string;
   params: Record<string, Param>;
 }
 
 export const schema = {
+  // ── String ────────────────────────────────────────────────────────────────
+
   anchor: {
+    group: "string",
     label: "Attach point",
     info: "Where the string meets the b.",
     params: {
@@ -62,6 +79,7 @@ export const schema = {
   },
 
   rope: {
+    group: "string",
     label: "String",
     info: "How the string itself looks and moves.",
     params: {
@@ -113,29 +131,8 @@ export const schema = {
     },
   },
 
-  bob: {
-    label: "Spider",
-    info: "The weight on the end (a placeholder circle for now).",
-    params: {
-      radius: {
-        value: 0.1, min: 0.02, max: 0.4, step: 0.005, unit: "b",
-        label: "Size",
-        info: "Radius of the spider.",
-      },
-      drag: {
-        value: 0.7, min: 0, max: 5, step: 0.05, unit: "/s",
-        label: "Air drag",
-        info: "Damping on the spider. Lower = swings for longer before settling; higher = settles quickly.",
-      },
-      hitArea: {
-        value: 0.35, min: 0, max: 1.5, step: 0.05, unit: "×",
-        label: "Grab area",
-        info: "Extra invisible area around the spider that still grabs it, as a fraction of its size.",
-      },
-    },
-  },
-
   sway: {
+    group: "string",
     label: "Breeze",
     info: "Idle movement so the string never looks frozen. Off for people who ask for reduced motion.",
     params: {
@@ -158,6 +155,7 @@ export const schema = {
   },
 
   drag: {
+    group: "string",
     label: "Grabbing & dragging",
     info: "Holding the spider (or the string) and letting go.",
     params: {
@@ -201,6 +199,7 @@ export const schema = {
   },
 
   pluck: {
+    group: "string",
     label: "Pluck",
     info: "What happens when the pointer brushes across the string.",
     params: {
@@ -238,6 +237,7 @@ export const schema = {
   },
 
   particles: {
+    group: "string",
     label: "Pluck dashes",
     info: "The little lines that flick off the string on a pluck.",
     params: {
@@ -306,6 +306,7 @@ export const schema = {
   },
 
   sim: {
+    group: "string",
     label: "Simulation",
     info: "Engine settings. Mostly leave these alone.",
     params: {
@@ -328,6 +329,7 @@ export const schema = {
   },
 
   debug: {
+    group: "string",
     label: "Debug",
     info: "Visual aids for tuning.",
     params: {
@@ -335,6 +337,59 @@ export const schema = {
         value: false,
         label: "Show points",
         info: "Draws the string's points and the attach point.",
+      },
+    },
+  },
+
+  // ── Spidey ────────────────────────────────────────────────────────────────
+
+  look: {
+    group: "spidey",
+    label: "Look",
+    info: "What hangs on the end of the string.",
+    params: {
+      showArt: {
+        value: false,
+        label: "Show spidey SVG",
+        info: "Swaps the placeholder circle for the favicon spider (public/favicon.svg) as one static picture: no moving legs or face yet. Follows light/dark mode the same way the favicon does.",
+      },
+      artScale: {
+        value: 2, min: 0.5, max: 5, step: 0.05, unit: "×",
+        label: "Art size",
+        info: "Width of the spider art relative to the circle's diameter (Size, below). The legs take up the edges of the art, so it needs to be bigger than the circle for the bodies to match.",
+      },
+      attachX: {
+        value: 0.5, min: 0, max: 1, step: 0.01,
+        label: "String attach (across)",
+        info: "Where on the art the string connects: 0 = left edge, 0.5 = centre, 1 = right edge. The circle always hangs from its centre.",
+      },
+      attachY: {
+        value: 0.15, min: 0, max: 1, step: 0.01,
+        label: "String attach (down)",
+        info: "0 = top edge, 1 = bottom. The default tucks the string into the top of the head. The art swings around this point.",
+      },
+    },
+  },
+
+  bob: {
+    group: "spidey",
+    label: "Weight & grab",
+    info: "Size and physics of whatever hangs on the end. These change the swing whichever look is showing.",
+    params: {
+      radius: {
+        value: 0.1, min: 0.02, max: 0.4, step: 0.005, unit: "b",
+        label: "Size",
+        info: "Radius of the placeholder circle, and the base size the spider art scales from (Art size, above).",
+      },
+      drag: {
+        value: 0.7, min: 0, max: 5, step: 0.05, unit: "/s",
+        label: "Air drag",
+        info: "Damping on the spider. Lower = swings for longer before settling; higher = settles quickly.",
+      },
+      hitArea: {
+        value: 0.35, min: 0, max: 1.5, step: 0.05, unit: "×",
+        label: "Grab area",
+        info: "Extra invisible area around the spider that still grabs it, as a fraction of its size.",
       },
     },
   },

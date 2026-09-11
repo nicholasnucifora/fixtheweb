@@ -18,9 +18,10 @@ const { anchor } = Astro.props;
 
 <div class="spider-string" data-spider-string data-anchor={anchor} aria-hidden="true">
   <canvas class="canvas"></canvas>
-  <div class="bob" data-bob>
-    <!-- Placeholder until the spider artwork goes in. -->
+  <div class="bob" data-bob data-look="circle">
+    <!-- Stand-in looks until the rigged spider goes in; config.look.showArt picks one. -->
     <div class="body"></div>
+    <img class="art" src="/favicon.svg" alt="" draggable="false" />
   </div>
 </div>
 
@@ -58,11 +59,24 @@ const { anchor } = Astro.props;
     inset: var(--bob-hit, -35%);
     border-radius: 50%;
   }
-  .body {
+  .body,
+  .art {
+    display: block;
     width: 100%;
     height: 100%;
+  }
+  .body {
     border-radius: 50%;
     background: currentColor;
+  }
+  /* The favicon handles its own light/dark look. */
+  .art {
+    pointer-events: none;
+    -webkit-user-drag: none;
+  }
+  .bob:not([data-look="circle"]) .body,
+  .bob:not([data-look="favicon"]) .art {
+    display: none;
   }
   /* The string is drawn on a canvas that ignores the pointer, so its cursors are set page-wide. */
   :global(html.spider-string-hover),

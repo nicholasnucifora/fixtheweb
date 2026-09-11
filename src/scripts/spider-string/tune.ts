@@ -1,8 +1,18 @@
-import { config, schema, type ChoiceParam, type NumberParam, type Param, type Section, type ToggleParam } from "./config";
+import {
+  config,
+  groups,
+  schema,
+  type ChoiceParam,
+  type NumberParam,
+  type Param,
+  type Section,
+  type ToggleParam,
+} from "./config";
 
 const STORAGE_KEY = "spider-string:tune";
 const COLLAPSED_KEY = "spider-string:tune-collapsed";
 const SIDE_KEY = "spider-string:tune-side";
+const TAB_KEY = "spider-string:tune-tab";
 
 type Value = number | boolean | string;
 type Values = Record<string, Record<string, Value>>;
@@ -30,7 +40,7 @@ export function mountTuner() {
   document.body.append(host);
 
   const panel = h("div", "panel");
-  const pill = h("button", "pill", "Tune spider");
+  const pill = h("button", "pill", "Tuning");
   shadow.append(panel, pill);
 
   const status = h("span", "status");
@@ -40,11 +50,12 @@ export function mountTuner() {
   side.title = "Move the panel to the other side";
   const hide = h("button", "btn", "Hide");
   const titleRow = h("div", "title-row");
-  titleRow.append(h("strong", "title", "Spider tuning"), status);
+  titleRow.append(h("strong", "title", "Tuning"), status);
   const actions = h("div", "actions");
   actions.append(copy, resetAll, side, hide);
+  const tabs = h("nav", "tabs");
   const head = h("header", "head");
-  head.append(titleRow, actions);
+  head.append(titleRow, actions, tabs);
 
   const intro = h(
     "p",
@@ -57,9 +68,30 @@ export function mountTuner() {
   fallback.readOnly = true;
   fallback.hidden = true;
 
+  // One tab (and pane) per group in config.ts.
+  const panes: Record<string, HTMLElement> = {};
+  const tabButtons: Record<string, HTMLButtonElement> = {};
+  for (const [g, group] of Object.entries(groups)) {
+    const tab = h("button", "tab");
+    tab.onclick = () => showTab(g);
+    tabs.append(tab);
+    tabButtons[g] = tab;
+    panes[g] = h("div", "pane");
+    panes[g].append(h("p", "group-info", group.info));
+  }
+
   const body = h("div", "body");
-  body.append(intro, fallback);
+  body.append(intro, fallback, ...Object.values(panes));
   panel.append(head, body);
+
+  const showTab = (g: string) => {
+    for (const [k, pane] of Object.entries(panes)) {
+      pane.hidden = k !== g;
+      tabButtons[k].classList.toggle("active", k === g);
+    }
+    body.scrollTop = 0;
+    store(TAB_KEY, g);
+  };
 
   const changes = () => {
     const out: [string, Value][] = [];
@@ -74,8 +106,12 @@ export function mountTuner() {
   const rows: (() => void)[] = [];
   const refresh = () => {
     rows.forEach((update) => update());
-    const n = changes().length;
-    status.textContent = n ? `${n} changed` : "all defaults";
+    const changed = changes();
+    status.textContent = changed.length ? `${changed.length} changed` : "all defaults";
+    for (const [g, group] of Object.entries(groups)) {
+      const n = changed.filter(([path]) => sections[path.split(".")[0]].group === g).length;
+      tabButtons[g].textContent = n ? `${group.label} · ${n}` : group.label;
+    }
   };
   const save = () => store(STORAGE_KEY, JSON.stringify(Object.fromEntries(changes())));
   const set = (s: string, k: string, v: Value) => {
@@ -93,7 +129,7 @@ export function mountTuner() {
       rows.push(() => r.update(values[s][k]));
       details.append(r.el);
     }
-    body.append(details);
+    panes[section.group].append(details);
   }
 
   copy.onclick = async () => {
@@ -135,6 +171,8 @@ export function mountTuner() {
 
   setSide(read(SIDE_KEY) === "right" ? "right" : "left");
   setCollapsed(read(COLLAPSED_KEY) === "1");
+  const savedTab = read(TAB_KEY);
+  showTab(savedTab && savedTab in panes ? savedTab : Object.keys(panes)[0]);
   refresh();
 }
 
@@ -281,6 +319,14 @@ const styles = `
   .title { font-size: 13px; }
   .status { color: var(--muted); }
   .actions { display: flex; gap: 6px; margin-top: 8px; }
+  .tabs { display: flex; margin: 8px -12px -11px; }
+  .tab {
+    flex: 1; font: 600 12px/1 system-ui, sans-serif; color: var(--muted); background: none;
+    border: none; border-bottom: 2px solid transparent; padding: 9px 4px; cursor: pointer;
+  }
+  .tab:hover { color: var(--fg); }
+  .tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+  .group-info { margin: 0; padding: 8px 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
   .btn {
     font: inherit; color: inherit; background: var(--field);
     border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; cursor: pointer; white-space: nowrap;

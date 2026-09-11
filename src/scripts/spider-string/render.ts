@@ -14,8 +14,7 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement, bob
   const ctx = canvas.getContext("2d")!;
   let dpr = 1;
   let color = "";
-  let bobSize = "";
-  let bobHit = "";
+  let bobStyle = "";
 
   const resize = () => {
     dpr = window.devicePixelRatio || 1;
@@ -30,12 +29,16 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement, bob
   window.addEventListener("resize", resize);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColor);
 
-  /** Only touches the style when a value actually changed. */
-  const sizeBob = (unit: number) => {
-    const size = `${config.bob.radius * 2 * unit}px`;
-    if (size !== bobSize) bob.style.setProperty("--bob-size", (bobSize = size));
-    const hit = `${-config.bob.hitArea * 100}%`;
-    if (hit !== bobHit) bob.style.setProperty("--bob-hit", (bobHit = hit));
+  /** Look, size and pivot (in % of the element) of the spider; only touches the DOM when something changed. */
+  const styleBob = (unit: number, art: boolean, px: number, py: number) => {
+    const size = config.bob.radius * 2 * unit * (art ? config.look.artScale : 1);
+    const key = `${art}|${size}|${px}|${py}|${config.bob.hitArea}`;
+    if (key === bobStyle) return;
+    bobStyle = key;
+    bob.dataset.look = art ? "favicon" : "circle";
+    bob.style.setProperty("--bob-size", `${size}px`);
+    bob.style.setProperty("--bob-hit", `${-config.bob.hitArea * 100}%`);
+    bob.style.transformOrigin = `${px}% ${py}%`;
   };
 
   return {
@@ -52,13 +55,17 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement, bob
       particles.draw(ctx);
       if (config.debug.showPoints) drawPoints(ctx, rope, a);
 
-      // Spider sits on the tail, turned to hang along the last stretch of string.
-      sizeBob(a.unit);
+      // The spider's attach point sits on the tail, and it turns around that point to hang
+      // along the last stretch of string. The circle hangs from its centre.
+      const art = config.look.showArt;
+      const px = art ? config.look.attachX * 100 : 50;
+      const py = art ? config.look.attachY * 100 : 50;
+      styleBob(a.unit, art, px, py);
       const pts = rope.points;
       const tail = pts[pts.length - 1];
       const prev = pts[pts.length - 2];
       const angle = Math.atan2(-(tail.x - prev.x), tail.y - prev.y);
-      bob.style.transform = `translate(${tail.x - sx}px, ${tail.y - sy}px) translate(-50%, -50%) rotate(${angle}rad)`;
+      bob.style.transform = `translate(${tail.x - sx}px, ${tail.y - sy}px) translate(${-px}%, ${-py}%) rotate(${angle}rad)`;
     },
   };
 }

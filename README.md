@@ -29,10 +29,10 @@ Static assets only for now; config is in `wrangler.jsonc`.
 
 ## Spider string
 
-A string hangs from the bottom of the logo's "b" with a draggable spider (placeholder circle for now) on the end. `src/components/SpiderString.astro` takes an `anchor` selector for the glyph to hang from; the logic is in `src/scripts/spider-string/`:
+A string hangs from the bottom of the logo's "b" with a draggable spider on the end. By default it's a placeholder circle; `look.showArt` swaps in `public/favicon.svg` as a static stand-in until the rigged spider is ready. `src/components/SpiderString.astro` takes an `anchor` selector for the glyph to hang from; the logic is in `src/scripts/spider-string/`:
 
 - `config.ts`: every feel value with its default, range and description (length, weight, swing, sway, drag, pluck, particles…). Sizes are in multiples of the anchor glyph's height, so it all scales with the logo.
-- `tune.ts`: live tuning panel built from `config.ts`. Open the page with `?tune` (e.g. `http://localhost:4321/?tune`). Tweaks are saved in that browser and only apply with `?tune`; "Copy changes" gives JSON to bake into `config.ts`.
+- `tune.ts`: live tuning panel built from `config.ts`, with String and Spidey tabs. Open the page with `?tune` (e.g. `http://localhost:4321/?tune`). Tweaks are saved in that browser and only apply with `?tune`; "Copy changes" gives JSON to bake into `config.ts`.
 - `anchor.ts`: finds the glyph's lowest point and tracks it on the page every frame.
 - `rope.ts`: Verlet string physics (no DOM).
 - `drag.ts`: grab/drag/release of the spider or the string, and blocking text selection while held.
