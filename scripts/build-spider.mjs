@@ -8,7 +8,10 @@
 // (design/spider/reference/spider-full.svg). A part exported on the full
 // 596×401 canvas is used as-is, so a redrawn part should be exported that way.
 //
-// Legs get a data-pivot: the middle of the straight cut where they meet the body.
+// Legs get a data-pivot (the middle of the straight cut where they meet the
+// body), a data-cut (that cut's two ends; spider.ts swaps it for a hidden
+// rounded root reaching into the body, sized by the "Hip overlap" setting) and
+// a data-weight (direction of the leg's bulk from the pivot).
 
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -89,6 +92,8 @@ for (const [id, file] of Object.entries(legs)) place(id, file);
 const bodyPoints = points(placed.body);
 const gapToBody = (p) => Math.min(...bodyPoints.map((b) => Math.hypot(p[0] - b[0], p[1] - b[1])));
 const pivots = {};
+const cuts = {};
+const weights = {};
 for (const id of Object.keys(legs)) {
   let cut = null;
   let at = [0, 0];
@@ -99,13 +104,22 @@ for (const id of Object.keys(legs)) {
     at = end;
   }
   if (!cut) throw new Error(`${id}: no straight cut edge found where it meets the body`);
-  pivots[id] = [round((cut.from[0] + cut.to[0]) / 2), round((cut.from[1] + cut.to[1]) / 2)];
+  const pivot = [(cut.from[0] + cut.to[0]) / 2, (cut.from[1] + cut.to[1]) / 2];
+  pivots[id] = pivot.map(round);
+  cuts[id] = [...cut.from, ...cut.to].map(round);
+
+  const own = points(placed[id]);
+  weights[id] = [0, 1].map((k) => round(own.reduce((s, p) => s + p[k], 0) / own.length - pivot[k]));
+
   const gaps = [gapToBody(cut.from), gapToBody(cut.to)].map((g) => g.toFixed(2)).join(" / ");
   console.log(`${id} pivot ${pivots[id].join(", ")}  (cut ends are ${gaps} from the body outline)`);
 }
 
 const legPaths = Object.keys(legs)
-  .map((id) => `<path data-leg="${id}" data-pivot="${pivots[id].join(" ")}" d="${serialize(placed[id])}" fill="${INK}"/>`)
+  .map(
+    (id) =>
+      `<path data-leg="${id}" data-pivot="${pivots[id].join(" ")}" data-cut="${cuts[id].join(" ")}" data-weight="${weights[id].join(" ")}" d="${serialize(placed[id])}" fill="${INK}"/>`,
+  )
   .join("\n");
 
 const svg = `<svg viewBox="0 0 ${WIDTH} ${HEIGHT}" fill="none" xmlns="http://www.w3.org/2000/svg">

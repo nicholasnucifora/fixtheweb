@@ -90,6 +90,16 @@ export class Rope {
     });
   }
 
+  /**
+   * Point `i` blended between the last two physics steps (alpha 0–1). Drawing
+   * with this keeps motion even whatever the display's refresh rate, instead
+   * of jumping by however many whole steps happened to fit in the frame.
+   */
+  at(i: number, alpha: number) {
+    const p = this.points[i];
+    return { x: p.px + (p.x - p.px) * alpha, y: p.py + (p.y - p.py) * alpha };
+  }
+
   /** Shifts the whole rope without changing its motion. */
   translate(dx: number, dy: number) {
     for (const p of this.points) {

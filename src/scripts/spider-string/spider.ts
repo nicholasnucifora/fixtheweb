@@ -42,7 +42,12 @@ interface Leg {
   outline: SVGPathElement;
   marker: SVGCircleElement;
   pivot: Vec;
+  /** The leg as drawn (flat cut at the hip)… */
+  baseCmds: Cmd[];
+  /** …and with its hidden root, which is what's drawn. */
   cmds: Cmd[];
+  /** Ends of the straight cut where the leg meets the body. */
+  cut: [Vec, Vec] | null;
   /** Furthest point from the hip, art units. */
   reach: number;
   /** Direction of the leg's weight from the hip, as drawn. */
@@ -103,6 +108,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     const id = el.dataset.leg ?? "L1";
     const pivot = (el.dataset.pivot ?? "0 0").split(" ").map(Number) as Vec;
     const cmds = parse(el.getAttribute("d") ?? "");
+    const cutEnds = (el.dataset.cut ?? "").split(" ").map(Number);
     const pts = points(cmds).map(([x, y]) => [x - pivot[0], y - pivot[1]] as Vec);
     const mean: Vec = [avg(pts.map((p) => p[0])), avg(pts.map((p) => p[1]))];
     const copy = outlineCopy(el);
@@ -116,9 +122,12 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       outline: copy,
       marker,
       pivot,
+      baseCmds: cmds,
       cmds,
+      cut: cutEnds.length === 4 ? ([[cutEnds[0], cutEnds[1]], [cutEnds[2], cutEnds[3]]] as [Vec, Vec]) : null,
       reach: Math.max(...pts.map((p) => Math.hypot(p[0], p[1]))),
-      weightDir: normalize(mean),
+      // From the build script, measured before the hidden root was added; the mean is a fallback.
+      weightDir: normalize(el.dataset.weight ? (el.dataset.weight.split(" ").map(Number) as Vec) : mean),
       phi: 0,
       omega: 0,
       tone: ((i * 0.618034) % 1) * 2 - 1,
@@ -152,6 +161,21 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     avg([...eyes.map((e) => e.whiteShape.center[0]), mouthShape.center[0]]),
     avg([...eyes.map((e) => e.whiteShape.center[1]), mouthShape.center[1]]),
   ];
+
+  // ── Hidden hip roots ──────────────────────────────────────────────────────
+  // Each leg's straight cut is swapped for a rounded base reaching into the body.
+  // The body hides it, but it means solid leg sits under the body's edge: no
+  // anti-aliasing seam where the two meet, and no gap when a leg turns.
+  let rootDepth = -1;
+  const updateRoots = () => {
+    const depth = config.legMotion.rootDepth;
+    if (depth === rootDepth) return;
+    rootDepth = depth;
+    for (const leg of legs) {
+      leg.cmds = depth > 0 && leg.cut ? withRoot(leg.baseCmds, leg.cut, leg.pivot, bodyCenter, depth) : leg.baseCmds;
+      leg.d = "";
+    }
+  };
 
   /** Which shape to draw on `side`, and whether it's the other side's, mirrored. */
   const pick = <T>(source: Source, side: Side, of: (s: Side) => T) =>
@@ -275,19 +299,22 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
   const lookAround = (dt: number) => {
     const p = config.pupils;
     const artPerB = W / config.look.width;
+    // Cursor in the face's coordinates (both eyes share them), so tilt, breathing and face sliders are accounted for.
+    const m = p.follow && pointer ? eyes[0].g.getScreenCTM() : null;
+    const at = m && pointer ? new DOMPoint(pointer.x, pointer.y).matrixTransform(m.inverse()) : null;
+    // Both eyes decide together, measured from the point between them, so they never
+    // disagree about whether the cursor is close enough to look at.
+    const between: Vec = [avg(eyes.map((e) => e.pupilCenter[0])), avg(eyes.map((e) => e.pupilCenter[1]))];
+    const distance = at ? Math.hypot(at.x - between[0], at.y - between[1]) / artPerB : Infinity;
+    const strength = distance < p.radius ? Math.min(1, distance / p.reach) * p.range : 0;
     for (const eye of eyes) {
       let target: Vec = [p.restX * eye.room, p.restY * eye.room];
-      const m = p.follow && pointer ? eye.g.getScreenCTM() : null;
-      if (m && pointer) {
-        // Cursor in the eye's own coordinates, so tilt, breathing and face sliders are all accounted for.
-        const at = new DOMPoint(pointer.x, pointer.y).matrixTransform(m.inverse());
+      if (strength > 0 && at) {
+        // Each eye still aims from its own centre, so they turn in slightly on a close cursor.
         const dx = at.x - eye.pupilCenter[0];
         const dy = at.y - eye.pupilCenter[1];
-        const dist = Math.hypot(dx, dy);
-        if (dist > 0 && dist / artPerB < p.radius) {
-          const amount = Math.min(1, dist / artPerB / p.reach) * p.range * eye.room;
-          target = [(dx / dist) * amount, (dy / dist) * amount];
-        }
+        const dist = Math.hypot(dx, dy) || 1;
+        target = [(dx / dist) * strength * eye.room, (dy / dist) * strength * eye.room];
       }
       const k = 1 - Math.exp(-p.speed * dt);
       eye.look[0] += (target[0] - eye.look[0]) * k;
@@ -333,37 +360,42 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
   let tilt = 0;
   let tiltSpeed = 0;
   let time = 0;
-  let lastPos: Vec = [0, 0];
   let velocity: Vec = [0, 0];
   let accel: Vec = [0, 0];
 
   return {
-    /** Once per frame, after the string has moved. `dt` is simulated seconds (time scale applied). */
-    update(a: AnchorFrame, dt: number) {
+    /**
+     * Once per frame, after the string has moved. `dt` is this frame's time (time scale applied),
+     * `simDt` the physics time actually stepped, and `alpha` how far between the last two physics
+     * steps to draw (see Rope.at).
+     */
+    update(a: AnchorFrame, dt: number, simDt: number, alpha: number) {
       const { px, py } = applyStyle(a.unit);
-      const pts = rope.points;
-      const tail = pts[pts.length - 1];
-      const prev = pts[pts.length - 2];
+      const n = rope.points.length;
+      const tail = rope.at(n - 1, alpha);
+      const prev = rope.at(n - 2, alpha);
       const stringAngle = Math.atan2(-(tail.x - prev.x), tail.y - prev.y);
       const b = config.body;
 
       if (!started) {
         started = true;
         tilt = stringAngle * b.tiltAmount;
-        lastPos = [tail.x, tail.y];
+      }
+
+      if (simDt > 0) {
+        // Velocity straight from the physics (exact per step, unlike frame-to-frame positions),
+        // and smoothed acceleration in b/s²: what the legs feel as it swings.
+        const t = rope.tail;
+        const v: Vec = [((t.x - t.px) * config.sim.rate) / a.unit, ((t.y - t.py) * config.sim.rate) / a.unit];
+        const smooth = 1 - Math.exp(-20 * simDt);
+        accel = [
+          accel[0] + ((v[0] - velocity[0]) / simDt - accel[0]) * smooth,
+          accel[1] + ((v[1] - velocity[1]) / simDt - accel[1]) * smooth,
+        ];
+        velocity = v;
       }
 
       if (dt > 0) {
-        // The spider's acceleration (b/s²), smoothed: what the legs feel as it swings.
-        const v: Vec = [(tail.x - lastPos[0]) / dt / a.unit, (tail.y - lastPos[1]) / dt / a.unit];
-        const smooth = 1 - Math.exp(-20 * dt);
-        accel = [
-          accel[0] + (((v[0] - velocity[0]) / dt) - accel[0]) * smooth,
-          accel[1] + (((v[1] - velocity[1]) / dt) - accel[1]) * smooth,
-        ];
-        velocity = v;
-        lastPos = [tail.x, tail.y];
-
         const g = config.rope.gravity;
         const felt = clampLength([-accel[0] / g, 1 - accel[1] / g], 4);
         const still = reducedMotion.matches;
@@ -385,6 +417,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
         torso.setAttribute("transform", t);
         outlineTorso.setAttribute("transform", t);
         layoutFace();
+        updateRoots();
         drawLegs(torsoScale);
         lookAround(dt);
       }
@@ -434,6 +467,36 @@ const clampLength = ([x, y]: Vec, max: number): Vec => {
   const l = Math.hypot(x, y);
   return l > max ? [(x / l) * max, (y / l) * max] : [x, y];
 };
+/**
+ * Replaces the straight edge between the cut's ends with a half-ellipse bulging
+ * away from it toward `towards` (the body), `depth` half-widths deep.
+ */
+function withRoot(cmds: Cmd[], cut: [Vec, Vec], pivot: Vec, towards: Vec, depth: number): Cmd[] {
+  const same = (p: Vec, q: Vec) => Math.abs(p[0] - q[0]) < 0.01 && Math.abs(p[1] - q[1]) < 0.01;
+  let at: Vec = [0, 0];
+  return cmds.flatMap((c) => {
+    const from = at;
+    if (c.args.length) at = [c.args[c.args.length - 2], c.args[c.args.length - 1]];
+    const to = at;
+    const isCut = c.cmd === "L" && ((same(from, cut[0]) && same(to, cut[1])) || (same(from, cut[1]) && same(to, cut[0])));
+    if (!isCut) return [c];
+
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const u: Vec = [(to[0] - from[0]) / length, (to[1] - from[1]) / length];
+    let inward: Vec = [-u[1], u[0]];
+    if ((towards[0] - pivot[0]) * inward[0] + (towards[1] - pivot[1]) * inward[1] < 0) inward = [-inward[0], -inward[1]];
+    const r = length / 2;
+    const deep = r * depth;
+    const K = 0.5523; // bezier handle length for a quarter ellipse
+    const add = (p: Vec, v: Vec, s: number): Vec => [p[0] + v[0] * s, p[1] + v[1] * s];
+    const apex = add(pivot, inward, deep);
+    return [
+      { cmd: "C", args: [...add(from, inward, K * deep), ...add(apex, u, -K * r), ...apex] },
+      { cmd: "C", args: [...add(apex, u, K * r), ...add(to, inward, K * deep), ...to] },
+    ];
+  });
+}
+
 /** SVG transform scaling around `c`, then shifting by `offset`. */
 const aboutPoint = (c: Vec, sx: number, sy: number, offset: Vec = [0, 0]) =>
   `translate(${c[0] + offset[0]} ${c[1] + offset[1]}) scale(${sx} ${sy}) translate(${-c[0]} ${-c[1]})`;

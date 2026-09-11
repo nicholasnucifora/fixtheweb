@@ -71,7 +71,8 @@ function mount(root: HTMLElement) {
       const step = 1 / config.sim.rate;
       const gravity = config.rope.gravity * a.unit;
       const sway = reducedMotion.matches ? 0 : config.sway.strength * a.unit;
-      for (pending += dt; pending >= step; pending -= step) {
+      let steps = 0;
+      for (pending += dt; pending >= step; pending -= step, steps++) {
         time += step;
         rope.setMass(config.rope.mass);
         rope.head.x = rope.head.px = a.x;
@@ -81,10 +82,13 @@ function mount(root: HTMLElement) {
         rope.solve(config.rope.iterations, config.rope.stiffness, config.rope.maxStretch);
       }
 
-      pluck.update(a, now / 1000, real, drag.held === null);
+      // Draw part-way between the last two physics steps, so motion is even at any refresh rate.
+      const alpha = pending / step;
       particles.update(dt);
-      renderer.draw(rope, particles, a);
-      spider.update(a, dt);
+      renderer.draw(rope, particles, a, alpha);
+      spider.update(a, dt, steps * step, alpha);
+      // After drawing: a pluck nudges the string's step history, which would skew this frame's blend.
+      pluck.update(a, now / 1000, real, drag.held === null);
     }
 
     requestAnimationFrame(tick);

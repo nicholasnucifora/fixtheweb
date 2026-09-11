@@ -561,7 +561,7 @@ export const schema = {
       radius: {
         value: 4, min: 0.5, max: 20, step: 0.1, unit: "b",
         label: "Notice distance",
-        info: "How close the cursor has to be for the spider to look at it. Further away, the pupils drift back to rest.",
+        info: "How close the cursor has to be for the spider to look at it, measured from between the eyes (so both eyes always decide together). Further away, the pupils drift back to rest.",
       },
       reach: {
         value: 1.5, min: 0.1, max: 10, step: 0.1, unit: "b",
@@ -597,6 +597,11 @@ export const schema = {
     info: "How the legs react as the spider swings. Each leg is a little spring: it gets pushed by the swing and by gravity, then settles back.",
     params: {
       enabled: { value: true, label: "Legs move", info: "Off = legs stay rigidly in place." },
+      rootDepth: {
+        value: 1.5, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Hip overlap",
+        info: "How far each leg's hidden base reaches into the body (in half-widths of the leg where it was cut off). It keeps the leg flush with the body: no faint seam at the join, and no gap when a leg turns. 0 = legs end at their straight cut; too deep and the base can poke out past the body's edge.",
+      },
       weight: {
         value: 0.35, min: 0, max: 1.5, step: 0.01, unit: "×",
         label: "Floppiness",

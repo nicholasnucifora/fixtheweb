@@ -5,6 +5,8 @@ import type { Rope } from "./rope";
 
 const DEBUG_COLOR = "#ff5a5f";
 
+type Point = { x: number; y: number };
+
 /**
  * Draws the string and particles on a viewport-sized canvas. Simulation works
  * in document px; this is where they're shifted by the scroll offset into the
@@ -29,7 +31,8 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColor);
 
   return {
-    draw(rope: Rope, particles: Particles, a: AnchorFrame) {
+    /** `alpha`: how far between the last two physics steps to draw (see Rope.at). */
+    draw(rope: Rope, particles: Particles, a: AnchorFrame, alpha: number) {
       const sx = window.scrollX;
       const sy = window.scrollY;
 
@@ -38,16 +41,16 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
       ctx.setTransform(dpr, 0, 0, dpr, -sx * dpr, -sy * dpr);
       ctx.strokeStyle = color;
 
-      drawString(ctx, rope, Math.max(1, config.rope.thickness * a.unit));
+      const pts = rope.points.map((_, i) => rope.at(i, alpha));
+      drawString(ctx, pts, Math.max(1, config.rope.thickness * a.unit));
       particles.draw(ctx);
-      if (config.debug.showPoints) drawPoints(ctx, rope, a);
+      if (config.debug.showPoints) drawPoints(ctx, rope, pts, a);
     },
   };
 }
 
 /** Smooth curve through the rope points (quadratic segments via midpoints). */
-function drawString(ctx: CanvasRenderingContext2D, rope: Rope, width: number) {
-  const pts = rope.points;
+function drawString(ctx: CanvasRenderingContext2D, pts: Point[], width: number) {
   ctx.lineWidth = width;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -64,17 +67,17 @@ function drawString(ctx: CanvasRenderingContext2D, rope: Rope, width: number) {
 }
 
 /** Debug: a dot per rope point (hollow when pinned) and a ring on the attach point. */
-function drawPoints(ctx: CanvasRenderingContext2D, rope: Rope, a: AnchorFrame) {
+function drawPoints(ctx: CanvasRenderingContext2D, rope: Rope, pts: Point[], a: AnchorFrame) {
   const r = Math.max(2, a.unit * 0.012);
   ctx.save();
   ctx.fillStyle = ctx.strokeStyle = DEBUG_COLOR;
   ctx.lineWidth = 1;
-  for (const p of rope.points) {
+  rope.points.forEach((p, i) => {
     ctx.beginPath();
-    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.arc(pts[i].x, pts[i].y, r, 0, Math.PI * 2);
     if (p.w === 0) ctx.stroke();
     else ctx.fill();
-  }
+  });
   ctx.beginPath();
   ctx.arc(a.x, a.y, r * 2.5, 0, Math.PI * 2);
   ctx.stroke();

@@ -51,7 +51,9 @@ const { anchor } = Astro.props;
     pointer-events: auto;
     touch-action: none;
     cursor: grab;
-    will-change: transform;
+    /* Deliberately no will-change: as its own layer the spider would be rotated
+       and moved as a flat image, which makes its edges shimmer. Without it, the
+       shapes are redrawn crisply every frame. */
     -webkit-user-drag: none;
   }
   /* Bigger hit area than the visible body (config.bob.hitArea), so it's easy to grab. */
