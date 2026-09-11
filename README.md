@@ -9,11 +9,13 @@ npm install
 npm run dev
 ```
 
-## Deploy (Cloudflare Pages)
+## Deploy (Cloudflare Workers)
 
-- Framework preset: Astro
+Static assets only for now; config is in `wrangler.jsonc`.
+
+- Workers & Pages → Create → Import a repository
 - Build command: `npm run build`
-- Output directory: `dist`
+- Deploy command: `npx wrangler deploy`
 - Node version comes from `.nvmrc` (Astro needs 22.12+)
 
 ## Brand assets

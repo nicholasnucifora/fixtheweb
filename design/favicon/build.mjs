@@ -1,5 +1,6 @@
-// Generates favicon variants + a preview page from the source spider SVG.
-// Run: node design/favicon/build.mjs
+// Generates favicon variants + a preview page from the source spider SVG,
+// and copies the chosen variant to public/favicon.svg.
+// Run: npm run favicon
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,9 +9,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
 const src = readFileSync(join(root, "FTW_favicon_attempt1.svg"), "utf8");
 
+// Which variant ships as the site favicon.
+const FAVICON = "b-no-string";
+
 const NAVY = "#1B1E29";
 const TEAL = "#6AC7A7";
 const WHITE = "#FFFFFF";
+
+// White sticker outline shown on dark browser chrome. 140 units ≈ 1px each side at 16px.
+const HALO = 140;
 
 const fullD = src.match(/ d="([^"]+)"/)[1];
 
@@ -24,34 +31,40 @@ const endTo = fullD.indexOf(STRING_END_TO) + STRING_END_TO.length;
 if (endFrom < 0 || endTo < endFrom) throw new Error("string end not found");
 const noStringD = "M482.539 291.5" + fullD.slice(STRING_START.length, endFrom) + "Z" + fullD.slice(endTo);
 
-// Eye sockets are evenodd holes; these fill them so the eyes read on any background.
-const eyeWhites = (fill) =>
-  `<circle cx="384.5" cy="564.5" r="104" fill="${fill}"/><circle cx="616.5" cy="564.5" r="104" fill="${fill}"/>`;
+// The first subpath is the silhouette; the rest are the eye/smile holes and pupils.
+const silhouette = (d) => d.slice(0, d.indexOf("Z") + 1);
 
 const path = (d, fill) => `<path fill-rule="evenodd" clip-rule="evenodd" d="${d}" fill="${fill}"/>`;
 
+// White silhouette behind the spider: fills the eye/smile holes so they stay white,
+// and on dark chrome its stroke grows into a sticker outline.
+const spider = (d, s) =>
+  `<path d="${silhouette(d)}" fill="${WHITE}" stroke="${WHITE}" stroke-width="${s.halo}" stroke-linejoin="round"/>` +
+  path(d, s.ink);
+
 // Each variant: a square viewBox + body(scheme) -> inner SVG markup.
+// viewBoxes leave HALO/2 of room around the art so the outline isn't clipped.
 const variants = [
   {
     id: "a-original",
     label: "A. As drawn (with string)",
     note: "Reference. Letterboxed to a square, so the spider is small and the string is a hairline.",
-    viewBox: "0 -79.5 1004 1004",
-    body: (s) => path(fullD, s.ink),
+    viewBox: "-70 -149.5 1144 1144",
+    body: (s) => spider(fullD, s),
   },
   {
     id: "b-no-string",
     label: "B. String removed",
     note: "Same art, string cut. Still 1.8:1 wide, so ~45% of the square is empty.",
-    viewBox: "-10 56.25 1024 1024",
-    body: (s) => eyeWhites(s.eye) + path(noStringD, s.ink),
+    viewBox: "-70 -3.75 1144 1144",
+    body: (s) => spider(noStringD, s),
   },
   {
     id: "c-face-crop",
     label: "C. Tight crop (legs bleed off)",
     note: "Crops to the body so eyes + smile are ~2x bigger. Legs run off the edges.",
     viewBox: "170 236 664 664",
-    body: (s) => eyeWhites(s.eye) + path(noStringD, s.ink),
+    body: (s) => spider(noStringD, s),
   },
   {
     id: "d-badge",
@@ -61,28 +74,27 @@ const variants = [
     fixed: true,
     body: () =>
       `<rect width="1200" height="1200" rx="270" fill="${TEAL}"/>` +
-      `<g transform="translate(600 600) scale(1.02) translate(-502 -568.25)">${eyeWhites(WHITE)}${path(noStringD, NAVY)}</g>`,
+      `<g transform="translate(600 600) scale(1.02) translate(-502 -568.25)">${spider(noStringD, LIGHT)}</g>`,
   },
 ];
 
-const LIGHT = { ink: NAVY, eye: WHITE };
-const DARK = { ink: TEAL, eye: WHITE };
+const LIGHT = { ink: NAVY, halo: 0 };
+const DARK = { ink: NAVY, halo: HALO };
 
 const svg = (v, inner) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${v.viewBox}">${inner}</svg>`;
 
-// Production-style file: one SVG that flips colours with the browser theme.
+// Production-style file: one SVG that adds the outline when the browser is dark.
 const adaptive = (v) => {
   if (v.fixed) return svg(v, v.body(LIGHT));
-  const inner = v.body({ ink: "var(--ink)", eye: "var(--eye)" })
-    .replaceAll('fill="var(--ink)"', 'class="ink"')
-    .replaceAll('fill="var(--eye)"', 'class="eye"');
-  const style = `<style>.ink{fill:${LIGHT.ink}}.eye{fill:${LIGHT.eye}}@media (prefers-color-scheme:dark){.ink{fill:${DARK.ink}}.eye{fill:${DARK.eye}}}</style>`;
+  const inner = v.body({ ...LIGHT, halo: "HALO" }).replaceAll('stroke-width="HALO"', 'class="halo"');
+  const style = `<style>.halo{stroke-width:0}@media (prefers-color-scheme:dark){.halo{stroke-width:${HALO}px}}</style>`;
   return svg(v, style + inner);
 };
 
 const outDir = join(here, "variants");
 mkdirSync(outDir, { recursive: true });
 for (const v of variants) writeFileSync(join(outDir, `${v.id}.svg`), adaptive(v) + "\n");
+writeFileSync(join(root, "public", "favicon.svg"), adaptive(variants.find((v) => v.id === FAVICON)) + "\n");
 
 const uri = (s) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
 
@@ -93,7 +105,7 @@ const rows = variants
     const sizes = [16, 32, 48, 64];
     return `
 <section>
-  <h2>${v.label}</h2>
+  <h2>${v.label}${v.id === FAVICON ? ' <span class="live">current favicon</span>' : ""}</h2>
   <p class="note">${v.note} <code>variants/${v.id}.svg</code></p>
   <div class="grid">
     <div class="tabs light"><div class="tab"><img src="${light}" width="16" height="16" alt=""><span>Fix the Web</span></div><div class="tab off"><span>New tab</span></div></div>
@@ -102,7 +114,7 @@ const rows = variants
     <div class="sizes dark">${sizes.map((n) => `<img src="${dark}" width="${n}" height="${n}" alt="">`).join("")}</div>
     <div class="px light"><canvas data-src="${light}" data-n="16"></canvas><canvas data-src="${light}" data-n="32"></canvas><span>true 16px / 32px, blown up</span></div>
     <div class="px dark"><canvas data-src="${dark}" data-n="16"></canvas><canvas data-src="${dark}" data-n="32"></canvas></div>
-    <div class="touch"><img src="${v.fixed ? light : uri(svg(v, `<rect x="-2000" y="-2000" width="5000" height="5000" fill="${TEAL}"/>` + v.body({ ink: NAVY, eye: WHITE })))}" width="90" height="90" alt=""><span>iOS home screen (180px, needs a solid bg)</span></div>
+    <div class="touch"><img src="${v.fixed ? light : uri(svg(v, `<rect x="-2000" y="-2000" width="5000" height="5000" fill="${TEAL}"/>` + v.body(LIGHT)))}" width="90" height="90" alt=""><span>iOS home screen (180px, needs a solid bg)</span></div>
   </div>
 </section>`;
   })
@@ -116,6 +128,7 @@ const html = `<!doctype html>
   body { font: 14px/1.4 system-ui, sans-serif; margin: 24px; background: #fafafa; color: ${NAVY}; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   h2 { font-size: 15px; margin: 0; }
+  .live { font-size: 11px; font-weight: 600; background: ${TEAL}; color: ${NAVY}; padding: 2px 8px; border-radius: 99px; margin-left: 6px; vertical-align: 2px; }
   .note { margin: 2px 0 10px; color: #555; }
   section { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px 16px; margin: 0 0 16px; }
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -130,7 +143,7 @@ const html = `<!doctype html>
   .touch img { border-radius: 20px; }
 </style>
 <h1>Favicon preview</h1>
-<p class="note">Left column = light browser chrome, right = dark. Tab strip and pixel views are what matter most. Regenerate with <code>node design/favicon/build.mjs</code>.</p>
+<p class="note">Left column = light browser chrome, right = dark (white sticker outline). Tab strip and pixel views are what matter most. Regenerate with <code>npm run favicon</code>.</p>
 ${rows}
 <script>
   for (const c of document.querySelectorAll("canvas")) {
@@ -142,4 +155,4 @@ ${rows}
 </script>
 `;
 writeFileSync(join(here, "preview.html"), html);
-console.log(`wrote ${variants.length} variants + preview.html`);
+console.log(`wrote ${variants.length} variants + preview.html, favicon = ${FAVICON}`);

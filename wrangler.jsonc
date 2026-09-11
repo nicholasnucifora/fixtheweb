@@ -1,0 +1,8 @@
+{
+  "name": "fixtheweb",
+  "compatibility_date": "2026-09-01",
+  // Static site: Cloudflare serves the Astro build output directly, no Worker script.
+  "assets": {
+    "directory": "./dist"
+  }
+}
