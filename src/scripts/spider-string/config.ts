@@ -3,7 +3,8 @@
  * explanation the tuning panel shows for it (open the page with ?tune).
  *
  * `value` is the default. Units: b = the rendered height of the letter the
- * string hangs from, so everything scales with the logo; s = seconds.
+ * string hangs from, so everything scales with the logo; s = seconds;
+ * % = percent of the spider's width.
  *
  * Code reads the plain `config` object at the bottom, live, every frame;
  * the panel edits it in place. A param added here shows up in the panel
@@ -31,7 +32,13 @@ export interface ChoiceParam {
   label: string;
   info: string;
 }
-export type Param = NumberParam | ToggleParam | ChoiceParam;
+export interface ColorParam {
+  value: string;
+  kind: "color";
+  label: string;
+  info: string;
+}
+export type Param = NumberParam | ToggleParam | ChoiceParam | ColorParam;
 
 /** Top-level tabs in the tuning panel. */
 export const groups = {
@@ -41,7 +48,7 @@ export const groups = {
   },
   spidey: {
     label: "Spidey",
-    info: "The thing on the end of the string. Stand-ins for now: legs, eyes, mouth and mood settings will live here once the real spider is in.",
+    info: "The spider on the end of the string: how it looks, where its parts sit and how they move. Blinking and other life will be added here later.",
   },
 };
 
@@ -51,6 +58,53 @@ export interface Section {
   info: string;
   params: Record<string, Param>;
 }
+
+type ShapeSource = "drawn" | "left" | "right";
+const shapeOptions = (part: string) => ({
+  drawn: `As drawn (left + right ${part})`,
+  left: `Left ${part}, mirrored to both sides`,
+  right: `Right ${part}, mirrored to both sides`,
+});
+
+/** Placement sliders for one pair of legs (mirrored left/right). */
+const legPair = (n: number, where: string): Section => ({
+  group: "spidey",
+  label: `Legs ${n} (${where})`,
+  info: `Where leg pair ${n} sits. Settings are mirrored, so the left and right leg always match.`,
+  params: {
+    shape: {
+      value: "drawn" as ShapeSource,
+      options: shapeOptions("leg"),
+      label: "Shape",
+      info: "Use both legs as you drew them, or copy one side's leg to both so you can compare which is better shaped.",
+    },
+    angle: {
+      value: 0, min: -60, max: 60, step: 0.5, unit: "°",
+      label: "Angle",
+      info: "Turns the legs around their hips. Positive swings the tips up, negative down.",
+    },
+    bend: {
+      value: 0, min: -60, max: 60, step: 0.5, unit: "°",
+      label: "Curl",
+      info: "Curls the legs smoothly along their length (the tip moves most). Positive curls the tips up.",
+    },
+    x: {
+      value: 0, min: -10, max: 10, step: 0.1, unit: "%",
+      label: "Sideways",
+      info: "Moves the legs outward (+) or in toward the body (−).",
+    },
+    y: {
+      value: 0, min: -10, max: 10, step: 0.1, unit: "%",
+      label: "Up / down",
+      info: "Moves the legs down (+) or up (−).",
+    },
+    scale: {
+      value: 1, min: 0.5, max: 1.6, step: 0.01, unit: "×",
+      label: "Size",
+      info: "Scales the legs from their hips.",
+    },
+  },
+});
 
 export const schema = {
   // ── String ────────────────────────────────────────────────────────────────
@@ -106,7 +160,7 @@ export const schema = {
       gravity: {
         value: 28, min: 2, max: 120, step: 1, unit: "b/s²",
         label: "Gravity",
-        info: "Downward pull. Higher = faster, snappier swings; lower = floaty, moon-like.",
+        info: "Downward pull. Higher = faster, snappier swings; lower = floaty, moon-like. The legs feel it too.",
       },
       drag: {
         value: 2.5, min: 0, max: 20, step: 0.1, unit: "/s",
@@ -313,7 +367,7 @@ export const schema = {
       timeScale: {
         value: 1, min: 0.05, max: 2, step: 0.05, unit: "×",
         label: "Time scale",
-        info: "Slow motion for tuning. 1 = real time.",
+        info: "Slow motion for tuning (slows the spider's legs and tilt too). 1 = real time.",
       },
       rate: {
         value: 240, min: 60, max: 960, step: 30, unit: "Hz",
@@ -345,28 +399,248 @@ export const schema = {
 
   look: {
     group: "spidey",
-    label: "Look",
-    info: "What hangs on the end of the string.",
+    label: "Compare & size",
+    info: "Which spider hangs on the string, how big it is, and where the string attaches to it.",
     params: {
-      showArt: {
+      showFavicon: {
         value: false,
-        label: "Show spidey SVG",
-        info: "Swaps the placeholder circle for the favicon spider (public/favicon.svg) as one static picture: no moving legs or face yet. Follows light/dark mode the same way the favicon does.",
+        label: "Show favicon spider",
+        info: "On: shows the favicon (public/favicon.svg) and hides the custom spider, for comparing. Off: shows the custom spider.",
       },
-      artScale: {
-        value: 2, min: 0.5, max: 5, step: 0.05, unit: "×",
-        label: "Art size",
-        info: "Width of the spider art relative to the circle's diameter (Size, below). The legs take up the edges of the art, so it needs to be bigger than the circle for the bodies to match.",
+      width: {
+        value: 0.48, min: 0.1, max: 2, step: 0.01, unit: "b",
+        label: "Spider width",
+        info: "Width of the custom spider, legs included.",
+      },
+      faviconScale: {
+        value: 1.13, min: 0.3, max: 3, step: 0.01, unit: "×",
+        label: "Favicon size",
+        info: "Size of the favicon when it's shown, relative to the spider width. The default makes the two bodies about the same size.",
       },
       attachX: {
         value: 0.5, min: 0, max: 1, step: 0.01,
         label: "String attach (across)",
-        info: "Where on the art the string connects: 0 = left edge, 0.5 = centre, 1 = right edge. The circle always hangs from its centre.",
+        info: "Where on the spider the string connects: 0 = left edge, 0.5 = centre, 1 = right edge.",
       },
       attachY: {
-        value: 0.15, min: 0, max: 1, step: 0.01,
+        value: 0.03, min: 0, max: 1, step: 0.01,
         label: "String attach (down)",
-        info: "0 = top edge, 1 = bottom. The default tucks the string into the top of the head. The art swings around this point.",
+        info: "0 = top edge, 1 = bottom. The default tucks the string just into the top of the head. The spider swings around this point.",
+      },
+      faviconAttachY: {
+        value: 0.14, min: 0, max: 1, step: 0.01,
+        label: "Favicon string attach (down)",
+        info: "Same as above, for the favicon (its head starts lower in its square).",
+      },
+    },
+  },
+
+  colors: {
+    group: "spidey",
+    label: "Colours",
+    info: "Colours of each part. The outline keeps the navy body visible on the dark page.",
+    params: {
+      body: { value: "#1b1e29", kind: "color", label: "Body & legs", info: "Fill of the body and legs." },
+      eyes: { value: "#ffffff", kind: "color", label: "Eyes", info: "Eye whites." },
+      pupils: { value: "#1b1e29", kind: "color", label: "Pupils", info: "Pupil colour." },
+      mouth: { value: "#ffffff", kind: "color", label: "Mouth", info: "Mouth colour." },
+      outline: { value: "#f2f2ee", kind: "color", label: "Outline", info: "Colour of the outline around the body and legs." },
+      outlineMode: {
+        value: "dark" as "dark" | "always" | "never",
+        options: { dark: "Dark mode only", always: "Always", never: "Never" },
+        label: "Outline shows",
+        info: "When the outline is drawn. It traces the whole silhouette, so the seams between body and legs stay hidden.",
+      },
+      outlineWidth: {
+        value: 0.02, min: 0, max: 0.08, step: 0.002, unit: "×",
+        label: "Outline width",
+        info: "Thickness of the outline, as a fraction of the spider's width.",
+      },
+    },
+  },
+
+  body: {
+    group: "spidey",
+    label: "Body",
+    info: "The body's shape, breathing, and how it tilts as it swings. The face and legs move with it.",
+    params: {
+      scaleX: {
+        value: 1, min: 0.5, max: 1.5, step: 0.01, unit: "×",
+        label: "Width",
+        info: "Stretches the body (and face) sideways. Legs stay attached.",
+      },
+      scaleY: {
+        value: 1, min: 0.5, max: 1.5, step: 0.01, unit: "×",
+        label: "Height",
+        info: "Stretches the body (and face) up and down. Legs stay attached.",
+      },
+      breathe: {
+        value: 0.015, min: 0, max: 0.1, step: 0.001, unit: "×",
+        label: "Breathing",
+        info: "How much the body gently swells and shrinks at rest. 0 = off. Off for reduced motion.",
+      },
+      breatheSpeed: {
+        value: 0.35, min: 0.05, max: 2, step: 0.01, unit: "/s",
+        label: "Breathing speed",
+        info: "Breaths per second.",
+      },
+      tiltAmount: {
+        value: 1, min: 0, max: 1.5, step: 0.01, unit: "×",
+        label: "Tilt with string",
+        info: "How much the spider turns to follow the string's angle. 1 = hangs in line with it; 0 = always upright.",
+      },
+      tiltSpring: {
+        value: 5, min: 0.5, max: 20, step: 0.1, unit: "Hz",
+        label: "Tilt springiness",
+        info: "How quickly the spider turns to follow the string. High = snaps to it; low = lazy, heavy turning.",
+      },
+      tiltDamping: {
+        value: 0.55, min: 0.05, max: 1.5, step: 0.01,
+        label: "Tilt damping",
+        info: "Low = it overshoots and rocks before settling; 1 = turns smoothly with no overshoot.",
+      },
+    },
+  },
+
+  face: {
+    group: "spidey",
+    label: "Face",
+    info: "Moves or scales the eyes and mouth together.",
+    params: {
+      x: { value: 0, min: -10, max: 10, step: 0.1, unit: "%", label: "Sideways", info: "Moves the whole face left (−) or right (+)." },
+      y: { value: 0, min: -10, max: 10, step: 0.1, unit: "%", label: "Up / down", info: "Moves the whole face up (−) or down (+)." },
+      scale: { value: 1, min: 0.5, max: 1.5, step: 0.01, unit: "×", label: "Size", info: "Scales the whole face around its centre." },
+    },
+  },
+
+  eyes: {
+    group: "spidey",
+    label: "Eyes",
+    info: "The eye whites (the pupils have their own section).",
+    params: {
+      shape: {
+        value: "drawn" as ShapeSource,
+        options: shapeOptions("eye"),
+        label: "Shape",
+        info: "Use both eyes as drawn, or copy one eye to both sides to compare which is better shaped.",
+      },
+      size: { value: 1, min: 0.5, max: 1.6, step: 0.01, unit: "×", label: "Size", info: "Scales each eye around its own centre (pupils scale with them)." },
+      spacing: { value: 0, min: -10, max: 10, step: 0.1, unit: "%", label: "Spacing", info: "Moves the eyes apart (+) or together (−)." },
+      y: { value: 0, min: -10, max: 10, step: 0.1, unit: "%", label: "Up / down", info: "Moves both eyes up (−) or down (+)." },
+    },
+  },
+
+  pupils: {
+    group: "spidey",
+    label: "Pupils",
+    info: "Pupil shape, size, and looking at the cursor.",
+    params: {
+      shape: {
+        value: "drawn" as ShapeSource,
+        options: shapeOptions("pupil"),
+        label: "Shape",
+        info: "Use both pupils as drawn, or copy one pupil to both sides to compare which is better shaped.",
+      },
+      size: { value: 1, min: 0.3, max: 1.6, step: 0.01, unit: "×", label: "Size", info: "Scales each pupil around its own centre." },
+      restX: {
+        value: 0, min: -1, max: 1, step: 0.01,
+        label: "Resting look (across)",
+        info: "Where the pupils sit when not looking at anything: −1 = far left of the eye, 1 = far right.",
+      },
+      restY: {
+        value: 0, min: -1, max: 1, step: 0.01,
+        label: "Resting look (up/down)",
+        info: "−1 = top of the eye, 1 = bottom.",
+      },
+      follow: { value: true, label: "Follow the cursor", info: "The pupils look toward the cursor when it's nearby." },
+      range: {
+        value: 0.75, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Look range",
+        info: "How far the pupils can move inside the eye when looking. 1 = right to the edge of the eye.",
+      },
+      radius: {
+        value: 4, min: 0.5, max: 20, step: 0.1, unit: "b",
+        label: "Notice distance",
+        info: "How close the cursor has to be for the spider to look at it. Further away, the pupils drift back to rest.",
+      },
+      reach: {
+        value: 1.5, min: 0.1, max: 10, step: 0.1, unit: "b",
+        label: "Full-look distance",
+        info: "At this distance or more the pupils look fully toward the cursor; closer, they move proportionally less (so it can look at a cursor right in front of it).",
+      },
+      speed: {
+        value: 10, min: 1, max: 40, step: 0.5, unit: "/s",
+        label: "Look speed",
+        info: "How quickly the pupils move to where they're looking.",
+      },
+    },
+  },
+
+  mouth: {
+    group: "spidey",
+    label: "Mouth",
+    info: "Size and position of the smile.",
+    params: {
+      scaleX: { value: 1, min: 0.3, max: 2, step: 0.01, unit: "×", label: "Width", info: "Stretches the mouth sideways." },
+      scaleY: { value: 1, min: 0.3, max: 2, step: 0.01, unit: "×", label: "Height", info: "Stretches the mouth up and down." },
+      y: { value: 0, min: -10, max: 10, step: 0.1, unit: "%", label: "Up / down", info: "Moves the mouth up (−) or down (+)." },
+    },
+  },
+
+  legs1: legPair(1, "top"),
+  legs2: legPair(2, "middle"),
+  legs3: legPair(3, "bottom"),
+
+  legMotion: {
+    group: "spidey",
+    label: "Leg movement",
+    info: "How the legs react as the spider swings. Each leg is a little spring: it gets pushed by the swing and by gravity, then settles back.",
+    params: {
+      enabled: { value: true, label: "Legs move", info: "Off = legs stay rigidly in place." },
+      weight: {
+        value: 0.35, min: 0, max: 1.5, step: 0.01, unit: "×",
+        label: "Floppiness",
+        info: "How much the legs get swung around by the spider's movement and tilt. 0 = rigid; high = dangly.",
+      },
+      spring: {
+        value: 2.2, min: 0.3, max: 8, step: 0.05, unit: "Hz",
+        label: "Springiness",
+        info: "How quickly legs spring back. Low = slow and droopy; high = quick and twitchy.",
+      },
+      damping: {
+        value: 0.35, min: 0.05, max: 1.5, step: 0.01,
+        label: "Wobble damping",
+        info: "Low = legs wobble back and forth before settling; 1 = settle smoothly without overshoot.",
+      },
+      curl: {
+        value: 0.5, min: 0, max: 1, step: 0.01,
+        label: "Bend vs swing",
+        info: "How the movement shows: 0 = the whole leg swings stiffly from the hip; 1 = the leg bends smoothly along its length.",
+      },
+      curlFocus: {
+        value: 1.5, min: 0.5, max: 3, step: 0.05,
+        label: "Bend focus",
+        info: "Where curling happens: low = evenly along the leg; high = mostly near the tip.",
+      },
+      maxAngle: {
+        value: 35, min: 5, max: 90, step: 1, unit: "°",
+        label: "Max movement",
+        info: "Furthest a leg can be pushed from its resting position.",
+      },
+      variation: {
+        value: 0.25, min: 0, max: 1, step: 0.01,
+        label: "Variation",
+        info: "Gives each leg slightly different springiness so they don't move in lockstep.",
+      },
+      fidget: {
+        value: 2, min: 0, max: 20, step: 0.5, unit: "°",
+        label: "Fidget",
+        info: "Size of the occasional small twitch a random leg gives at rest. 0 = off. Off for reduced motion.",
+      },
+      fidgetRate: {
+        value: 0.2, min: 0, max: 2, step: 0.01, unit: "/s",
+        label: "Fidget rate",
+        info: "Roughly how many twitches per second, across all legs.",
       },
     },
   },
@@ -374,23 +648,28 @@ export const schema = {
   bob: {
     group: "spidey",
     label: "Weight & grab",
-    info: "Size and physics of whatever hangs on the end. These change the swing whichever look is showing.",
+    info: "Physics of whatever hangs on the end. These change the swing whichever spider is showing.",
     params: {
-      radius: {
-        value: 0.1, min: 0.02, max: 0.4, step: 0.005, unit: "b",
-        label: "Size",
-        info: "Radius of the placeholder circle, and the base size the spider art scales from (Art size, above).",
-      },
       drag: {
         value: 0.7, min: 0, max: 5, step: 0.05, unit: "/s",
         label: "Air drag",
         info: "Damping on the spider. Lower = swings for longer before settling; higher = settles quickly.",
       },
       hitArea: {
-        value: 0.35, min: 0, max: 1.5, step: 0.05, unit: "×",
+        value: 0.2, min: 0, max: 1.5, step: 0.05, unit: "×",
         label: "Grab area",
         info: "Extra invisible area around the spider that still grabs it, as a fraction of its size.",
       },
+    },
+  },
+
+  spideyDebug: {
+    group: "spidey",
+    label: "Debug",
+    info: "Visual aids for placing parts.",
+    params: {
+      showPivots: { value: false, label: "Show leg hips", info: "Marks each leg's hip: the point it turns and bends around." },
+      showHitArea: { value: false, label: "Show grab area", info: "Outlines the area you can grab the spider by." },
     },
   },
 } satisfies Record<string, Section>;

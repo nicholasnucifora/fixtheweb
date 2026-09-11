@@ -5,6 +5,7 @@ import { Particles } from "./particles";
 import { createPluck } from "./pluck";
 import { createRenderer } from "./render";
 import { Rope } from "./rope";
+import { createSpider } from "./spider";
 
 /** Mounts every `[data-spider-string]` rig on the page, plus the tuning panel with ?tune. */
 export function mountAll() {
@@ -28,7 +29,8 @@ function mount(root: HTMLElement) {
   const particles = new Particles();
   const drag = createDrag(root, bob, rope);
   const pluck = createPluck(root, rope, particles);
-  const renderer = createRenderer(root, canvas, bob);
+  const renderer = createRenderer(root, canvas);
+  const spider = createSpider(bob, rope);
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   let placed = false;
@@ -82,6 +84,7 @@ function mount(root: HTMLElement) {
       pluck.update(a, now / 1000, real, drag.held === null);
       particles.update(dt);
       renderer.draw(rope, particles, a);
+      spider.update(a, dt);
     }
 
     requestAnimationFrame(tick);

@@ -3,6 +3,7 @@ import {
   groups,
   schema,
   type ChoiceParam,
+  type ColorParam,
   type NumberParam,
   type Param,
   type Section,
@@ -19,6 +20,7 @@ type Values = Record<string, Record<string, Value>>;
 
 const isChoice = (p: Param): p is ChoiceParam => "options" in p;
 const isToggle = (p: Param): p is ToggleParam => typeof p.value === "boolean";
+const isColor = (p: Param): p is ColorParam => "kind" in p && p.kind === "color";
 
 /**
  * Live tuning panel, loaded only when the page URL has ?tune.
@@ -209,6 +211,13 @@ function row(param: Param, set: (v: Value) => void) {
     head.append(reset);
     el.append(head, select);
     sync = (v) => (select.value = String(v));
+  } else if (isColor(param)) {
+    const input = h("input");
+    input.type = "color";
+    input.oninput = () => set(input.value);
+    head.append(reset, input);
+    el.append(head);
+    sync = (v) => (input.value = String(v));
   } else if (isToggle(param)) {
     const box = h("input");
     box.type = "checkbox";
@@ -265,6 +274,7 @@ function applySaved(values: Values, sections: Record<string, Section>) {
     const param = sections[s]?.params[k];
     if (!param || typeof v !== typeof param.value) continue;
     if (isChoice(param) && !(String(v) in param.options)) continue;
+    if (isColor(param) && !/^#[0-9a-f]{6}$/i.test(String(v))) continue;
     values[s][k] = v as Value;
   }
 }
@@ -272,6 +282,7 @@ function applySaved(values: Values, sections: Record<string, Section>) {
 function describe(param: Param, v: Value) {
   if (isChoice(param)) return param.options[String(v)] ?? String(v);
   if (isToggle(param)) return v ? "on" : "off";
+  if (isColor(param)) return String(v);
   const unit = (param as NumberParam).unit;
   return `${format(Number(v))}${unit ? ` ${unit}` : ""}`;
 }
@@ -352,6 +363,10 @@ const styles = `
   .row:not(.changed) .reset { visibility: hidden; }
   input[type="range"] { display: block; width: 100%; margin: 6px 0 3px; accent-color: var(--accent); }
   input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+  input[type="color"] {
+    width: 38px; height: 22px; padding: 0 2px; cursor: pointer;
+    background: var(--field); border: 1px solid var(--line); border-radius: 5px;
+  }
   select {
     display: block; width: 100%; margin-top: 6px; font: inherit; color: inherit;
     background: var(--field); border: 1px solid var(--line); border-radius: 5px; padding: 3px 4px;

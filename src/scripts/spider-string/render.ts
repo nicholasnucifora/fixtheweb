@@ -6,15 +6,14 @@ import type { Rope } from "./rope";
 const DEBUG_COLOR = "#ff5a5f";
 
 /**
- * Draws the string and particles on a viewport-sized canvas, and positions
- * the spider element. Simulation works in document px; this is where they're
- * shifted by the scroll offset into the viewport.
+ * Draws the string and particles on a viewport-sized canvas. Simulation works
+ * in document px; this is where they're shifted by the scroll offset into the
+ * viewport. (The spider itself is spider.ts.)
  */
-export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement, bob: HTMLElement) {
+export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d")!;
   let dpr = 1;
   let color = "";
-  let bobStyle = "";
 
   const resize = () => {
     dpr = window.devicePixelRatio || 1;
@@ -29,18 +28,6 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement, bob
   window.addEventListener("resize", resize);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColor);
 
-  /** Look, size and pivot (in % of the element) of the spider; only touches the DOM when something changed. */
-  const styleBob = (unit: number, art: boolean, px: number, py: number) => {
-    const size = config.bob.radius * 2 * unit * (art ? config.look.artScale : 1);
-    const key = `${art}|${size}|${px}|${py}|${config.bob.hitArea}`;
-    if (key === bobStyle) return;
-    bobStyle = key;
-    bob.dataset.look = art ? "favicon" : "circle";
-    bob.style.setProperty("--bob-size", `${size}px`);
-    bob.style.setProperty("--bob-hit", `${-config.bob.hitArea * 100}%`);
-    bob.style.transformOrigin = `${px}% ${py}%`;
-  };
-
   return {
     draw(rope: Rope, particles: Particles, a: AnchorFrame) {
       const sx = window.scrollX;
@@ -54,18 +41,6 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement, bob
       drawString(ctx, rope, Math.max(1, config.rope.thickness * a.unit));
       particles.draw(ctx);
       if (config.debug.showPoints) drawPoints(ctx, rope, a);
-
-      // The spider's attach point sits on the tail, and it turns around that point to hang
-      // along the last stretch of string. The circle hangs from its centre.
-      const art = config.look.showArt;
-      const px = art ? config.look.attachX * 100 : 50;
-      const py = art ? config.look.attachY * 100 : 50;
-      styleBob(a.unit, art, px, py);
-      const pts = rope.points;
-      const tail = pts[pts.length - 1];
-      const prev = pts[pts.length - 2];
-      const angle = Math.atan2(-(tail.x - prev.x), tail.y - prev.y);
-      bob.style.transform = `translate(${tail.x - sx}px, ${tail.y - sy}px) translate(${-px}%, ${-py}%) rotate(${angle}rad)`;
     },
   };
 }
