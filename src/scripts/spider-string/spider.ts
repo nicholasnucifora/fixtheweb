@@ -1,27 +1,35 @@
+import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
 import { config } from "./config";
 import type { Rope } from "./rope";
 
 /**
- * The spider on the end of the string: positions it, and brings the parts of
- * src/assets/spider/spider.svg to life.
+ * The spider on the end of the string, drawn onto the string's canvas.
  *
+ * Why a canvas rather than SVG in the page: the browser moves and rotates page
+ * elements as flat images whenever it puts them on their own layer (which it
+ * does for anything sitting on top of a canvas), and a rotated image's edges
+ * shimmer. Drawing the paths straight onto the canvas renders them crisply at
+ * their exact position and angle every frame. The `bob` element is only the
+ * invisible grab target that follows the spider around.
+ *
+ * Shapes come from src/assets/spider/spider.svg (built by scripts/build-spider.mjs).
  * Layers, back to front: an outline traced around the whole silhouette (so the
  * seams between body and legs never show), the legs, then the torso (body +
  * face). Every leg is a small damped spring pushed around by the spider's swing
  * and by gravity; its movement shows as a swing from the hip, a smooth curl
  * along the leg, or a mix.
  *
- * Paths are rebuilt from their original points, so shape swaps (a mirrored
- * eye, pupil or leg), placement sliders and curls never accumulate drift.
+ * Paths are rebuilt from their original points, so shape swaps (a mirrored eye,
+ * pupil or leg), placement sliders and curls never accumulate drift.
  */
 
 const DEG = Math.PI / 180;
-const SVG = "http://www.w3.org/2000/svg";
 /** A curl needs a bigger angle than a whole-leg swing to move the tip as far. */
 const CURL_GAIN = 1.5;
 /** Physics sub-step, so stiff springs stay stable at low frame rates. */
 const MAX_STEP = 1 / 240;
+const DEBUG_COLOR = "#ff5a5f";
 
 type Vec = [number, number];
 type Side = "left" | "right";
@@ -38,9 +46,6 @@ interface Shape {
 interface Leg {
   side: Side;
   pair: 1 | 2 | 3;
-  el: SVGPathElement;
-  outline: SVGPathElement;
-  marker: SVGCircleElement;
   pivot: Vec;
   /** The leg as drawn (flat cut at the hip)… */
   baseCmds: Cmd[];
@@ -58,96 +63,77 @@ interface Leg {
   /** −1..1, fixed per leg, so legs don't spring in lockstep. */
   tone: number;
   d: string;
+  path: Path2D;
+  /** Where the hip is this frame, art units (for the debug marker). */
+  hip: Vec;
+}
+/** What the last update worked out, for drawing. */
+interface Pose {
+  /** Document px → the spider's box (top-left at 0,0, width × height px). */
+  box: DOMMatrix;
+  width: number;
+  height: number;
+  /** Box px per art unit. */
+  scale: number;
+  torso: DOMMatrix;
+  face: DOMMatrix;
 }
 
 export function createSpider(bob: HTMLElement, rope: Rope) {
-  const svg = bob.querySelector<SVGSVGElement>("svg.art")!;
-  const W = svg.viewBox.baseVal.width;
-  const H = svg.viewBox.baseVal.height;
+  const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
+  const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
   const pct = W / 100;
-  // Must be displayed while parts are measured.
-  bob.dataset.look = "spider";
+  const favicon = new Image();
+  favicon.src = "/favicon.svg";
+  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
-  const q = <T extends Element>(selector: string, from: ParentNode = svg) => from.querySelector(selector) as T;
-  const make = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string> = {}) => {
-    const el = document.createElementNS(SVG, tag);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    return el;
-  };
-  /** A copy for the outline layer: same geometry, none of the part's hooks or colours. */
-  const outlineCopy = <T extends SVGElement>(el: T) => {
-    const copy = el.cloneNode() as T;
-    for (const { name } of [...copy.attributes]) if (name.startsWith("data-") || name === "fill") copy.removeAttribute(name);
-    return copy;
-  };
+  const dOf = (el: Element | null) => el?.getAttribute("d") ?? "";
+  const shapeOf = (el: Element | null) => shape(parse(dOf(el)));
 
-  // ── Build the layers ──────────────────────────────────────────────────────
-  const body = q<SVGPathElement>('[data-part="body"]');
-  const face = q<SVGGElement>('[data-part="face"]');
-  const mouth = q<SVGPathElement>('[data-part="mouth"]');
-  const torso = make("g", { "data-part": "torso" });
-  body.before(torso);
-  torso.append(body, face);
+  // ── Parts ─────────────────────────────────────────────────────────────────
+  const bodyEl = svg.querySelector('[data-part="body"]');
+  const bodyPath = new Path2D(dOf(bodyEl));
+  const bodyCenter = shapeOf(bodyEl).center;
 
-  const outlineLegs = make("g");
-  const outlineTorso = make("g");
-  const outline = make("g", { class: "spider-outline" });
-  outline.append(outlineLegs, outlineTorso);
-  outlineTorso.append(outlineCopy(body));
-  svg.prepend(outline);
-
-  const markers = make("g", { class: "spider-markers" });
-  svg.append(markers);
-
-  const shape = (el: SVGGraphicsElement): Shape => {
-    const b = el.getBBox();
-    return { cmds: parse(el.getAttribute("d") ?? ""), center: [b.x + b.width / 2, b.y + b.height / 2], size: [b.width, b.height] };
-  };
-
-  const legs: Leg[] = [...svg.querySelectorAll<SVGPathElement>("[data-leg]")].map((el, i) => {
-    const id = el.dataset.leg ?? "L1";
-    const pivot = (el.dataset.pivot ?? "0 0").split(" ").map(Number) as Vec;
-    const cmds = parse(el.getAttribute("d") ?? "");
-    const cutEnds = (el.dataset.cut ?? "").split(" ").map(Number);
+  const legs: Leg[] = [...svg.querySelectorAll("[data-leg]")].map((el, i) => {
+    const id = el.getAttribute("data-leg") ?? "L1";
+    const nums = (name: string) => (el.getAttribute(name) ?? "").split(" ").filter(Boolean).map(Number);
+    const pivot = nums("data-pivot") as Vec;
+    const cut = nums("data-cut");
+    const weight = nums("data-weight");
+    const cmds = parse(dOf(el));
     const pts = points(cmds).map(([x, y]) => [x - pivot[0], y - pivot[1]] as Vec);
     const mean: Vec = [avg(pts.map((p) => p[0])), avg(pts.map((p) => p[1]))];
-    const copy = outlineCopy(el);
-    outlineLegs.append(copy);
-    const marker = make("circle", { r: String(W * 0.012) });
-    markers.append(marker);
     return {
       side: id[0] === "R" ? "right" : "left",
       pair: Number(id[1]) as 1 | 2 | 3,
-      el,
-      outline: copy,
-      marker,
       pivot,
       baseCmds: cmds,
       cmds,
-      cut: cutEnds.length === 4 ? ([[cutEnds[0], cutEnds[1]], [cutEnds[2], cutEnds[3]]] as [Vec, Vec]) : null,
+      cut: cut.length === 4 ? ([[cut[0], cut[1]], [cut[2], cut[3]]] as [Vec, Vec]) : null,
       reach: Math.max(...pts.map((p) => Math.hypot(p[0], p[1]))),
-      // From the build script, measured before the hidden root was added; the mean is a fallback.
-      weightDir: normalize(el.dataset.weight ? (el.dataset.weight.split(" ").map(Number) as Vec) : mean),
+      // From the build script, measured before the hidden root is added; the mean is a fallback.
+      weightDir: normalize(weight.length === 2 ? (weight as Vec) : mean),
       phi: 0,
       omega: 0,
       tone: ((i * 0.618034) % 1) * 2 - 1,
       d: "",
+      path: new Path2D(),
+      hip: pivot,
     };
   });
   const legOf = (side: Side, pair: number) => legs.find((l) => l.side === side && l.pair === pair)!;
   const pairConfig = (pair: 1 | 2 | 3) => [config.legs1, config.legs2, config.legs3][pair - 1];
 
   const eyes = (["left", "right"] as Side[]).map((side) => {
-    const g = q<SVGGElement>(`[data-part="eye"][data-side="${side}"]`);
-    const white = q<SVGPathElement>('[data-part="eye-white"]', g);
-    const pupil = q<SVGPathElement>('[data-part="pupil"]', g);
+    const g = svg.querySelector(`[data-part="eye"][data-side="${side}"]`);
     return {
       side,
-      g,
-      white,
-      pupil,
-      whiteShape: shape(white),
-      pupilShape: shape(pupil),
+      whiteShape: shapeOf(g?.querySelector('[data-part="eye-white"]') ?? null),
+      pupilShape: shapeOf(g?.querySelector('[data-part="pupil"]') ?? null),
+      white: new Path2D(),
+      pupil: new Path2D(),
       pupilCenter: [0, 0] as Vec,
       /** How far the pupil can move from the eye's centre, art units. */
       room: 0,
@@ -155,12 +141,59 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     };
   });
   const eyeOf = (side: Side) => eyes.find((e) => e.side === side)!;
-  const mouthShape = shape(mouth);
-  const bodyCenter = shape(body).center;
+  const mouthShape = shapeOf(svg.querySelector('[data-part="mouth"]'));
+  let mouthPath = new Path2D();
   const faceCenter: Vec = [
     avg([...eyes.map((e) => e.whiteShape.center[0]), mouthShape.center[0]]),
     avg([...eyes.map((e) => e.whiteShape.center[1]), mouthShape.center[1]]),
   ];
+
+  /** Which shape to draw on `side`, and whether it's the other side's, mirrored. */
+  const pick = <T>(source: Source, side: Side, of: (s: Side) => T) =>
+    source === "drawn" ? { from: of(side), mirrored: false } : { from: of(source), mirrored: source !== side };
+
+  /** A shape redrawn centred on `at`, scaled, optionally mirrored left↔right. */
+  const place = (s: Shape, mirrored: boolean, at: Vec, sx: number, sy: number) =>
+    new Path2D(mapPath(s.cmds, (x, y) => [at[0] + (x - s.center[0]) * sx * (mirrored ? -1 : 1), at[1] + (y - s.center[1]) * sy]));
+
+  // ── Face: rebuilt only when its settings change ───────────────────────────
+  let faceKey = "";
+  let faceMatrix = new DOMMatrix();
+  const layoutFace = () => {
+    const key = JSON.stringify([config.face, config.eyes, config.pupils.shape, config.pupils.size, config.mouth]);
+    if (key === faceKey) return;
+    faceKey = key;
+
+    const f = config.face;
+    faceMatrix = new DOMMatrix().translate(f.x * pct, f.y * pct).scale(f.scale, f.scale, 1, faceCenter[0], faceCenter[1]);
+
+    for (const eye of eyes) {
+      const out = eye.side === "left" ? -1 : 1;
+      const size = config.eyes.size;
+      const at: Vec = [
+        eye.whiteShape.center[0] + (out * config.eyes.spacing * pct) / 2,
+        eye.whiteShape.center[1] + config.eyes.y * pct,
+      ];
+      const white = pick(config.eyes.shape as Source, eye.side, (s) => eyeOf(s).whiteShape);
+      eye.white = place(white.from, white.mirrored, at, size, size);
+
+      // The pupil keeps its drawn position within the eye, scaled with it.
+      eye.pupilCenter = [
+        at[0] + (eye.pupilShape.center[0] - eye.whiteShape.center[0]) * size,
+        at[1] + (eye.pupilShape.center[1] - eye.whiteShape.center[1]) * size,
+      ];
+      const pupilSize = size * config.pupils.size;
+      const pupil = pick(config.pupils.shape as Source, eye.side, (s) => eyeOf(s).pupilShape);
+      eye.pupil = place(pupil.from, pupil.mirrored, eye.pupilCenter, pupilSize, pupilSize);
+
+      const eyeRadius = (Math.min(...eye.whiteShape.size) / 2) * size;
+      const pupilRadius = (Math.max(...pupil.from.size) / 2) * pupilSize;
+      eye.room = Math.max(0, eyeRadius - pupilRadius);
+    }
+
+    const m = config.mouth;
+    mouthPath = place(mouthShape, false, [mouthShape.center[0], mouthShape.center[1] + m.y * pct], m.scaleX, m.scaleY);
+  };
 
   // ── Hidden hip roots ──────────────────────────────────────────────────────
   // Each leg's straight cut is swapped for a rounded base reaching into the body.
@@ -177,60 +210,14 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     }
   };
 
-  /** Which shape to draw on `side`, and whether it's the other side's, mirrored. */
-  const pick = <T>(source: Source, side: Side, of: (s: Side) => T) =>
-    source === "drawn" ? { from: of(side), mirrored: false } : { from: of(source), mirrored: source !== side };
-
-  /** A shape redrawn centred on `at`, scaled, optionally mirrored left↔right. */
-  const place = (s: Shape, mirrored: boolean, at: Vec, sx: number, sy: number) =>
-    mapPath(s.cmds, (x, y) => [at[0] + (x - s.center[0]) * sx * (mirrored ? -1 : 1), at[1] + (y - s.center[1]) * sy]);
-
-  // ── Face: rebuilt only when its settings change ───────────────────────────
-  let faceKey = "";
-  const layoutFace = () => {
-    const key = JSON.stringify([config.face, config.eyes, config.pupils.shape, config.pupils.size, config.mouth]);
-    if (key === faceKey) return;
-    faceKey = key;
-
-    const f = config.face;
-    face.setAttribute("transform", aboutPoint(faceCenter, f.scale, f.scale, [f.x * pct, f.y * pct]));
-
-    for (const eye of eyes) {
-      const out = eye.side === "left" ? -1 : 1;
-      const size = config.eyes.size;
-      const at: Vec = [
-        eye.whiteShape.center[0] + (out * config.eyes.spacing * pct) / 2,
-        eye.whiteShape.center[1] + config.eyes.y * pct,
-      ];
-      const white = pick(config.eyes.shape as Source, eye.side, (s) => eyeOf(s).whiteShape);
-      eye.white.setAttribute("d", place(white.from, white.mirrored, at, size, size));
-
-      // The pupil keeps its drawn position within the eye, scaled with it.
-      eye.pupilCenter = [
-        at[0] + (eye.pupilShape.center[0] - eye.whiteShape.center[0]) * size,
-        at[1] + (eye.pupilShape.center[1] - eye.whiteShape.center[1]) * size,
-      ];
-      const pupilSize = size * config.pupils.size;
-      const pupil = pick(config.pupils.shape as Source, eye.side, (s) => eyeOf(s).pupilShape);
-      eye.pupil.setAttribute("d", place(pupil.from, pupil.mirrored, eye.pupilCenter, pupilSize, pupilSize));
-
-      const eyeRadius = (Math.min(...eye.whiteShape.size) / 2) * size;
-      const pupilRadius = (Math.max(...pupil.from.size) / 2) * pupilSize;
-      eye.room = Math.max(0, eyeRadius - pupilRadius);
-    }
-
-    const m = config.mouth;
-    mouth.setAttribute("d", place(mouthShape, false, [mouthShape.center[0], mouthShape.center[1] + m.y * pct], m.scaleX, m.scaleY));
-  };
-
-  // ── Legs: redrawn every frame from their spring state ─────────────────────
-  const drawLegs = (torsoScale: Vec) => {
+  // ── Legs: reshaped every frame from their spring state ────────────────────
+  const poseLegs = (torsoScale: Vec) => {
     const moving = config.legMotion.enabled;
     const curl = moving ? config.legMotion.curl : 0;
     const focus = config.legMotion.curlFocus;
     for (const leg of legs) {
       const pair = pairConfig(leg.pair);
-      const src = pick(pair.shape as Source, leg.side, (s) => legOf(s, leg.pair));
+      const { from, mirrored } = pick(pair.shape as Source, leg.side, (s) => legOf(s, leg.pair));
       // Sliders are written for "tips up = positive"; that's clockwise on the left, anticlockwise on the right.
       const up = leg.side === "left" ? 1 : -1;
       const swing = up * pair.angle * DEG + leg.phi * (1 - curl);
@@ -242,25 +229,18 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       ];
       const cos = Math.cos(swing);
       const sin = Math.sin(swing);
-      const { from, mirrored } = src;
-
       const d = mapPath(from.cmds, (x, y) => {
         let px = x - from.pivot[0];
         let py = y - from.pivot[1];
         if (mirrored) px = -px;
-        if (bend) {
-          const a = bend * (Math.hypot(px, py) / from.reach) ** focus;
-          [px, py] = rotate([px, py], a);
-        }
+        if (bend) [px, py] = rotate([px, py], bend * (Math.hypot(px, py) / from.reach) ** focus);
         return [hip[0] + (px * cos - py * sin) * pair.scale, hip[1] + (px * sin + py * cos) * pair.scale];
       });
       if (d !== leg.d) {
         leg.d = d;
-        leg.el.setAttribute("d", d);
-        leg.outline.setAttribute("d", d);
+        leg.path = new Path2D(d);
       }
-      leg.marker.setAttribute("cx", hip[0].toFixed(2));
-      leg.marker.setAttribute("cy", hip[1].toFixed(2));
+      leg.hip = hip;
     }
   };
 
@@ -274,7 +254,6 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     const max = m.maxAngle * DEG;
     for (const leg of legs) {
       const w = 2 * Math.PI * m.spring * (1 + m.variation * 0.5 * leg.tone);
-      const k = w * w;
       const up = leg.side === "left" ? 1 : -1;
       const rest = rotate(leg.weightDir, up * pairConfig(leg.pair).angle * DEG);
       // Only the change from hanging still pushes the leg, so its placed pose is its resting pose.
@@ -282,7 +261,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       if (fidget && Math.random() < (m.fidgetRate * dt) / legs.length) {
         leg.omega += (Math.random() < 0.5 ? -1 : 1) * fidget * DEG * w;
       }
-      leg.omega += (k * (m.weight * torque - leg.phi) - 2 * m.damping * w * leg.omega) * dt;
+      leg.omega += (w * w * (m.weight * torque - leg.phi) - 2 * m.damping * w * leg.omega) * dt;
       leg.phi += leg.omega * dt;
       if (Math.abs(leg.phi) > max) {
         leg.phi = Math.sign(leg.phi) * max;
@@ -296,17 +275,20 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
   window.addEventListener("pointermove", (e) => (pointer = { x: e.clientX, y: e.clientY }), { passive: true });
   document.documentElement.addEventListener("pointerleave", () => (pointer = null));
 
-  const lookAround = (dt: number) => {
+  /** `faceToDoc` maps the face's coordinates to document px, so tilt, breathing and face sliders all count. */
+  const lookAround = (dt: number, faceToDoc: DOMMatrix) => {
     const p = config.pupils;
     const artPerB = W / config.look.width;
-    // Cursor in the face's coordinates (both eyes share them), so tilt, breathing and face sliders are accounted for.
-    const m = p.follow && pointer ? eyes[0].g.getScreenCTM() : null;
-    const at = m && pointer ? new DOMPoint(pointer.x, pointer.y).matrixTransform(m.inverse()) : null;
+    const at =
+      p.follow && pointer
+        ? faceToDoc.inverse().transformPoint(new DOMPoint(pointer.x + window.scrollX, pointer.y + window.scrollY))
+        : null;
     // Both eyes decide together, measured from the point between them, so they never
     // disagree about whether the cursor is close enough to look at.
     const between: Vec = [avg(eyes.map((e) => e.pupilCenter[0])), avg(eyes.map((e) => e.pupilCenter[1]))];
     const distance = at ? Math.hypot(at.x - between[0], at.y - between[1]) / artPerB : Infinity;
     const strength = distance < p.radius ? Math.min(1, distance / p.reach) * p.range : 0;
+    const k = 1 - Math.exp(-p.speed * dt);
     for (const eye of eyes) {
       let target: Vec = [p.restX * eye.room, p.restY * eye.room];
       if (strength > 0 && at) {
@@ -316,46 +298,26 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
         const dist = Math.hypot(dx, dy) || 1;
         target = [(dx / dist) * strength * eye.room, (dy / dist) * strength * eye.room];
       }
-      const k = 1 - Math.exp(-p.speed * dt);
       eye.look[0] += (target[0] - eye.look[0]) * k;
       eye.look[1] += (target[1] - eye.look[1]) * k;
-      eye.pupil.setAttribute("transform", `translate(${eye.look[0].toFixed(2)} ${eye.look[1].toFixed(2)})`);
     }
   };
 
-  // ── Size, look, colours: DOM only touched when something changed ─────────
+  // ── The grab target: sized and placed like the spider, DOM only touched on change ──
   let styleKey = "";
-  const applyStyle = (unit: number) => {
-    const fav = config.look.showFavicon;
-    const c = config.colors;
-    const width = config.look.width * unit * (fav ? config.look.faviconScale : 1);
-    const height = fav ? width : (width * H) / W;
-    const px = fav ? 50 : config.look.attachX * 100;
-    const py = (fav ? config.look.faviconAttachY : config.look.attachY) * 100;
-    const key = [fav, width, px, py, config.bob.hitArea, Object.values(c), Object.values(config.spideyDebug)].join("|");
-    if (key !== styleKey) {
-      styleKey = key;
-      const s = bob.style;
-      bob.dataset.look = fav ? "favicon" : "spider";
-      bob.dataset.outline = c.outlineMode;
-      bob.toggleAttribute("data-show-hit", config.spideyDebug.showHitArea);
-      markers.style.display = config.spideyDebug.showPivots ? "" : "none";
-      s.setProperty("--bob-w", `${width}px`);
-      s.setProperty("--bob-h", `${height}px`);
-      s.setProperty("--bob-hit", `${-config.bob.hitArea * 100}%`);
-      s.setProperty("--spider-body", c.body);
-      s.setProperty("--spider-eyes", c.eyes);
-      s.setProperty("--spider-pupils", c.pupils);
-      s.setProperty("--spider-mouth", c.mouth);
-      s.setProperty("--spider-outline", c.outline);
-      s.setProperty("--spider-outline-width", String(c.outlineWidth * W));
-      s.transformOrigin = `${px}% ${py}%`;
-    }
-    return { px, py };
+  const sizeGrabTarget = (width: number, height: number, px: number, py: number) => {
+    const key = [width, height, px, py, config.bob.hitArea, config.spideyDebug.showHitArea].join("|");
+    if (key === styleKey) return;
+    styleKey = key;
+    bob.style.setProperty("--bob-w", `${width}px`);
+    bob.style.setProperty("--bob-h", `${height}px`);
+    bob.style.setProperty("--bob-hit", `${-config.bob.hitArea * 100}%`);
+    bob.style.transformOrigin = `${px}% ${py}%`;
+    bob.toggleAttribute("data-show-hit", config.spideyDebug.showHitArea);
   };
 
   // ── Motion state ──────────────────────────────────────────────────────────
-  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let pose: Pose | null = null;
   let started = false;
   let tilt = 0;
   let tiltSpeed = 0;
@@ -370,7 +332,13 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
      * steps to draw (see Rope.at).
      */
     update(a: AnchorFrame, dt: number, simDt: number, alpha: number) {
-      const { px, py } = applyStyle(a.unit);
+      const fav = config.look.showFavicon;
+      const width = config.look.width * a.unit * (fav ? config.look.faviconScale : 1);
+      const height = fav ? width : (width * H) / W;
+      const px = fav ? 50 : config.look.attachX * 100;
+      const py = (fav ? config.look.faviconAttachY : config.look.attachY) * 100;
+      sizeGrabTarget(width, height, px, py);
+
       const n = rope.points.length;
       const tail = rope.at(n - 1, alpha);
       const prev = rope.at(n - 2, alpha);
@@ -410,26 +378,99 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
         time += dt;
       }
 
-      if (!config.look.showFavicon) {
-        const breath = reducedMotion.matches ? 1 : 1 + b.breathe * Math.sin(time * b.breatheSpeed * Math.PI * 2);
-        const torsoScale: Vec = [b.scaleX * breath, b.scaleY * breath];
-        const t = aboutPoint(bodyCenter, torsoScale[0], torsoScale[1]);
-        torso.setAttribute("transform", t);
-        outlineTorso.setAttribute("transform", t);
+      // The spider's box: its attach point on the string's end, turned around that point.
+      const box = new DOMMatrix()
+        .translate(tail.x, tail.y)
+        .rotate(tilt / DEG)
+        .translate((-px / 100) * width, (-py / 100) * height);
+      const scale = width / W;
+      const breath = reducedMotion.matches ? 1 : 1 + b.breathe * Math.sin(time * b.breatheSpeed * Math.PI * 2);
+      const torsoScale: Vec = [b.scaleX * breath, b.scaleY * breath];
+      const torso = new DOMMatrix().scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
+
+      if (!fav) {
         layoutFace();
         updateRoots();
-        drawLegs(torsoScale);
-        lookAround(dt);
+        poseLegs(torsoScale);
+        lookAround(dt, box.scale(scale).multiply(torso).multiply(faceMatrix));
       }
+      pose = { box, width, height, scale, torso, face: faceMatrix };
 
       const sx = window.scrollX;
       const sy = window.scrollY;
       bob.style.transform = `translate(${tail.x - sx}px, ${tail.y - sy}px) translate(${-px}%, ${-py}%) rotate(${tilt}rad)`;
     },
+
+    /** Draws the spider with the renderer's context (already mapping document px to the canvas). */
+    draw: (ctx: CanvasRenderingContext2D) => {
+      if (!pose) return;
+      ctx.save();
+      transform(ctx, pose.box);
+
+      if (config.look.showFavicon) {
+        if (favicon.complete && favicon.naturalWidth) ctx.drawImage(favicon, 0, 0, pose.width, pose.height);
+        ctx.restore();
+        return;
+      }
+
+      ctx.scale(pose.scale, pose.scale);
+      const c = config.colors;
+      ctx.lineJoin = "round";
+
+      // Outline: the whole silhouette, filled and stroked, behind everything.
+      if (c.outlineMode === "always" || (c.outlineMode === "dark" && dark.matches)) {
+        ctx.fillStyle = ctx.strokeStyle = c.outline;
+        ctx.lineWidth = c.outlineWidth * W * 2; // half is hidden behind the parts
+        for (const leg of legs) {
+          ctx.fill(leg.path);
+          ctx.stroke(leg.path);
+        }
+        ctx.save();
+        transform(ctx, pose.torso);
+        ctx.fill(bodyPath);
+        ctx.stroke(bodyPath);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = c.body;
+      for (const leg of legs) ctx.fill(leg.path);
+
+      ctx.save();
+      transform(ctx, pose.torso);
+      ctx.fill(bodyPath);
+      transform(ctx, pose.face);
+      for (const eye of eyes) {
+        ctx.fillStyle = c.eyes;
+        ctx.fill(eye.white);
+        ctx.save();
+        ctx.translate(eye.look[0], eye.look[1]);
+        ctx.fillStyle = c.pupils;
+        ctx.fill(eye.pupil);
+        ctx.restore();
+      }
+      ctx.fillStyle = c.mouth;
+      ctx.fill(mouthPath);
+      ctx.restore();
+
+      if (config.spideyDebug.showPivots) {
+        ctx.fillStyle = DEBUG_COLOR;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2 / pose.scale;
+        for (const leg of legs) {
+          ctx.beginPath();
+          ctx.arc(leg.hip[0], leg.hip[1], W * 0.012, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    },
   };
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
+
+const transform = (ctx: CanvasRenderingContext2D, m: DOMMatrix) => ctx.transform(m.a, m.b, m.c, m.d, m.e, m.f);
 
 /** Parses an absolute M/L/C/Z path (what scripts/build-spider.mjs writes). */
 function parse(d: string): Cmd[] {
@@ -454,19 +495,25 @@ function mapPath(cmds: Cmd[], fn: (x: number, y: number) => Vec) {
   return d;
 }
 
-const points = (cmds: Cmd[]) =>
-  cmds.flatMap(({ args }) => args.flatMap((_, i) => (i % 2 ? [] : [[args[i], args[i + 1]] as Vec])));
-const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / (xs.length || 1);
-const cross = (a: Vec, b: Vec) => a[0] * b[1] - a[1] * b[0];
-const rotate = ([x, y]: Vec, a: number): Vec => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
-const normalize = ([x, y]: Vec): Vec => {
-  const l = Math.hypot(x, y) || 1;
-  return [x / l, y / l];
-};
-const clampLength = ([x, y]: Vec, max: number): Vec => {
-  const l = Math.hypot(x, y);
-  return l > max ? [(x / l) * max, (y / l) * max] : [x, y];
-};
+/** Bounds of a path, following its curves (not just their control points). */
+function shape(cmds: Cmd[]): Shape {
+  const pts: Vec[] = [];
+  let at: Vec = [0, 0];
+  for (const { cmd, args } of cmds) {
+    if (cmd === "C") {
+      for (let t = 0.125; t <= 1; t += 0.125) {
+        const u = 1 - t;
+        pts.push([0, 1].map((k) => u ** 3 * at[k] + 3 * u * u * t * args[k] + 3 * u * t * t * args[2 + k] + t ** 3 * args[4 + k]) as Vec);
+      }
+    } else if (args.length) pts.push([args[args.length - 2], args[args.length - 1]]);
+    if (args.length) at = [args[args.length - 2], args[args.length - 1]];
+  }
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  return { cmds, center: [(x0 + x1) / 2, (y0 + y1) / 2], size: [x1 - x0, y1 - y0] };
+}
+
 /**
  * Replaces the straight edge between the cut's ends with a half-ellipse bulging
  * away from it toward `towards` (the body), `depth` half-widths deep.
@@ -497,6 +544,16 @@ function withRoot(cmds: Cmd[], cut: [Vec, Vec], pivot: Vec, towards: Vec, depth:
   });
 }
 
-/** SVG transform scaling around `c`, then shifting by `offset`. */
-const aboutPoint = (c: Vec, sx: number, sy: number, offset: Vec = [0, 0]) =>
-  `translate(${c[0] + offset[0]} ${c[1] + offset[1]}) scale(${sx} ${sy}) translate(${-c[0]} ${-c[1]})`;
+const points = (cmds: Cmd[]) =>
+  cmds.flatMap(({ args }) => args.flatMap((_, i) => (i % 2 ? [] : [[args[i], args[i + 1]] as Vec])));
+const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / (xs.length || 1);
+const cross = (a: Vec, b: Vec) => a[0] * b[1] - a[1] * b[0];
+const rotate = ([x, y]: Vec, a: number): Vec => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+const normalize = ([x, y]: Vec): Vec => {
+  const l = Math.hypot(x, y) || 1;
+  return [x / l, y / l];
+};
+const clampLength = ([x, y]: Vec, max: number): Vec => {
+  const l = Math.hypot(x, y);
+  return l > max ? [(x / l) * max, (y / l) * max] : [x, y];
+};

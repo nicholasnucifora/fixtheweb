@@ -14,35 +14,52 @@ type Point = { x: number; y: number };
  */
 export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d")!;
-  let dpr = 1;
+  let scaleX = 1;
+  let scaleY = 1;
   let color = "";
 
-  const resize = () => {
-    dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(window.innerWidth * dpr);
-    canvas.height = Math.round(window.innerHeight * dpr);
+  // Exactly one canvas pixel per device pixel, so nothing drawn on it gets resampled (blurry or shimmery).
+  const fit = (cssWidth: number, cssHeight: number, deviceWidth?: number, deviceHeight?: number) => {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = deviceWidth ?? Math.round(cssWidth * dpr);
+    canvas.height = deviceHeight ?? Math.round(cssHeight * dpr);
+    scaleX = canvas.width / (cssWidth || 1);
+    scaleY = canvas.height / (cssHeight || 1);
   };
+  const observer = new ResizeObserver(([entry]) => {
+    const device = entry.devicePixelContentBoxSize?.[0];
+    fit(entry.contentRect.width, entry.contentRect.height, device?.inlineSize, device?.blockSize);
+  });
+  try {
+    observer.observe(canvas, { box: "device-pixel-content-box" });
+  } catch {
+    observer.observe(canvas);
+  }
+  fit(canvas.clientWidth, canvas.clientHeight);
+
   // Colour comes from CSS (`color` on the root), so it follows light/dark mode.
   const readColor = () => (color = getComputedStyle(root).color);
-
-  resize();
   readColor();
-  window.addEventListener("resize", resize);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColor);
 
   return {
-    /** `alpha`: how far between the last two physics steps to draw (see Rope.at). */
-    draw(rope: Rope, particles: Particles, a: AnchorFrame, alpha: number) {
+    /**
+     * `alpha`: how far between the last two physics steps to draw (see Rope.at).
+     * `drawSpider` draws on top of the string, in the same document-px space.
+     */
+    draw(rope: Rope, particles: Particles, a: AnchorFrame, alpha: number, drawSpider?: (ctx: CanvasRenderingContext2D) => void) {
       const sx = window.scrollX;
       const sy = window.scrollY;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.setTransform(dpr, 0, 0, dpr, -sx * dpr, -sy * dpr);
+      ctx.setTransform(scaleX, 0, 0, scaleY, -sx * scaleX, -sy * scaleY);
       ctx.strokeStyle = color;
 
       const pts = rope.points.map((_, i) => rope.at(i, alpha));
       drawString(ctx, pts, Math.max(1, config.rope.thickness * a.unit));
+      drawSpider?.(ctx);
+      ctx.strokeStyle = color;
       particles.draw(ctx);
       if (config.debug.showPoints) drawPoints(ctx, rope, pts, a);
     },

@@ -4,12 +4,13 @@
  * Behaviour and feel: src/scripts/spider-string/ (tune in config.ts, or live
  * by opening the page with ?tune).
  *
+ * The string and spider are both drawn on the canvas; the bob element is the
+ * spider's invisible grab target.
+ *
  * Emits bubbling `spider:grab`, `spider:release` and `spider:pluck` events
  * from the root, and sets `data-spider` / `data-string` ("idle|hover|held")
  * on it for styling hooks.
  */
-import Spider from "../assets/spider/spider.svg";
-
 interface Props {
   /** CSS selector for the SVG glyph the string hangs from. */
   anchor: string;
@@ -20,11 +21,7 @@ const { anchor } = Astro.props;
 
 <div class="spider-string" data-spider-string data-anchor={anchor} aria-hidden="true">
   <canvas class="canvas"></canvas>
-  <div class="bob" data-bob>
-    <!-- config.look.showFavicon swaps the spider for the favicon, for comparing. -->
-    <Spider class="art" />
-    <img class="favicon" src="/favicon.svg" alt="" draggable="false" />
-  </div>
+  <div class="bob" data-bob></div>
 </div>
 
 <style>
@@ -39,9 +36,11 @@ const { anchor } = Astro.props;
     -webkit-user-select: none;
   }
   .canvas {
+    display: block;
     width: 100%;
     height: 100%;
   }
+  /* Invisible grab target that follows the spider (the spider itself is drawn on the canvas). */
   .bob {
     position: absolute;
     top: 0;
@@ -51,74 +50,18 @@ const { anchor } = Astro.props;
     pointer-events: auto;
     touch-action: none;
     cursor: grab;
-    /* Deliberately no will-change: as its own layer the spider would be rotated
-       and moved as a flat image, which makes its edges shimmer. Without it, the
-       shapes are redrawn crisply every frame. */
     -webkit-user-drag: none;
   }
-  /* Bigger hit area than the visible body (config.bob.hitArea), so it's easy to grab. */
+  /* Bigger hit area than the spider itself (config bob.hitArea), so it's easy to grab. */
   .bob::after {
     content: "";
     position: absolute;
     inset: var(--bob-hit, -35%);
     border-radius: 50%;
   }
-  .bob :global(.art),
-  .favicon {
-    display: block;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    -webkit-user-drag: none;
-  }
-  .bob :global(.art) {
-    overflow: visible; /* legs and the outline can reach past the art's edges */
-  }
-  .bob:not([data-look="spider"]) :global(.art),
-  .bob:not([data-look="favicon"]) .favicon {
-    display: none;
-  }
   /* Debug (Spidey → Debug → Show grab area). */
   .bob[data-show-hit]::after {
     outline: 1px dashed #ff5a5f;
-  }
-
-  /* Spider parts (data-part in spider.svg). Colours come from config, set by spider.ts. */
-  .bob :global([data-part="body"]),
-  .bob :global([data-leg]) {
-    fill: var(--spider-body, #1b1e29);
-  }
-  .bob :global([data-part="eye-white"]) {
-    fill: var(--spider-eyes, #fff);
-  }
-  .bob :global([data-part="pupil"]) {
-    fill: var(--spider-pupils, #1b1e29);
-  }
-  .bob :global([data-part="mouth"]) {
-    fill: var(--spider-mouth, #fff);
-  }
-  /* Outline: a copy of the whole silhouette behind the parts, stroked. Half the
-     stroke is hidden behind the parts, so it's doubled for the visible width. */
-  .bob :global(.spider-outline) {
-    display: none;
-    fill: var(--spider-outline, #f2f2ee);
-    stroke: var(--spider-outline, #f2f2ee);
-    stroke-width: calc(var(--spider-outline-width, 0) * 2px);
-    stroke-linejoin: round;
-  }
-  .bob[data-outline="always"] :global(.spider-outline) {
-    display: inline;
-  }
-  @media (prefers-color-scheme: dark) {
-    .bob[data-outline="dark"] :global(.spider-outline) {
-      display: inline;
-    }
-  }
-  /* Debug (Spidey → Debug → Show leg hips). */
-  .bob :global(.spider-markers) {
-    fill: #ff5a5f;
-    stroke: #fff;
-    stroke-width: 2px;
   }
   /* The string is drawn on a canvas that ignores the pointer, so its cursors are set page-wide. */
   :global(html.spider-string-hover),

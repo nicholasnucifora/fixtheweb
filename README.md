@@ -39,7 +39,7 @@ A string hangs from the bottom of the logo's "b" with a draggable spider on the 
 - `rope.ts`: Verlet string physics (no DOM).
 - `drag.ts`: grab/drag/release of the spider or the string, and blocking text selection while held.
 - `pluck.ts`: pointer crossing the string → nudge + particle burst. `particles.ts` draws the dashes.
-- `spider.ts`: the spider — positioning and tilt, colours and outline, face and part placement (including mirrored eyes/pupils/legs), pupils following the cursor, breathing, and spring-driven legs that swing and curl.
+- `spider.ts`: the spider, drawn onto the same canvas as the string so it stays crisp while it moves and turns (the SVG is only its source of shapes) — positioning and tilt, colours and outline, face and part placement (including mirrored eyes/pupils/legs), pupils following the cursor, breathing, and spring-driven legs that swing and curl.
 - `render.ts`: canvas drawing of the string and dashes. `index.ts` wires it all into one loop.
 
 The root element emits `spider:grab`, `spider:release` and `spider:pluck` events and sets `data-spider` / `data-string` (`idle|hover|held`) for styling.
