@@ -25,3 +25,18 @@ Static assets only for now; config is in `wrangler.jsonc`.
 - `public/favicon.ico` — 16/32/48px fallback for browsers without SVG favicons (the dark-mode design, since it reads on light and dark UI).
 - `public/apple-touch-icon.png` — 180px iOS home-screen icon: the light-mode spider on the site's background.
 - Both PNG-based files are rendered from `favicon.svg`; regenerate them if the favicon changes.
+- Each letter path in the logo has a `data-glyph` attribute (`f`, `i`, `i-dot`, `x`, `the`, `w`, `e`, `b`) so effects can target a letter by selector.
+
+## Spider string
+
+A string hangs from the bottom of the logo's "b" with a draggable spider (placeholder circle for now) on the end. `src/components/SpiderString.astro` takes an `anchor` selector for the glyph to hang from; the logic is in `src/scripts/spider-string/`:
+
+- `config.ts`: every feel value with its default, range and description (length, weight, swing, sway, drag, pluck, particles…). Sizes are in multiples of the anchor glyph's height, so it all scales with the logo.
+- `tune.ts`: live tuning panel built from `config.ts`. Open the page with `?tune` (e.g. `http://localhost:4321/?tune`). Tweaks are saved in that browser and only apply with `?tune`; "Copy changes" gives JSON to bake into `config.ts`.
+- `anchor.ts`: finds the glyph's lowest point and tracks it on the page every frame.
+- `rope.ts`: Verlet string physics (no DOM).
+- `drag.ts`: grab/drag/release of the spider or the string, and blocking text selection while held.
+- `pluck.ts`: pointer crossing the string → nudge + particle burst. `particles.ts` draws the dashes.
+- `render.ts`: canvas drawing and spider positioning. `index.ts` wires it all into one loop.
+
+The root element emits `spider:grab`, `spider:release` and `spider:pluck` events and sets `data-spider` / `data-string` (`idle|hover|held`) for styling.

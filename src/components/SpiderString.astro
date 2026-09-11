@@ -1,0 +1,83 @@
+---
+/**
+ * A string hanging from a logo glyph with a draggable spider on the end.
+ * Behaviour and feel: src/scripts/spider-string/ (tune in config.ts, or live
+ * by opening the page with ?tune).
+ *
+ * Emits bubbling `spider:grab`, `spider:release` and `spider:pluck` events
+ * from the root, and sets `data-spider` / `data-string` ("idle|hover|held")
+ * on it for styling hooks.
+ */
+interface Props {
+  /** CSS selector for the SVG glyph the string hangs from. */
+  anchor: string;
+}
+
+const { anchor } = Astro.props;
+---
+
+<div class="spider-string" data-spider-string data-anchor={anchor} aria-hidden="true">
+  <canvas class="canvas"></canvas>
+  <div class="bob" data-bob>
+    <!-- Placeholder until the spider artwork goes in. -->
+    <div class="body"></div>
+  </div>
+</div>
+
+<style>
+  .spider-string {
+    /* String + spider colour: matches the logo ink in both themes. */
+    color: var(--ink);
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .bob {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--bob-size, 0);
+    height: var(--bob-size, 0);
+    pointer-events: auto;
+    touch-action: none;
+    cursor: grab;
+    will-change: transform;
+    -webkit-user-drag: none;
+  }
+  /* Bigger hit area than the visible body (config.bob.hitArea), so it's easy to grab. */
+  .bob::after {
+    content: "";
+    position: absolute;
+    inset: var(--bob-hit, -35%);
+    border-radius: 50%;
+  }
+  .body {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  /* The string is drawn on a canvas that ignores the pointer, so its cursors are set page-wide. */
+  :global(html.spider-string-hover),
+  :global(html.spider-string-hover *) {
+    cursor: grab !important;
+  }
+  :global(html.spider-held),
+  :global(html.spider-held *) {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+</style>
+
+<script>
+  import { mountAll } from "../scripts/spider-string";
+  mountAll();
+</script>
