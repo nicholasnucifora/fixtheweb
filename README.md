@@ -21,5 +21,4 @@ Static assets only for now; config is in `wrangler.jsonc`.
 ## Brand assets
 
 - `src/assets/brand/fixtheweb-logo.svg` — main logo. Navy paths use `currentColor` so the page text colour drives light/dark mode; "the" stays teal.
-- `public/favicon.svg` — favicon (adapts to light/dark browser chrome).
-- `design/favicon/` — favicon variants and a preview page. Run `npm run favicon`, then open `design/favicon/preview.html`.
+- `public/favicon.svg` — favicon. Light mode: the navy spider filling the square. Dark mode: adds a ½px white outline so it stays visible on dark tab bars.
