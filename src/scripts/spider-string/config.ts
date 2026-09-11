@@ -668,6 +668,44 @@ export const schema = {
     },
   },
 
+  crisp: {
+    group: "spidey",
+    label: "Crispness",
+    info: "Thin edges look uneven when they land between the screen's pixels: one side of the outline thin and grey, another a pixel thicker. These line the spider and string up with the pixels.",
+    params: {
+      wholePixels: {
+        value: true,
+        label: "Whole-pixel sizes",
+        info: "Rounds the outline and string thickness, and the body's width and height, to whole screen pixels, so the outline is equally thick at the top and bottom of the head. Changes sizes by under half a pixel.",
+      },
+      snap: {
+        value: true,
+        label: "Snap to pixels when still",
+        info: "Once the spider has settled, eases it (and the string) by under half a pixel onto the pixel grid and fully upright, so its edges are perfectly crisp. Eases off as soon as it moves. With the breeze on it never quite settles: set String → Breeze → Strength to 0 for this to kick in. Breathing also moves the edges.",
+      },
+      snapSpeed: {
+        value: 4, min: 0.5, max: 30, step: 0.5, unit: "px/s",
+        label: "Still: slower than",
+        info: "Counts as settled when moving slower than this…",
+      },
+      snapAngle: {
+        value: 0.6, min: 0.05, max: 5, step: 0.05, unit: "°",
+        label: "Still: tilted less than",
+        info: "…and tilted less than this…",
+      },
+      snapHold: {
+        value: 0.25, min: 0, max: 2, step: 0.05, unit: "s",
+        label: "Still: for at least",
+        info: "…for at least this long, so snapping doesn't flick on and off at the ends of a swing.",
+      },
+      snapEase: {
+        value: 0.15, min: 0, max: 1, step: 0.01, unit: "s",
+        label: "Snap ease",
+        info: "How long it takes to ease onto the pixel grid (and back off it). 0 = instant.",
+      },
+    },
+  },
+
   spideyDebug: {
     group: "spidey",
     label: "Debug",

@@ -85,8 +85,8 @@ function mount(root: HTMLElement) {
       // Draw part-way between the last two physics steps, so motion is even at any refresh rate.
       const alpha = pending / step;
       particles.update(dt);
-      spider.update(a, dt, steps * step, alpha);
-      renderer.draw(rope, particles, a, alpha, spider.draw);
+      spider.update(a, dt, steps * step, alpha, renderer.pixelRatio);
+      renderer.draw(rope, particles, a, alpha, spider.draw, spider.stringShift());
       // After drawing: a pluck nudges the string's step history, which would skew this frame's blend.
       pluck.update(a, now / 1000, real, drag.held === null);
     }

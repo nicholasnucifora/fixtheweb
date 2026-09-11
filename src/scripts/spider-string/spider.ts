@@ -1,6 +1,7 @@
 import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
 import { config } from "./config";
+import { stringDeviceWidth } from "./render";
 import type { Rope } from "./rope";
 
 /**
@@ -69,12 +70,16 @@ interface Leg {
 }
 /** What the last update worked out, for drawing. */
 interface Pose {
-  /** Document px → the spider's box (top-left at 0,0, width × height px). */
+  /** Art units → document px, for the spider… */
+  art: DOMMatrix;
+  /** …and the favicon's box (top-left at 0,0, width × height px) → document px. */
   box: DOMMatrix;
   width: number;
   height: number;
-  /** Box px per art unit. */
-  scale: number;
+  /** Art units per CSS px, for 1px-ish debug strokes. */
+  artPerPx: number;
+  /** Outline thickness, art units. */
+  outline: number;
   torso: DOMMatrix;
   face: DOMMatrix;
 }
@@ -94,7 +99,8 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
   // ── Parts ─────────────────────────────────────────────────────────────────
   const bodyEl = svg.querySelector('[data-part="body"]');
   const bodyPath = new Path2D(dOf(bodyEl));
-  const bodyCenter = shapeOf(bodyEl).center;
+  const bodyShape = shapeOf(bodyEl);
+  const bodyCenter = bodyShape.center;
 
   const legs: Leg[] = [...svg.querySelectorAll("[data-leg]")].map((el, i) => {
     const id = el.getAttribute("data-leg") ?? "L1";
@@ -324,14 +330,21 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
   let time = 0;
   let velocity: Vec = [0, 0];
   let accel: Vec = [0, 0];
+  /** Seconds it's been settled, how far it's eased onto the pixel grid (0–1), and the string's matching nudge (px). */
+  let stillFor = 0;
+  let snap = 0;
+  let stringShift = 0;
 
   return {
+    /** Sideways nudge (CSS px) that lines the string up with the pixel grid while the spider is snapped. */
+    stringShift: () => stringShift,
+
     /**
      * Once per frame, after the string has moved. `dt` is this frame's time (time scale applied),
      * `simDt` the physics time actually stepped, and `alpha` how far between the last two physics
-     * steps to draw (see Rope.at).
+     * steps to draw (see Rope.at). `pixelRatio` is device px per CSS px on the canvas.
      */
-    update(a: AnchorFrame, dt: number, simDt: number, alpha: number) {
+    update(a: AnchorFrame, dt: number, simDt: number, alpha: number, pixelRatio: number) {
       const fav = config.look.showFavicon;
       const width = config.look.width * a.unit * (fav ? config.look.faviconScale : 1);
       const height = fav ? width : (width * H) / W;
@@ -378,23 +391,63 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
         time += dt;
       }
 
-      // The spider's box: its attach point on the string's end, turned around that point.
+      const breath = reducedMotion.matches ? 1 : 1 + b.breathe * Math.sin(time * b.breatheSpeed * Math.PI * 2);
+      const torsoScale: Vec = [b.scaleX * breath, b.scaleY * breath];
+      const torso = new DOMMatrix().scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
+
+      // ── Pixel crispness (Spidey → Crispness) ──
+      const crisp = config.crisp;
+      // Whole-pixel body size, so the outline lands on pixel edges at the top and bottom alike.
+      let kx = width / W;
+      let ky = kx;
+      if (crisp.wholePixels && !fav) {
+        const bw = bodyShape.size[0] * b.scaleX;
+        const bh = bodyShape.size[1] * b.scaleY;
+        kx = Math.max(1, Math.round(bw * kx * pixelRatio)) / (bw * pixelRatio);
+        ky = Math.max(1, Math.round(bh * ky * pixelRatio)) / (bh * pixelRatio);
+      }
+      const outlinePx = config.colors.outlineWidth * W * ky * pixelRatio;
+      const outline = (crisp.wholePixels && outlinePx > 0 ? Math.max(1, Math.round(outlinePx)) : outlinePx) / (ky * pixelRatio);
+
+      // Settled for long enough? Then ease onto the pixel grid and upright; ease off as soon as it moves.
+      const calm =
+        crisp.snap &&
+        !fav &&
+        Math.hypot(velocity[0], velocity[1]) * a.unit < crisp.snapSpeed &&
+        Math.abs(tilt) < crisp.snapAngle * DEG;
+      stillFor = calm ? stillFor + dt : 0;
+      const snapTarget = calm && stillFor >= crisp.snapHold ? 1 : 0;
+      snap = crisp.snapEase > 0 ? snap + (snapTarget - snap) * (1 - Math.exp((-3 * dt) / crisp.snapEase)) : snapTarget;
+      if (snap < 0.001) snap = snapTarget;
+
+      // The spider: its attach point on the string's end, turned around that point.
+      let art = new DOMMatrix()
+        .translate(tail.x, tail.y)
+        .rotate((tilt * (1 - snap)) / DEG)
+        .scale(kx, ky)
+        .translate(-config.look.attachX * W, -config.look.attachY * H);
+      stringShift = 0;
+      if (snap > 0) {
+        // Line the string's edges up with pixel columns and the body's top edge with a pixel row
+        // (the body's height is whole pixels, so the bottom edge lines up too).
+        const left = (tail.x - window.scrollX) * pixelRatio - stringDeviceWidth(a.unit, pixelRatio) / 2;
+        const top = art.multiply(torso).transformPoint(new DOMPoint(bodyCenter[0], bodyCenter[1] - bodyShape.size[1] / 2));
+        const row = (top.y - window.scrollY) * pixelRatio;
+        stringShift = ((Math.round(left) - left) / pixelRatio) * snap;
+        art = new DOMMatrix().translate(stringShift, ((Math.round(row) - row) / pixelRatio) * snap).multiply(art);
+      }
       const box = new DOMMatrix()
         .translate(tail.x, tail.y)
         .rotate(tilt / DEG)
         .translate((-px / 100) * width, (-py / 100) * height);
-      const scale = width / W;
-      const breath = reducedMotion.matches ? 1 : 1 + b.breathe * Math.sin(time * b.breatheSpeed * Math.PI * 2);
-      const torsoScale: Vec = [b.scaleX * breath, b.scaleY * breath];
-      const torso = new DOMMatrix().scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
 
       if (!fav) {
         layoutFace();
         updateRoots();
         poseLegs(torsoScale);
-        lookAround(dt, box.scale(scale).multiply(torso).multiply(faceMatrix));
+        lookAround(dt, art.multiply(torso).multiply(faceMatrix));
       }
-      pose = { box, width, height, scale, torso, face: faceMatrix };
+      pose = { art, box, width, height, artPerPx: 1 / kx, outline, torso, face: faceMatrix };
 
       const sx = window.scrollX;
       const sy = window.scrollY;
@@ -405,22 +458,22 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     draw: (ctx: CanvasRenderingContext2D) => {
       if (!pose) return;
       ctx.save();
-      transform(ctx, pose.box);
 
       if (config.look.showFavicon) {
+        transform(ctx, pose.box);
         if (favicon.complete && favicon.naturalWidth) ctx.drawImage(favicon, 0, 0, pose.width, pose.height);
         ctx.restore();
         return;
       }
 
-      ctx.scale(pose.scale, pose.scale);
+      transform(ctx, pose.art);
       const c = config.colors;
       ctx.lineJoin = "round";
 
       // Outline: the whole silhouette, filled and stroked, behind everything.
-      if (c.outlineMode === "always" || (c.outlineMode === "dark" && dark.matches)) {
+      if (pose.outline > 0 && (c.outlineMode === "always" || (c.outlineMode === "dark" && dark.matches))) {
         ctx.fillStyle = ctx.strokeStyle = c.outline;
-        ctx.lineWidth = c.outlineWidth * W * 2; // half is hidden behind the parts
+        ctx.lineWidth = pose.outline * 2; // half is hidden behind the parts
         for (const leg of legs) {
           ctx.fill(leg.path);
           ctx.stroke(leg.path);
@@ -455,7 +508,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       if (config.spideyDebug.showPivots) {
         ctx.fillStyle = DEBUG_COLOR;
         ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2 / pose.scale;
+        ctx.lineWidth = 2 * pose.artPerPx;
         for (const leg of legs) {
           ctx.beginPath();
           ctx.arc(leg.hip[0], leg.hip[1], W * 0.012, 0, Math.PI * 2);

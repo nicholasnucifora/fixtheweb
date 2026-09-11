@@ -7,6 +7,12 @@ const DEBUG_COLOR = "#ff5a5f";
 
 type Point = { x: number; y: number };
 
+/** The string's thickness in device pixels (whole pixels when Spidey → Crispness → Whole-pixel sizes is on). */
+export function stringDeviceWidth(unit: number, pixelRatio: number) {
+  const px = Math.max(1, config.rope.thickness * unit) * pixelRatio;
+  return config.crisp.wholePixels ? Math.max(1, Math.round(px)) : px;
+}
+
 /**
  * Draws the string and particles on a viewport-sized canvas. Simulation works
  * in document px; this is where they're shifted by the scroll offset into the
@@ -43,11 +49,24 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColor);
 
   return {
+    /** Device px per CSS px on the canvas. */
+    get pixelRatio() {
+      return scaleX;
+    },
+
     /**
      * `alpha`: how far between the last two physics steps to draw (see Rope.at).
      * `drawSpider` draws on top of the string, in the same document-px space.
+     * `stringShift` nudges the string sideways (CSS px) to sit on the pixel grid.
      */
-    draw(rope: Rope, particles: Particles, a: AnchorFrame, alpha: number, drawSpider?: (ctx: CanvasRenderingContext2D) => void) {
+    draw(
+      rope: Rope,
+      particles: Particles,
+      a: AnchorFrame,
+      alpha: number,
+      drawSpider?: (ctx: CanvasRenderingContext2D) => void,
+      stringShift = 0,
+    ) {
       const sx = window.scrollX;
       const sy = window.scrollY;
 
@@ -57,7 +76,10 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
       ctx.strokeStyle = color;
 
       const pts = rope.points.map((_, i) => rope.at(i, alpha));
-      drawString(ctx, pts, Math.max(1, config.rope.thickness * a.unit));
+      ctx.save();
+      ctx.translate(stringShift, 0);
+      drawString(ctx, pts, stringDeviceWidth(a.unit, scaleX) / scaleX);
+      ctx.restore();
       drawSpider?.(ctx);
       ctx.strokeStyle = color;
       particles.draw(ctx);
