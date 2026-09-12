@@ -716,15 +716,15 @@ export const schema = {
         label: "Converge",
         info: "Where each eye aims from, which is the whole of what makes it cross-eyed. 1 = its own centre, so a cursor between the eyes or right in front of its face turns them inward. 0 = both aim from the point between them, so they always point the same way and never cross. Above 1 exaggerates it; below 0 goes wall-eyed.",
       },
-      closeUp: {
-        value: 1, min: 0, max: 1, step: 0.01, unit: "×",
-        label: "Close-up look",
-        info: "How much of the look range the pupils use when the cursor is right in front of its face. 1 = the full amount, which with Converge gives a hard cross-eye. 0 = too close to focus on, so they ease back to resting. Both eyes use this together, so neither is ever more interested than the other.",
+      settle: {
+        value: 1, min: 0, max: 4, step: 0.05, unit: "eyes",
+        label: "Settles within",
+        info: "Something sitting on an eye can't be looked at with that eye, and \"which way is it?\" stops meaning anything — a pixel either side of the middle would throw the pupil to the top or the bottom of the eye, which is what makes the two look disjointed. Inside this distance of an eye, measured in multiples of that eye's own radius, its pupil eases back to resting instead. 1 = it settles as the cursor crosses the eye itself. 0 = no settling, and the flipping comes back.",
       },
       reach: {
         value: 1, min: 0.05, max: 10, step: 0.05, unit: "b",
-        label: "Full-look distance",
-        info: "How far the cursor has to be for a full look, measured from between the eyes. Nearer than this the pupils ease toward Close-up look; with \"Trail after it\" it's also the distance at which the pupil reaches the rim of the eye.",
+        label: "Trail distance",
+        info: "Only used by \"Trail after it\": how far away the cursor has to be for the pupil to reach the rim of the eye. Smaller = the eyes hit their limit sooner and small movements matter more.",
       },
       speed: {
         value: 10, min: 1, max: 40, step: 0.5, unit: "/s",
@@ -969,8 +969,18 @@ export const schema = {
         label: "Hand over hand",
         info: "How far the holding legs alternate as they draw the thread out. 0 = they hold it still.",
       },
+      gripHip: {
+        value: 1, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Hips move to the thread",
+        info: "The holding legs are drawn with their hips out on the sides of the body, which is nowhere near the thread — turning them toward it just looks like it's rubbing its belly. While it drops, this slides those two hips from where they're drawn up to where the thread leaves its body, so the legs genuinely hold the line. They slide back as it turns upright, on the same fade as the grip, so you never catch them moving. 0 leaves them where they're drawn.",
+      },
+      gripSpread: {
+        value: 0.3, min: 0, max: 0.8, step: 0.01, unit: "×",
+        label: "…and sit this far apart",
+        info: "How far apart the two moved hips sit, either side of the thread, as a fraction of the spider's width. Too close and the legs land on top of each other and read as one; too far and they're back out on the flanks where they can't reach.",
+      },
       gripAlong: {
-        value: 0.7, min: 0, max: 3, step: 0.05, unit: "×",
+        value: 0.5, min: 0, max: 3, step: 0.05, unit: "×",
         label: "Where they hold on",
         info: "How far up the thread the holding legs reach for it, as a multiple of the spider's width. 0 reaches for the spot where the thread meets its body, which folds them in over its back; further up and they hold the line above them, which reads better.",
       },
@@ -980,14 +990,19 @@ export const schema = {
         info: "The furthest those legs will turn from their normal pose to get to the thread.",
       },
       wiggle: {
-        value: 14, min: 0, max: 45, step: 0.5, unit: "°",
+        value: 10, min: 0, max: 45, step: 0.5, unit: "°",
         label: "Leg work (other legs)",
-        info: "How much the legs work while it's paying out thread.",
+        info: "How much the legs that aren't holding the thread work while it's paying it out.",
       },
       wiggleSpeed: {
-        value: 3.5, min: 0.2, max: 15, step: 0.1, unit: "Hz",
+        value: 1.2, min: 0.2, max: 15, step: 0.1, unit: "Hz",
         label: "Leg work speed",
-        info: "How fast the legs work on the way down, including the hand-over-hand of the legs holding the thread.",
+        info: "How fast the legs work on the way down, including the hand-over-hand of the legs holding the thread. Much above about 2 and it stops reading as legs working and starts to look like shimmering.",
+      },
+      curl: {
+        value: 6, min: -20, max: 30, step: 0.5, unit: "°",
+        label: "Other legs tuck in",
+        info: "How much the legs that aren't holding the thread curl in toward the body on the way down, the way a spider tucks up on a dragline. Negative splays them out instead. Fades out with the rest of the drop as it turns upright.",
       },
       turnTime: {
         value: 0.6, min: 0.05, max: 3, step: 0.05, unit: "s",

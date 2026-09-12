@@ -21,6 +21,8 @@ import type { Rope } from "./rope";
  */
 
 const DEG = Math.PI / 180;
+/** How long a played idle look keeps the eyes from the cursor, seconds. */
+const PREVIEW = 3;
 
 export interface AnimationState {
   /** How much of the configured string length is spun out (1 = all of it). */
@@ -41,6 +43,8 @@ export interface AnimationState {
   attachBlend: number;
   /** 0–1: how shut the eyes are. */
   blink: number;
+  /** Seconds left of the eyes ignoring the cursor, so a played idle look can be seen. */
+  idleLook: number;
   /** Where the eyes drift when nothing else has their attention (−1..1 of the room in the eye). */
   gazeX: number;
   gazeY: number;
@@ -68,6 +72,7 @@ const blank = (): AnimationState => ({
   attachY: 0.5,
   attachBlend: 0,
   blink: 0,
+  idleLook: 0,
   gazeX: 0,
   gazeY: 0,
   mouth: 0,
@@ -92,6 +97,7 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
   let blinkFor = 0;
   let blinkLeft = 0;
   let gazeAt = 1;
+  let gazeShow = false;
   let gazeTo = { x: 0, y: 0 };
   let stretchAt = 5;
   let stretchLeft = 0;
@@ -162,8 +168,16 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
           turned = 0;
           gather(a, spun);
         } else if (id === "blink") blinkLeft = config.blink.shutFor;
-        else if (id === "gaze") gazeAt = 0;
-        else if (id === "idleLegs") stretchLeft = config.idleLegs.time;
+        else if (id === "gaze") {
+          // The cursor normally has the eyes' attention, and it's usually right there on the Play
+          // button, so hand them to the idle look for a moment or there's nothing to see.
+          gazeAt = 0;
+          gazeShow = true;
+          state.idleLook = PREVIEW;
+        } else if (id === "idleLegs") {
+          stretchLeft = config.idleLegs.time;
+          state.stretchLeg = Math.floor(Math.random() * 6);
+        }
       }
 
       // ── Drop-in ─────────────────────────────────────────────────────────
@@ -233,10 +247,16 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
         gazeAt -= dt;
         if (gazeAt <= 0) {
           gazeAt = soon(gaze.everyFrom, gaze.everyTo);
-          gazeTo =
-            Math.random() < gaze.centreChance
-              ? { x: 0, y: 0 }
-              : { x: (Math.random() * 2 - 1) * gaze.range, y: (Math.random() * 2 - 1) * gaze.range * 0.6 };
+          const spread = (much: number) => (Math.random() * 2 - 1) * gaze.range * much;
+          if (gazeShow) {
+            // Played from the panel: make sure it looks somewhere rather than straight ahead.
+            gazeTo = { x: (Math.random() < 0.5 ? -1 : 1) * gaze.range * (0.6 + Math.random() * 0.4), y: spread(0.6) };
+          } else if (Math.random() < gaze.centreChance) {
+            gazeTo = { x: 0, y: 0 };
+          } else {
+            gazeTo = { x: spread(1), y: spread(0.6) };
+          }
+          gazeShow = false;
         }
         const ease = 1 - Math.exp(-gaze.speed * dt);
         state.gazeX += (gazeTo.x - state.gazeX) * ease;
@@ -279,6 +299,8 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
           mouthWant = 0;
         }
       }
+
+      if (state.idleLook > 0) state.idleLook = Math.max(0, state.idleLook - dt);
 
       time += dt;
       state.legPhase = time * drop.wiggleSpeed * Math.PI * 2;

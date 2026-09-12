@@ -173,8 +173,9 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       pupilCenter: [0, 0] as Vec,
       /** How far off the eye's middle the pupil is drawn, art units. */
       drawn: [0, 0] as Vec,
-      /** How far the pupil can move from the eye's middle, art units. */
+      /** How far the pupil can move from the eye's middle, art units, and the eye's own radius. */
       room: 0,
+      radius: 0,
       look: [0, 0] as Vec,
     };
   });
@@ -231,6 +232,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       const eyeRadius = (Math.min(...eye.whiteShape.size) / 2) * size;
       const pupilRadius = (Math.max(...pupil.from.size) / 2) * pupilSize;
       eye.room = Math.max(0, eyeRadius - pupilRadius);
+      eye.radius = eyeRadius;
     }
 
     const m = config.mouth;
@@ -273,12 +275,26 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       const stretching = legs.indexOf(leg) === animation.stretchLeg ? up * animation.stretchAmount : 0;
       const swing =
         up * pair.angle * DEG + leg.react + (holding ? 0 : worked + stretching) + leg.phi * (1 - curl);
-      const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN;
+      // The legs with nothing to hold tuck up while it drops.
+      const tuck = holding ? 0 : up * config.dropIn.curl * DEG * animation.grip;
+      const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN + tuck;
       // Hips ride along with the torso's scale (breathing, width/height) so legs stay attached.
       const hip: Vec = [
         bodyCenter[0] + (leg.pivot[0] - bodyCenter[0]) * torsoScale[0] - up * pair.x * pct,
         bodyCenter[1] + (leg.pivot[1] - bodyCenter[1]) * torsoScale[1] + pair.y * pct,
       ];
+      if (holding) {
+        // …except the pair holding the thread, whose hips slide toward where the thread leaves the
+        // body so the legs can actually reach it. The slide follows the grip, which fades over the
+        // turn, so they walk back to their drawn places rather than snapping.
+        // Either side of where the thread leaves the body, rather than both on the same spot,
+        // or the two legs land on top of each other and read as one.
+        const to = attachPoint();
+        const move = config.dropIn.gripHip * animation.grip;
+        const side = (leg.side === "left" ? -1 : 1) * config.dropIn.gripSpread * (W / 2);
+        hip[0] += (to[0] + side - hip[0]) * move;
+        hip[1] += (to[1] - hip[1]) * move;
+      }
       // Turn the leg from its placed pose toward the thread, and add the hand-over-hand.
       let reach = 0;
       if (holding) {
@@ -408,19 +424,20 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
     // one pupil would creep while the other pinned itself to the rim.
     const between: Vec = [avg(eyes.map((e) => e.center[0])), avg(eyes.map((e) => e.center[1]))];
     const distance = at ? Math.hypot(at.x - between[0], at.y - between[1]) / artPerB : Infinity;
-    const noticed = at !== null && distance < p.radius;
+    // Idle animations played from the panel get a moment with the eyes to themselves.
+    const noticed = at !== null && distance < p.radius && animation.idleLook <= 0;
     const reach = Math.max(0.001, p.reach);
-    const effort = p.closeUp + (1 - p.closeUp) * Math.min(1, distance / reach);
     const k = 1 - Math.exp(-p.speed * dt);
     for (const eye of eyes) {
       // Everything here is measured from the middle of the eye, so the two eyes travel alike.
       // "Inward" is toward the other eye, which is +x for the left one.
       const inward = eye.side === "left" ? 1 : -1;
       // Left alone, the eyes sit at rest and wander (Animations → Idle eyes).
-      let look: Vec = [
+      const idle: Vec = [
         (p.restX + inward * p.restIn + animation.gazeX) * eye.room,
         (p.restY + animation.gazeY) * eye.room,
       ];
+      let look = idle;
       if (noticed && at) {
         const room = eye.room * p.range;
         // Where this eye aims from: the point between the eyes, its own middle, or further out
@@ -432,14 +449,22 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
         ];
         const dx = at.x - from[0];
         const dy = at.y - from[1];
+        const dist = Math.hypot(dx, dy);
+        let aimed: Vec;
         if (p.aim === "trail") {
           // The pupil sits where the cursor is, shrunk to fit the eye: the rim at a full look away.
           const scale = room / (reach * artPerB);
-          look = clampLength([dx * scale, dy * scale], room * effort);
+          aimed = clampLength([dx * scale, dy * scale], room);
         } else {
-          const dist = Math.hypot(dx, dy) || 1;
-          look = [(dx / dist) * room * effort, (dy / dist) * room * effort];
+          const len = dist || 1;
+          aimed = [(dx / len) * room, (dy / len) * room];
         }
+        // Close in, the direction stops being worth anything: a cursor a pixel above the middle of
+        // an eye and one a pixel below point the pupil to opposite rims. So near the eye — or near
+        // whatever point it's aiming from — the look eases back to resting instead of flipping.
+        const near = Math.min(dist, Math.hypot(at.x - eye.center[0], at.y - eye.center[1]));
+        const ease = Math.min(1, near / Math.max(0.001, p.settle * eye.radius));
+        look = [idle[0] + (aimed[0] - idle[0]) * ease, idle[1] + (aimed[1] - idle[1]) * ease];
       }
       // Where the pupil wants to be, still from the middle of the eye…
       const home = p.home === "drawn" ? eye.drawn : ([0, 0] as Vec);
