@@ -34,6 +34,9 @@ function mount(root: HTMLElement) {
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   let placed = false;
+  let behind: boolean | null = null;
+  /** How far the rope is currently let out past its length: follows the pull, eases back after a release. */
+  let letOut = 0;
   let time = 0;
   let pending = 0;
   let last = performance.now();
@@ -52,6 +55,10 @@ function mount(root: HTMLElement) {
 
     const a = anchor.measure();
     if (a) {
+      if (config.rope.behind !== behind) {
+        behind = config.rope.behind;
+        root.toggleAttribute("data-behind", behind);
+      }
       if (drag.held === null && config.rope.segments !== rope.points.length - 1) {
         rope.setSegments(config.rope.segments);
       }
@@ -79,7 +86,23 @@ function mount(root: HTMLElement) {
         rope.head.y = rope.head.py = a.y;
         drag.step(a, step);
         rope.integrate(step, gravity, config.rope.drag, config.bob.drag, (i) => breeze(i, sway));
-        rope.solve(config.rope.iterations, config.rope.stiffness, config.rope.maxStretch);
+        // Let the rope out as far as it's being pulled, so a wound-up string stretches evenly, and
+        // reel it back in over a moment when released instead of snapping it back in one step.
+        const want = drag.held === null ? config.rope.maxStretch : Math.max(config.rope.maxStretch, drag.stretch);
+        letOut = want >= letOut ? want : want + (letOut - want) * Math.exp(-step / Math.max(0.001, config.pull.snapBack));
+        rope.solve(config.rope.iterations, config.rope.stiffness, letOut);
+        if (config.edges.enabled) {
+          const page = document.documentElement;
+          rope.contain(
+            window.scrollX,
+            window.scrollY,
+            window.scrollX + page.clientWidth,
+            window.scrollY + page.clientHeight,
+            config.edges.bounce,
+            config.edges.friction,
+            config.edges.spiderSize * config.look.width * a.unit,
+          );
+        }
       }
 
       // Draw part-way between the last two physics steps, so motion is even at any refresh rate.

@@ -182,6 +182,11 @@ export const schema = {
         label: "Solver passes",
         info: "Constraint passes per physics step. Higher = holds its shape more precisely; lower = saggier and cheaper.",
       },
+      behind: {
+        value: true,
+        label: "Behind the logo & text",
+        info: "Draws the string and spider behind the page, so dragging the spider up takes it behind the logo, where it shows through the hole in the b. Off = always in front.",
+      },
     },
   },
 
@@ -214,10 +219,10 @@ export const schema = {
     info: "Holding the spider (or the string) and letting go.",
     params: {
       axis: {
-        value: "x" as "x" | "free",
-        options: { x: "Left/right (rides the pendulum arc)", free: "Free (follows the pointer)" },
+        value: "free" as "x" | "free",
+        options: { free: "Anywhere (string goes slack)", x: "Left/right only (rides the swing arc)" },
         label: "Drag mode",
-        info: "Left/right: the pointer only steers sideways and the spider rises along its swing. Free: it follows the pointer anywhere within reach, and the string goes slack if you push it up.",
+        info: "Anywhere: the spider follows the pointer wherever it goes — beside the b, up above it, or in close, where the string goes slack. Left/right: the pointer only steers sideways and the spider rides its swing arc.",
       },
       maxAngle: {
         value: 70, min: 10, max: 90, step: 1, unit: "°",
@@ -248,6 +253,77 @@ export const schema = {
         value: 0.06, min: 0.01, max: 0.3, step: 0.005, unit: "b",
         label: "String grab width",
         info: "How close to the string a press (or the grab cursor) counts as touching it.",
+      },
+    },
+  },
+
+  pull: {
+    group: "string",
+    label: "Wind-up",
+    info: "Dragging past what the string can reach: it gives less and less, shudders, and flings the spider when you let go.",
+    params: {
+      stretch: {
+        value: 0.3, min: 0, max: 1.5, step: 0.01, unit: "×",
+        label: "Stretch",
+        info: "How far past its length the string can be pulled, at most. 0 = it stops dead at full reach.",
+      },
+      softness: {
+        value: 0.35, min: 0.02, max: 2, step: 0.01, unit: "×",
+        label: "Give",
+        info: "How quickly the stretch runs out as you pull further. Small = it reaches its limit almost at once (stiff); large = it keeps giving (slack elastic).",
+      },
+      snapBack: {
+        value: 0.08, min: 0.01, max: 1, step: 0.01, unit: "s",
+        label: "Snap-back time",
+        info: "How long the stretched string takes to pull back to its length once you let go. Short = a violent whip; long = a lazy elastic that eases back.",
+      },
+      fling: {
+        value: 8, min: 0, max: 40, step: 0.5, unit: "b/s",
+        label: "Release fling",
+        info: "Extra speed the spider gets when you let go of a fully wound string, sending it across the other way. 0 = it just springs back on its own.",
+      },
+      shakeStart: {
+        value: 0.45, min: 0, max: 1, step: 0.01,
+        label: "Shudder starts at",
+        info: "How wound up it has to be before the string starts shaking. 0 = shakes from the first pull, 1 = never.",
+      },
+      shake: {
+        value: 0.05, min: 0, max: 0.5, step: 0.005, unit: "b",
+        label: "Shudder amount",
+        info: "How far the string shakes when fully wound.",
+      },
+      shakeSpeed: {
+        value: 26, min: 1, max: 80, step: 1, unit: "Hz",
+        label: "Shudder speed",
+        info: "How fast it shakes. High and small reads as a tight buzz; low and wide as a heavy wobble.",
+      },
+    },
+  },
+
+  edges: {
+    group: "string",
+    label: "Edges",
+    info: "What happens when the string or spider reaches the edge of the window.",
+    params: {
+      enabled: {
+        value: true,
+        label: "Bounce off the edges",
+        info: "Keeps the string and spider inside the window instead of letting them go off-screen.",
+      },
+      bounce: {
+        value: 0.45, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Bounciness",
+        info: "How much speed comes back off an edge. 0 = stops dead against it; 1 = bounces back at full speed.",
+      },
+      friction: {
+        value: 0.15, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Edge friction",
+        info: "How much it's slowed while sliding along an edge. 0 = slides freely, 1 = sticks.",
+      },
+      spiderSize: {
+        value: 0.35, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Spider size at edges",
+        info: "How big the spider counts as when it hits an edge, as a fraction of its width. Higher keeps more of it on screen.",
       },
     },
   },
@@ -646,6 +722,68 @@ export const schema = {
         value: 0.2, min: 0, max: 2, step: 0.01, unit: "/s",
         label: "Fidget rate",
         info: "Roughly how many twitches per second, across all legs.",
+      },
+    },
+  },
+
+  legReact: {
+    group: "spidey",
+    label: "Leg reactions",
+    info: "What the legs do when the cursor comes near them. Flip through the modes to see which feels right.",
+    params: {
+      mode: {
+        value: "flinch" as "off" | "flinch" | "reach" | "curl" | "wiggle" | "wave" | "flick",
+        options: {
+          off: "Nothing",
+          flinch: "Flinch away from the cursor",
+          reach: "Reach toward the cursor",
+          curl: "Curl up",
+          wiggle: "Wiggle",
+          wave: "Wave (ripples from leg to leg)",
+          flick: "Flick once, as the cursor arrives",
+        },
+        label: "Reaction",
+        info: "Flinch and reach lean away from or toward the cursor. Curl bends the leg up. Wiggle and wave shake while the cursor is near. Flick gives one kick and lets the leg's spring settle it.",
+      },
+      scope: {
+        value: "each" as "each" | "nearest" | "all",
+        options: {
+          each: "Each leg on its own",
+          nearest: "Only the nearest leg",
+          all: "All legs together",
+        },
+        label: "Which legs react",
+        info: "On its own: every leg answers the cursor by how near it is. Nearest: only the closest leg moves. Together: all six react as one, by whichever leg is nearest.",
+      },
+      radius: {
+        value: 0.5, min: 0.05, max: 3, step: 0.01, unit: "b",
+        label: "Notice distance",
+        info: "How close the cursor has to get to a leg before it reacts at all.",
+      },
+      strength: {
+        value: 18, min: 0, max: 60, step: 0.5, unit: "°",
+        label: "Strength",
+        info: "How far the leg moves when the cursor is right on it (or the size of the kick, for flick).",
+      },
+      falloff: {
+        value: 1.5, min: 0.5, max: 4, step: 0.05,
+        label: "Falloff",
+        info: "How sharply the reaction fades with distance. 1 = even; higher = nothing until the cursor is almost touching.",
+      },
+      speed: {
+        value: 6, min: 0.2, max: 20, step: 0.1, unit: "Hz",
+        label: "Wiggle speed",
+        info: "Wiggle and wave only: how fast the legs shake.",
+      },
+      waveOffset: {
+        value: 60, min: 0, max: 180, step: 5, unit: "°",
+        label: "Wave offset",
+        info: "Wave only: how far behind each other the legs are in the ripple. 0 = they all move as one.",
+      },
+      ease: {
+        value: 10, min: 1, max: 40, step: 0.5, unit: "/s",
+        label: "Ease in/out",
+        info: "How quickly a leg takes up the reaction and lets it go. Low = slow and gooey; high = instant and twitchy.",
       },
     },
   },

@@ -35,6 +35,11 @@ const { anchor } = Astro.props;
     user-select: none;
     -webkit-user-select: none;
   }
+  /* String → String → "Behind the logo & text": the spider can go up behind the
+     logo and show through the hole in the b. */
+  .spider-string[data-behind] {
+    z-index: 0;
+  }
   .canvas {
     display: block;
     width: 100%;

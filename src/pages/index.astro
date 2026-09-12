@@ -45,6 +45,14 @@ import SpiderString from "../components/SpiderString.astro";
   main {
     text-align: center;
     padding: 2rem;
+    /* Above the string and spider, which can pass behind it… */
+    position: relative;
+    z-index: 1;
+    /* …but presses go through to the spider back there. */
+    pointer-events: none;
+  }
+  main p {
+    pointer-events: auto;
   }
   h1 {
     margin: 0;

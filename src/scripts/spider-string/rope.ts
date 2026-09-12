@@ -159,6 +159,45 @@ export class Rope {
     this.tether(1 + maxStretch);
   }
 
+  /**
+   * Keeps every free point inside a box, bouncing rather than stopping dead:
+   * `restitution` is how much speed comes back off an edge, `friction` how
+   * much is scrubbed off along it, and `tailRadius` gives the tail some size.
+   */
+  contain(minX: number, minY: number, maxX: number, maxY: number, restitution: number, friction: number, tailRadius: number) {
+    const last = this.points.length - 1;
+    for (let i = 0; i <= last; i++) {
+      const p = this.points[i];
+      if (p.w === 0) continue;
+      const r = i === last ? tailRadius : 0;
+      let { x, y } = p;
+      let vx = p.x - p.px;
+      let vy = p.y - p.py;
+      if (x < minX + r) {
+        x = minX + r;
+        vx = -vx * restitution;
+        vy *= 1 - friction;
+      } else if (x > maxX - r) {
+        x = maxX - r;
+        vx = -vx * restitution;
+        vy *= 1 - friction;
+      }
+      if (y < minY + r) {
+        y = minY + r;
+        vy = -vy * restitution;
+        vx *= 1 - friction;
+      } else if (y > maxY - r) {
+        y = maxY - r;
+        vy = -vy * restitution;
+        vx *= 1 - friction;
+      }
+      p.x = x;
+      p.y = y;
+      p.px = x - vx;
+      p.py = y - vy;
+    }
+  }
+
   /** First link crossed by the line from (ax, ay) to (bx, by), if any. */
   intersect(ax: number, ay: number, bx: number, by: number): Crossing | null {
     const pts = this.points;

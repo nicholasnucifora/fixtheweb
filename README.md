@@ -37,9 +37,9 @@ A string hangs from the bottom of the logo's "b" with a draggable spider on the 
 - `tune.ts`: live tuning panel built from `config.ts`, with String and Spidey tabs. Open the page with `?tune` (e.g. `http://localhost:4321/?tune`). Tweaks are saved in that browser and only apply with `?tune`; "Copy changes" gives JSON to bake into `config.ts`.
 - `anchor.ts`: finds the glyph's lowest point and tracks it on the page every frame.
 - `rope.ts`: Verlet string physics (no DOM).
-- `drag.ts`: grab/drag/release of the spider or the string, and blocking text selection while held.
+- `drag.ts`: grab/drag/release of the spider or the string. Dragging within reach lets the string go slack; past it the string gives less and less (a rubber band that shudders, then flings the spider on release). Also blocks text selection while held.
 - `pluck.ts`: pointer crossing the string → nudge + particle burst. `particles.ts` draws the dashes.
-- `spider.ts`: the spider, drawn onto the same canvas as the string so it stays crisp while it moves and turns (the SVG is only its source of shapes) — positioning and tilt, colours and outline, face and part placement (including mirrored eyes/pupils/legs), pupils following the cursor, breathing, and spring-driven legs that swing and curl.
+- `spider.ts`: the spider, drawn onto the same canvas as the string so it stays crisp while it moves and turns (the SVG is only its source of shapes) — positioning and tilt, colours and outline, face and part placement (including mirrored eyes/pupils/legs), pupils following the cursor, breathing, spring-driven legs that swing and curl, and legs that react to the cursor coming near them (flinch, reach, curl, wiggle, wave or flick).
 - `render.ts`: canvas drawing of the string and dashes. `index.ts` wires it all into one loop.
 
 The root element emits `spider:grab`, `spider:release` and `spider:pluck` events and sets `data-spider` / `data-string` (`idle|hover|held`) for styling.

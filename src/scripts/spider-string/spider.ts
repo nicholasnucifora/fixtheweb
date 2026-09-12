@@ -67,6 +67,15 @@ interface Leg {
   path: Path2D;
   /** Where the hip is this frame, art units (for the debug marker). */
   hip: Vec;
+  /** A few points along the leg, relative to its hip as drawn, for measuring how near the cursor is. */
+  spine: Vec[];
+  /** Those points in art coordinates, from the last pose. */
+  sampled: Vec[];
+  /** Reaction to the cursor: extra swing and curl, eased in and out. */
+  react: number;
+  reactBend: number;
+  /** Was the cursor near it last frame? (So a flick only fires as it arrives.) */
+  wasNear: boolean;
 }
 /** What the last update worked out, for drawing. */
 interface Pose {
@@ -111,6 +120,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
     const cmds = parse(dOf(el));
     const pts = points(cmds).map(([x, y]) => [x - pivot[0], y - pivot[1]] as Vec);
     const mean: Vec = [avg(pts.map((p) => p[0])), avg(pts.map((p) => p[1]))];
+    const every = Math.max(1, Math.ceil(pts.length / 8));
     return {
       side: id[0] === "R" ? "right" : "left",
       pair: Number(id[1]) as 1 | 2 | 3,
@@ -127,6 +137,11 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       d: "",
       path: new Path2D(),
       hip: pivot,
+      spine: pts.filter((_, k) => k % every === 0),
+      sampled: [],
+      react: 0,
+      reactBend: 0,
+      wasNear: false,
     };
   });
   const legOf = (side: Side, pair: number) => legs.find((l) => l.side === side && l.pair === pair)!;
@@ -226,8 +241,8 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       const { from, mirrored } = pick(pair.shape as Source, leg.side, (s) => legOf(s, leg.pair));
       // Sliders are written for "tips up = positive"; that's clockwise on the left, anticlockwise on the right.
       const up = leg.side === "left" ? 1 : -1;
-      const swing = up * pair.angle * DEG + leg.phi * (1 - curl);
-      const bend = up * pair.bend * DEG + leg.phi * curl * CURL_GAIN;
+      const swing = up * pair.angle * DEG + leg.react + leg.phi * (1 - curl);
+      const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN;
       // Hips ride along with the torso's scale (breathing, width/height) so legs stay attached.
       const hip: Vec = [
         bodyCenter[0] + (leg.pivot[0] - bodyCenter[0]) * torsoScale[0] - up * pair.x * pct,
@@ -235,19 +250,73 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       ];
       const cos = Math.cos(swing);
       const sin = Math.sin(swing);
-      const d = mapPath(from.cmds, (x, y) => {
+      const put = (x: number, y: number): Vec => {
         let px = x - from.pivot[0];
         let py = y - from.pivot[1];
         if (mirrored) px = -px;
         if (bend) [px, py] = rotate([px, py], bend * (Math.hypot(px, py) / from.reach) ** focus);
         return [hip[0] + (px * cos - py * sin) * pair.scale, hip[1] + (px * sin + py * cos) * pair.scale];
-      });
+      };
+      const d = mapPath(from.cmds, put);
+      // Where the leg ended up, so the cursor's distance to it can be measured next frame.
+      leg.sampled = from.spine.map(([sx, sy]) => put(sx + from.pivot[0], sy + from.pivot[1]));
       if (d !== leg.d) {
         leg.d = d;
         leg.path = new Path2D(d);
       }
       leg.hip = hip;
     }
+  };
+
+  /**
+   * Legs notice the cursor. `mode` picks what they do about it and `scope` which
+   * of them join in; the movement eases in and out on top of their placed pose,
+   * so their springs carry on underneath.
+   */
+  const reactToCursor = (dt: number, cursor: Vec | null) => {
+    const r = config.legReact;
+    const radius = r.radius * (W / config.look.width);
+    const ease = 1 - Math.exp(-r.ease * dt);
+    const still = reducedMotion.matches;
+
+    // How near the cursor is to each leg, 0–1.
+    const near = legs.map((leg) => {
+      if (!cursor || r.mode === "off" || radius <= 0) return 0;
+      let closest = Infinity;
+      for (const [x, y] of leg.sampled) closest = Math.min(closest, Math.hypot(x - cursor[0], y - cursor[1]));
+      return Math.max(0, 1 - closest / radius) ** r.falloff;
+    });
+    const most = Math.max(0, ...near);
+    if (r.scope === "all") near.fill(most);
+    else if (r.scope === "nearest") near.forEach((amount, i) => (near[i] = amount === most && most > 0 ? most : 0));
+
+    legs.forEach((leg, i) => {
+      const amount = near[i];
+      const strength = r.strength * DEG * amount;
+      let swing = 0;
+      let bend = 0;
+      if (amount > 0 && cursor) {
+        // Which side of the leg the cursor is on, so it can move away from it or toward it.
+        const tip = leg.sampled[leg.sampled.length - 1] ?? leg.hip;
+        const along: Vec = [tip[0] - leg.hip[0], tip[1] - leg.hip[1]];
+        const toCursor: Vec = [cursor[0] - leg.hip[0], cursor[1] - leg.hip[1]];
+        const side = Math.sign(cross(along, toCursor)) || 1;
+        const up = leg.side === "left" ? 1 : -1;
+        const phase = r.mode === "wave" ? i * r.waveOffset * DEG : 0;
+        const wobble = still ? 1 : Math.sin(time * r.speed * Math.PI * 2 + phase);
+        if (r.mode === "flinch") swing = -side * strength;
+        else if (r.mode === "reach") swing = side * strength;
+        else if (r.mode === "curl") bend = up * strength;
+        else if (r.mode === "wiggle" || r.mode === "wave") swing = wobble * strength;
+        else if (r.mode === "flick" && !leg.wasNear && amount > 0.2) {
+          // One kick as the cursor arrives; the leg's own spring takes it from there.
+          leg.omega -= side * r.strength * DEG * 2 * Math.PI * config.legMotion.spring;
+        }
+      }
+      leg.wasNear = amount > 0.2;
+      leg.react += (swing - leg.react) * ease;
+      leg.reactBend += (bend - leg.reactBend) * ease;
+    });
   };
 
   /** One physics step for every leg. `gravity` is the felt pull (gravity minus the spider's acceleration) in the spider's own frame, in g. */
@@ -444,6 +513,10 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       if (!fav) {
         layoutFace();
         updateRoots();
+        const at = pointer
+          ? art.inverse().transformPoint(new DOMPoint(pointer.x + window.scrollX, pointer.y + window.scrollY))
+          : null;
+        reactToCursor(dt, at ? [at.x, at.y] : null);
         poseLegs(torsoScale);
         lookAround(dt, art.multiply(torso).multiply(faceMatrix));
       }
