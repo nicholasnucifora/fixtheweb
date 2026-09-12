@@ -2,6 +2,7 @@ import {
   config,
   groups,
   schema,
+  type ActionParam,
   type ChoiceParam,
   type ColorParam,
   type NumberParam,
@@ -21,6 +22,7 @@ type Values = Record<string, Record<string, Value>>;
 const isChoice = (p: Param): p is ChoiceParam => "options" in p;
 const isToggle = (p: Param): p is ToggleParam => typeof p.value === "boolean";
 const isColor = (p: Param): p is ColorParam => "kind" in p && p.kind === "color";
+const isAction = (p: Param): p is ActionParam => "kind" in p && p.kind === "action";
 
 /**
  * Live tuning panel, loaded only when the page URL has ?tune.
@@ -99,7 +101,8 @@ export function mountTuner() {
     const out: [string, Value][] = [];
     for (const [s, section] of Object.entries(sections)) {
       for (const [k, param] of Object.entries(section.params)) {
-        if (values[s][k] !== param.value) out.push([`${s}.${k}`, values[s][k]]);
+        // Buttons aren't settings: they bump a counter and nothing else.
+        if (!isAction(param) && values[s][k] !== param.value) out.push([`${s}.${k}`, values[s][k]]);
       }
     }
     return out;
@@ -149,7 +152,7 @@ export function mountTuner() {
 
   resetAll.onclick = () => {
     for (const [s, section] of Object.entries(sections)) {
-      for (const [k, param] of Object.entries(section.params)) values[s][k] = param.value;
+      for (const [k, param] of Object.entries(section.params)) if (!isAction(param)) values[s][k] = param.value;
     }
     fallback.hidden = true;
     save();
@@ -203,6 +206,20 @@ function row(param: Param, set: (v: Value) => void) {
   reset.onclick = () => set(param.value);
   head.append(h("span", "label", param.label));
   let sync: (v: Value) => void;
+
+  if (isAction(param)) {
+    // A button: clicking bumps the counter that the animation code watches.
+    const button = h("button", "action", param.label);
+    let now = Number(param.value);
+    button.onclick = () => set(now + 1);
+    el.append(button, h("p", "info", param.info));
+    return {
+      el,
+      update(v: Value) {
+        now = Number(v);
+      },
+    };
+  }
 
   if (isChoice(param)) {
     const select = h("select");
@@ -272,7 +289,7 @@ function applySaved(values: Values, sections: Record<string, Section>) {
   for (const [path, v] of Object.entries(saved)) {
     const [s, k] = path.split(".");
     const param = sections[s]?.params[k];
-    if (!param || typeof v !== typeof param.value) continue;
+    if (!param || isAction(param) || typeof v !== typeof param.value) continue;
     if (isChoice(param) && !(String(v) in param.options)) continue;
     if (isColor(param) && !/^#[0-9a-f]{6}$/i.test(String(v))) continue;
     values[s][k] = v as Value;
@@ -281,6 +298,7 @@ function applySaved(values: Values, sections: Record<string, Section>) {
 
 function describe(param: Param, v: Value) {
   if (isChoice(param)) return param.options[String(v)] ?? String(v);
+  if (isAction(param)) return "a button";
   if (isToggle(param)) return v ? "on" : "off";
   if (isColor(param)) return String(v);
   const unit = (param as NumberParam).unit;
@@ -350,6 +368,13 @@ const styles = `
   summary { padding: 10px 12px 2px; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
   .section-info { margin: 0 12px 4px; color: var(--muted); }
   .row { padding: 7px 12px 7px 9px; border-left: 3px solid transparent; }
+  .action {
+    display: block; width: 100%; margin: 2px 0 4px; padding: 7px 10px; cursor: pointer;
+    font: 600 12px/1 system-ui, sans-serif; text-align: left; color: var(--fg);
+    background: var(--field); border: 1px solid var(--line); border-radius: 7px;
+  }
+  .action:hover { border-color: var(--accent); }
+  .action:active { background: var(--soft); }
   .row.changed { border-left-color: var(--accent); background: var(--soft); }
   .row-head { display: flex; align-items: center; gap: 6px; }
   .label { flex: 1; font-weight: 600; }

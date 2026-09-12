@@ -1,5 +1,6 @@
 import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
+import type { AnimationState } from "./animation";
 import { config } from "./config";
 import { stringDeviceWidth } from "./render";
 import type { Rope } from "./rope";
@@ -93,7 +94,7 @@ interface Pose {
   face: DOMMatrix;
 }
 
-export function createSpider(bob: HTMLElement, rope: Rope) {
+export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationState) {
   const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
   const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
   const pct = W / 100;
@@ -241,15 +242,33 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       const { from, mirrored } = pick(pair.shape as Source, leg.side, (s) => legOf(s, leg.pair));
       // Sliders are written for "tips up = positive"; that's clockwise on the left, anticlockwise on the right.
       const up = leg.side === "left" ? 1 : -1;
-      const swing = up * pair.angle * DEG + leg.react + leg.phi * (1 - curl);
+      // Animations swing the legs too, offset leg to leg so they don't move as one.
+      const worked = animation.legSwing * Math.sin(animation.legPhase + legs.indexOf(leg) * 1.1);
+      // …and one pair can be holding the thread, reaching for wherever it leaves the spider
+      // and working it hand over hand. Those legs are busy, so they skip the idle swing.
+      const holding = animation.grip > 0 && leg.pair === Number(config.dropIn.gripPair);
+      const swing =
+        up * pair.angle * DEG + leg.react + (holding ? 0 : worked) + leg.phi * (1 - curl);
       const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN;
       // Hips ride along with the torso's scale (breathing, width/height) so legs stay attached.
       const hip: Vec = [
         bodyCenter[0] + (leg.pivot[0] - bodyCenter[0]) * torsoScale[0] - up * pair.x * pct,
         bodyCenter[1] + (leg.pivot[1] - bodyCenter[1]) * torsoScale[1] + pair.y * pct,
       ];
-      const cos = Math.cos(swing);
-      const sin = Math.sin(swing);
+      // Turn the leg from its placed pose toward the thread, and add the hand-over-hand.
+      let reach = 0;
+      if (holding) {
+        const drop = config.dropIn;
+        const thread: Vec = [config.look.attachX * W, config.look.attachY * H];
+        const toThread: Vec = [thread[0] - hip[0], thread[1] - hip[1]];
+        const rest = rotate(leg.weightDir, swing);
+        const turn = Math.atan2(cross(rest, toThread), rest[0] * toThread[0] + rest[1] * toThread[1]);
+        const most = drop.gripReach * DEG;
+        const hand = animation.pull * drop.gripPull * DEG * (leg.side === "left" ? 1 : -1);
+        reach = animation.grip * drop.grip * (Math.max(-most, Math.min(most, turn)) + hand);
+      }
+      const cos = Math.cos(swing + reach);
+      const sin = Math.sin(swing + reach);
       const put = (x: number, y: number): Vec => {
         let px = x - from.pivot[0];
         let py = y - from.pivot[1];
@@ -423,37 +442,59 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
 
       const n = rope.points.length;
       const tail = rope.at(n - 1, alpha);
-      const prev = rope.at(n - 2, alpha);
-      const stringAngle = Math.atan2(-(tail.x - prev.x), tail.y - prev.y);
       const b = config.body;
-
-      if (!started) {
-        started = true;
-        tilt = stringAngle * b.tiltAmount;
-      }
 
       if (simDt > 0) {
         // Velocity straight from the physics (exact per step, unlike frame-to-frame positions),
         // and smoothed acceleration in b/s²: what the legs feel as it swings.
         const t = rope.tail;
         const v: Vec = [((t.x - t.px) * config.sim.rate) / a.unit, ((t.y - t.py) * config.sim.rate) / a.unit];
-        const smooth = 1 - Math.exp(-20 * simDt);
+        const smooth = 1 - Math.exp(-config.body.leanSmoothing * simDt);
         accel = [
           accel[0] + ((v[0] - velocity[0]) / simDt - accel[0]) * smooth,
           accel[1] + ((v[1] - velocity[1]) / simDt - accel[1]) * smooth,
         ];
         velocity = v;
+      } else if (dt > 0) {
+        // No physics stepped this frame: ease the felt force back toward plain gravity rather than
+        // freezing on the last spike, so a held-still spider always settles upright.
+        const fade = Math.exp(-config.body.leanSmoothing * dt);
+        accel = [accel[0] * fade, accel[1] * fade];
+      }
+
+      // Which way "down" feels to the spider: gravity, plus however it's being moved. Hanging
+      // still that's straight down, so it sits upright; swung on a taut string it points along the
+      // string, so it leans into the swing; yanked sideways it leans into the yank. The legs feel
+      // the same force.
+      const g = config.rope.gravity;
+      const felt = clampLength([-accel[0] / g, 1 - accel[1] / g], 4);
+      // The body only takes `leanForce` of the movement, so it sways rather than whips about;
+      // the legs still feel the whole thing (their own Floppiness scales that).
+      const swayed = clampLength([(-accel[0] / g) * b.leanForce, 1 - (accel[1] / g) * b.leanForce], 4);
+      const limit = b.tiltMax * DEG;
+      let lean = Math.atan2(-swayed[0], swayed[1]);
+      if (b.tiltSource === "string") {
+        // The old way: follow the string itself, averaged over the last few links (one link's
+        // direction wanders when the string is loose), fading to upright as the string goes slack.
+        const back = rope.at(Math.max(0, n - 4), alpha);
+        const head = rope.at(0, alpha);
+        const taut = rope.length > 0 ? Math.min(1, Math.hypot(tail.x - head.x, tail.y - head.y) / rope.length) : 1;
+        lean = Math.atan2(-(tail.x - back.x), tail.y - back.y) * (1 - b.tiltSlack * (1 - taut));
+      }
+      const tiltTarget = Math.max(-limit, Math.min(limit, lean)) * b.tiltAmount;
+
+      if (!started) {
+        started = true;
+        tilt = tiltTarget;
       }
 
       if (dt > 0) {
-        const g = config.rope.gravity;
-        const felt = clampLength([-accel[0] / g, 1 - accel[1] / g], 4);
         const still = reducedMotion.matches;
         const steps = Math.ceil(dt / MAX_STEP);
         const h = dt / steps;
         const tw = 2 * Math.PI * b.tiltSpring;
         for (let i = 0; i < steps; i++) {
-          tiltSpeed += (tw * tw * (stringAngle * b.tiltAmount - tilt) - 2 * b.tiltDamping * tw * tiltSpeed) * h;
+          tiltSpeed += (tw * tw * (tiltTarget - tilt) - 2 * b.tiltDamping * tw * tiltSpeed) * h;
           tilt += tiltSpeed * h;
           stepLegs(h, rotate(felt, -tilt), still ? 0 : config.legMotion.fidget);
         }
@@ -492,7 +533,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
       // The spider: its attach point on the string's end, turned around that point.
       let art = new DOMMatrix()
         .translate(tail.x, tail.y)
-        .rotate((tilt * (1 - snap)) / DEG)
+        .rotate((tilt * (1 - snap) + animation.tilt) / DEG)
         .scale(kx, ky)
         .translate(-config.look.attachX * W, -config.look.attachY * H);
       stringShift = 0;
@@ -524,7 +565,7 @@ export function createSpider(bob: HTMLElement, rope: Rope) {
 
       const sx = window.scrollX;
       const sy = window.scrollY;
-      bob.style.transform = `translate(${tail.x - sx}px, ${tail.y - sy}px) translate(${-px}%, ${-py}%) rotate(${tilt}rad)`;
+      bob.style.transform = `translate(${tail.x - sx}px, ${tail.y - sy}px) translate(${-px}%, ${-py}%) rotate(${tilt + animation.tilt}rad)`;
     },
 
     /** Draws the spider with the renderer's context (already mapping document px to the canvas). */

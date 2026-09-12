@@ -1,4 +1,5 @@
 import { createAnchor } from "./anchor";
+import { createAnimations } from "./animation";
 import { config } from "./config";
 import { createDrag } from "./drag";
 import { Particles } from "./particles";
@@ -30,7 +31,8 @@ function mount(root: HTMLElement) {
   const drag = createDrag(root, bob, rope);
   const pluck = createPluck(root, rope, particles);
   const renderer = createRenderer(root, canvas);
-  const spider = createSpider(bob, rope);
+  const animations = createAnimations(rope, () => drag.held !== null);
+  const spider = createSpider(bob, rope, animations.state);
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   let placed = false;
@@ -62,7 +64,11 @@ function mount(root: HTMLElement) {
       if (drag.held === null && config.rope.segments !== rope.points.length - 1) {
         rope.setSegments(config.rope.segments);
       }
-      const length = config.rope.length * a.unit;
+      // Animations can be paying the thread out, so they get a say in how long the string is.
+      const tail = rope.tail;
+      const sideways = (Math.abs(tail.x - tail.px) * config.sim.rate) / a.unit;
+      animations.update(a, real * config.sim.timeScale, sideways);
+      const length = config.rope.length * a.unit * animations.state.lengthFactor;
       if (Math.abs(length - rope.length) > 0.01) rope.setLength(length);
       if (!placed) {
         rope.reset(a.x, a.y);
@@ -90,7 +96,15 @@ function mount(root: HTMLElement) {
         // reel it back in over a moment when released instead of snapping it back in one step.
         const want = drag.held === null ? config.rope.maxStretch : Math.max(config.rope.maxStretch, drag.stretch);
         letOut = want >= letOut ? want : want + (letOut - want) * Math.exp(-step / Math.max(0.001, config.pull.snapBack));
-        rope.solve(config.rope.iterations, config.rope.stiffness, letOut);
+        rope.solve(
+          config.rope.iterations,
+          config.rope.stiffness,
+          letOut,
+          config.rope.compression,
+          step,
+          config.rope.springBack,
+          config.rope.springDamping,
+        );
         if (config.edges.enabled) {
           const page = document.documentElement;
           rope.contain(

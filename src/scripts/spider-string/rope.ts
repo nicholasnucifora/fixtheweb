@@ -146,17 +146,25 @@ export class Rope {
    * Pulls links back toward rest length (`stiffness` 0–1 per pass), then
    * tethers every point so the rope never stretches past `1 + maxStretch`.
    */
-  solve(iterations: number, stiffness: number, maxStretch: number) {
+  solve(
+    iterations: number,
+    stiffness: number,
+    maxStretch: number,
+    compression = 1,
+    dt = 0,
+    springBack = 0,
+    springDamping = 0,
+  ) {
     const pts = this.points;
     for (let it = 0; it < iterations; it++) {
       // Alternate sweep direction so corrections spread evenly both ways.
       const forward = it % 2 === 0;
       for (let k = 0; k < pts.length - 1; k++) {
         const i = forward ? k : pts.length - 2 - k;
-        this.relax(pts[i], pts[i + 1], stiffness);
+        this.relax(pts[i], pts[i + 1], stiffness, compression);
       }
     }
-    this.tether(1 + maxStretch);
+    this.tether(1 + maxStretch, dt, springBack, springDamping);
   }
 
   /**
@@ -228,14 +236,18 @@ export class Rope {
     return { index, distance };
   }
 
-  private relax(a: RopePoint, b: RopePoint, stiffness: number) {
+  private relax(a: RopePoint, b: RopePoint, stiffness: number, compression: number) {
     const w = a.w + b.w;
     if (w === 0) return;
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const d = Math.hypot(dx, dy);
     if (d === 0) return;
-    const f = ((d - this.link) / d / w) * stiffness;
+    // A string pulls when it's stretched, but only pushes back as much as `compression` allows:
+    // pushing is what makes a slack string buckle and flicker from side to side.
+    const give = d < this.link ? stiffness * compression : stiffness;
+    if (give === 0) return;
+    const f = ((d - this.link) / d / w) * give;
     a.x += dx * f * a.w;
     a.y += dy * f * a.w;
     b.x -= dx * f * b.w;
@@ -243,22 +255,37 @@ export class Rope {
   }
 
   /**
-   * Long-range attachment: point i may never be further than i links (times
-   * `slack`) from the head. Keeps a light string with a heavy tail from
-   * stretching, whatever the iteration count.
+   * Long-range attachment: point i is held within i links of the head. This is
+   * what really holds a light string with a heavy spider on the end, so it's
+   * also where the string's give lives. `springBack` is how long (seconds) it
+   * takes to pull an over-stretched point back to length: 0 is dead rigid,
+   * longer lets the string stretch under load and spring back as it eases.
+   * `slack` is the hard limit it can never pass.
    */
-  private tether(slack: number) {
+  private tether(slack: number, dt: number, springBack: number, springDamping: number) {
+    const keep = springBack > 0 && dt > 0 ? Math.exp(-dt / springBack) : 0;
+    const lose = springDamping > 0 && dt > 0 ? 1 - Math.exp(-springDamping * dt) : 0;
     const head = this.head;
     for (let i = 1; i < this.points.length; i++) {
       const p = this.points[i];
       if (p.w === 0) continue;
-      const max = i * this.link * slack;
+      const rest = i * this.link;
       const dx = p.x - head.x;
       const dy = p.y - head.y;
       const d = Math.hypot(dx, dy);
-      if (d <= max) continue;
-      p.x = head.x + (dx / d) * max;
-      p.y = head.y + (dy / d) * max;
+      if (d <= rest) continue;
+      const ux = dx / d;
+      const uy = dy / d;
+      // Take speed out of the stretching itself, or the string twangs in and out like a spring.
+      if (lose > 0) {
+        const radial = (p.x - p.px) * ux + (p.y - p.py) * uy;
+        p.px += ux * radial * lose;
+        p.py += uy * radial * lose;
+      }
+      const pulled = Math.min(rest + (d - rest) * keep, rest * slack);
+      if (d <= pulled) continue;
+      p.x = head.x + ux * pulled;
+      p.y = head.y + uy * pulled;
     }
   }
 }

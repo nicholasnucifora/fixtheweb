@@ -38,13 +38,24 @@ export interface ColorParam {
   label: string;
   info: string;
 }
-export type Param = NumberParam | ToggleParam | ChoiceParam | ColorParam;
+/** A button in the panel. Clicking bumps `value`; code watches for the change and acts. */
+export interface ActionParam {
+  value: number;
+  kind: "action";
+  label: string;
+  info: string;
+}
+export type Param = NumberParam | ToggleParam | ChoiceParam | ColorParam | ActionParam;
 
 /** Top-level tabs in the tuning panel. */
 export const groups = {
   string: {
     label: "String",
     info: "How the string hangs, swings and reacts to you.",
+  },
+  animation: {
+    label: "Animations",
+    info: "Moves the spider plays on top of everything else. Click one to play it from the start; the settings below each one shape how it goes.",
   },
   spidey: {
     label: "Spidey",
@@ -172,10 +183,25 @@ export const schema = {
         label: "Stiffness",
         info: "How firmly each link holds its length. Lower = springy, elastic, wobbly string.",
       },
+      springBack: {
+        value: 0.09, min: 0, max: 0.6, step: 0.005, unit: "s",
+        label: "Give under load",
+        info: "How long the string takes to pull back after being stretched — by a fling, or the weight of the spider at the bottom of a fast swing. 0 = dead rigid, the spider stops instantly at full length; higher = stretchier, and slower to recover.",
+      },
+      springDamping: {
+        value: 14, min: 0, max: 40, step: 0.5, unit: "/s",
+        label: "Bounce damping",
+        info: "How quickly a stretch settles. Low = the string twangs in and out like a bungee; high = it gives once and stops.",
+      },
       maxStretch: {
-        value: 0, min: 0, max: 1, step: 0.01, unit: "×",
+        value: 0.12, min: 0, max: 1, step: 0.01, unit: "×",
         label: "Max stretch",
-        info: "How far the string may stretch past its length (0.2 = 20% longer). 0 = it never stretches. Pair with low stiffness for a bungee feel.",
+        info: "The hard limit on stretching, however hard it's pulled (0.25 = never more than 25% longer than its length).",
+      },
+      compression: {
+        value: 0, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Stiffness when slack",
+        info: "How much the string resists being squashed. 0 = a real string: it can only pull, so spare length just falls into a loop. Higher makes it more like a chain of rods, which buckles and can flicker side to side when there's slack.",
       },
       iterations: {
         value: 10, min: 1, max: 40, step: 1,
@@ -240,7 +266,7 @@ export const schema = {
         info: "How tightly the held point tracks the pointer. Lower = floaty and laggy; higher = glued to the cursor.",
       },
       maxThrow: {
-        value: 9, min: 0, max: 40, step: 0.5, unit: "b/s",
+        value: 12, min: 0, max: 40, step: 0.5, unit: "b/s",
         label: "Max fling speed",
         info: "Cap on the speed it keeps when you let go mid-swipe. 0 = drops dead where you release it.",
       },
@@ -278,7 +304,7 @@ export const schema = {
         info: "How long the stretched string takes to pull back to its length once you let go. Short = a violent whip; long = a lazy elastic that eases back.",
       },
       fling: {
-        value: 8, min: 0, max: 40, step: 0.5, unit: "b/s",
+        value: 9, min: 0, max: 40, step: 0.5, unit: "b/s",
         label: "Release fling",
         info: "Extra speed the spider gets when you let go of a fully wound string, sending it across the other way. 0 = it just springs back on its own.",
       },
@@ -560,20 +586,49 @@ export const schema = {
         label: "Breathing speed",
         info: "Breaths per second.",
       },
+      leanForce: {
+        value: 0.45, min: 0, max: 2, step: 0.01, unit: "×",
+        label: "Lean sensitivity",
+        info: "How much being moved leans it, on top of gravity. Low = it mostly just hangs, leaning slowly; high = it answers every flick of the cursor.",
+      },
+      tiltSource: {
+        value: "force" as "force" | "string",
+        options: {
+          force: "The force on it (gravity + how it's moved)",
+          string: "The string's direction",
+        },
+        label: "Leans with",
+        info: "Force: it hangs feet-down, and only leans when something moves it — a swing, a yank, a fling. Swinging on a taut string that still leans it along the string, because that's where the force points. String: the older way, where it always lines up with the string's last stretch.",
+      },
       tiltAmount: {
         value: 1, min: 0, max: 1.5, step: 0.01, unit: "×",
-        label: "Tilt with string",
-        info: "How much the spider turns to follow the string's angle. 1 = hangs in line with it; 0 = always upright.",
+        label: "Lean amount",
+        info: "How far it leans. 1 = full lean; 0 = always upright, whatever is happening.",
+      },
+      leanSmoothing: {
+        value: 6, min: 1, max: 60, step: 0.5, unit: "/s",
+        label: "Lean smoothing",
+        info: "How much the force is smoothed before it leans the spider (the legs use the same reading). Low = slow, floaty leaning that lags behind; high = it answers every twitch of the cursor.",
       },
       tiltSpring: {
-        value: 5, min: 0.5, max: 20, step: 0.1, unit: "Hz",
-        label: "Tilt springiness",
-        info: "How quickly the spider turns to follow the string. High = snaps to it; low = lazy, heavy turning.",
+        value: 3.5, min: 0.5, max: 20, step: 0.1, unit: "Hz",
+        label: "Lean springiness",
+        info: "How quickly it turns to the lean it wants. High = snaps around; low = lazy, heavy turning.",
       },
       tiltDamping: {
-        value: 0.55, min: 0.05, max: 1.5, step: 0.01,
+        value: 0.85, min: 0.05, max: 1.5, step: 0.01,
         label: "Tilt damping",
         info: "Low = it overshoots and rocks before settling; 1 = turns smoothly with no overshoot.",
+      },
+      tiltSlack: {
+        value: 1, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Upright when slack",
+        info: "Only used when \"Leans with\" is set to the string: a loose string can't say which way up the spider hangs, so 1 = it straightens up as the string goes slack.",
+      },
+      tiltMax: {
+        value: 32, min: 0, max: 180, step: 1, unit: "°",
+        label: "Max lean",
+        info: "Furthest it will lean from upright, however hard it's flung or wherever the string goes.",
       },
     },
   },
@@ -840,6 +895,92 @@ export const schema = {
         value: 0.15, min: 0, max: 1, step: 0.01, unit: "s",
         label: "Snap ease",
         info: "How long it takes to ease onto the pixel grid (and back off it). 0 = instant.",
+      },
+    },
+  },
+
+  // ── Animations ────────────────────────────────────────────────────────────
+
+  play: {
+    group: "animation",
+    label: "Play",
+    info: "More will appear here as the spider learns new tricks.",
+    params: {
+      dropIn: {
+        value: 0,
+        kind: "action",
+        label: "▶  Drop in on a new thread",
+        info: "The spider comes out from behind the b upside down and abseils, spinning its thread out as it goes, then turns upright when the thread reaches its full length. Drag it on the way down and it waits, thread where it was, until you let go and it settles.",
+      },
+      reset: {
+        value: 0,
+        kind: "action",
+        label: "↺  Back to default",
+        info: "Stops whatever is playing and puts the spider back to hanging still on a full-length string.",
+      },
+    },
+  },
+
+  dropIn: {
+    group: "animation",
+    label: "Drop in",
+    info: "The abseil: how fast the thread spins out, what the legs do on the way down, and how it turns upright at the end.",
+    params: {
+      speed: {
+        value: 1.2, min: 0.1, max: 8, step: 0.05, unit: "b/s",
+        label: "Descent speed",
+        info: "How fast the thread spins out, in b per second.",
+      },
+      startLength: {
+        value: 0.04, min: 0, max: 0.5, step: 0.01, unit: "×",
+        label: "Starting thread",
+        info: "How much thread it starts with, as a fraction of the full length. 0 starts it right up inside the b.",
+      },
+      upsideDown: {
+        value: true,
+        label: "Starts upside down",
+        info: "Hangs head-down on the way out, the way a real spider drops on its silk, then turns upright at the end.",
+      },
+      gripPair: {
+        value: "1" as "1" | "2" | "3",
+        options: { "1": "Top pair", "2": "Middle pair", "3": "Bottom pair" },
+        label: "Legs holding the thread",
+        info: "Which pair of legs reaches for the thread and works it on the way down, the way a real spider draws silk with its hind legs. They let go and return to normal as it turns upright.",
+      },
+      grip: {
+        value: 1, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Grip",
+        info: "How far those legs turn toward the thread. 0 = they ignore it and just wiggle with the rest.",
+      },
+      gripPull: {
+        value: 14, min: 0, max: 40, step: 0.5, unit: "°",
+        label: "Hand over hand",
+        info: "How far the holding legs alternate as they draw the thread out. 0 = they hold it still.",
+      },
+      gripReach: {
+        value: 180, min: 0, max: 180, step: 1, unit: "°",
+        label: "Grip reach",
+        info: "The furthest those legs will turn from their normal pose to get to the thread.",
+      },
+      wiggle: {
+        value: 14, min: 0, max: 45, step: 0.5, unit: "°",
+        label: "Leg work (other legs)",
+        info: "How much the legs work while it's paying out thread.",
+      },
+      wiggleSpeed: {
+        value: 3.5, min: 0.2, max: 15, step: 0.1, unit: "Hz",
+        label: "Leg work speed",
+        info: "How fast the legs work on the way down, including the hand-over-hand of the legs holding the thread.",
+      },
+      turnTime: {
+        value: 0.6, min: 0.05, max: 3, step: 0.05, unit: "s",
+        label: "Turn upright",
+        info: "How long it takes to turn the right way up once the thread is fully out.",
+      },
+      pauseSpeed: {
+        value: 0.8, min: 0, max: 10, step: 0.1, unit: "b/s",
+        label: "Waits above",
+        info: "While you're holding it, or it's swinging sideways faster than this, it stops paying out thread and waits. Its own descent never counts, and small movements don't interrupt it.",
       },
     },
   },
