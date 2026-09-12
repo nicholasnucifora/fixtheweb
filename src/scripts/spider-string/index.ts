@@ -2,6 +2,7 @@ import { createAnchor } from "./anchor";
 import { createAnimations } from "./animation";
 import { config } from "./config";
 import { createDrag } from "./drag";
+import { createFood } from "./food";
 import { Particles } from "./particles";
 import { createPluck } from "./pluck";
 import { createRenderer } from "./render";
@@ -35,6 +36,22 @@ function mount(root: HTMLElement) {
   const spider = createSpider(bob, rope, animations.state);
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
+  // Food: dragged to the spider's mouth, which needs to know where that is and how big it is.
+  let unit = 0;
+  const food = createFood(
+    root,
+    () => {
+      const [x, y] = spider.mouth();
+      return { x, y, unit };
+    },
+    (amount) => animations.mouthOpen(amount),
+    () => animations.eat(),
+  );
+  document.addEventListener("spider:play", (e) => {
+    if ((e as CustomEvent).detail?.id === "feed") food.spawn();
+  });
+  document.addEventListener("spider:reset", () => food.clear());
+
   let placed = false;
   let behind: boolean | null = null;
   /** How far the rope is currently let out past its length: follows the pull, eases back after a release. */
@@ -57,6 +74,7 @@ function mount(root: HTMLElement) {
 
     const a = anchor.measure();
     if (a) {
+      unit = a.unit;
       if (config.rope.behind !== behind) {
         behind = config.rope.behind;
         root.toggleAttribute("data-behind", behind);
@@ -114,7 +132,7 @@ function mount(root: HTMLElement) {
             window.scrollY + page.clientHeight,
             config.edges.bounce,
             config.edges.friction,
-            config.edges.spiderSize * config.look.width * a.unit,
+            config.edges.spiderSize * config.look.width * animations.state.size * a.unit,
           );
         }
       }
@@ -123,7 +141,18 @@ function mount(root: HTMLElement) {
       const alpha = pending / step;
       particles.update(dt);
       spider.update(a, dt, steps * step, alpha, renderer.pixelRatio);
-      renderer.draw(rope, particles, a, alpha, spider.draw, spider.stringShift());
+      food.update(dt);
+      renderer.draw(
+        rope,
+        particles,
+        a,
+        alpha,
+        (ctx) => {
+          spider.draw(ctx);
+          food.draw(ctx, a.unit);
+        },
+        spider.stringShift(),
+      );
       // After drawing: a pluck nudges the string's step history, which would skew this frame's blend.
       pluck.update(a, now / 1000, real, drag.held === null);
     }

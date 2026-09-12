@@ -15,6 +15,9 @@ const STORAGE_KEY = "spider-string:tune";
 const COLLAPSED_KEY = "spider-string:tune-collapsed";
 const SIDE_KEY = "spider-string:tune-side";
 const TAB_KEY = "spider-string:tune-tab";
+const ANIMATION_KEY = "spider-string:tune-animation";
+/** The tab whose sections are animations to play, one at a time. */
+const PLAYABLE = "animation";
 
 type Value = number | boolean | string;
 type Values = Record<string, Record<string, Value>>;
@@ -125,6 +128,7 @@ export function mountTuner() {
     refresh();
   };
 
+  const playable: { key: string; label: string; el: HTMLElement; pick: HTMLButtonElement }[] = [];
   for (const [s, section] of Object.entries(sections)) {
     const details = h("details", "section");
     details.open = true;
@@ -135,6 +139,40 @@ export function mountTuner() {
       details.append(r.el);
     }
     panes[section.group].append(details);
+    if (section.group === PLAYABLE) {
+      playable.push({ key: s, label: section.label, el: details, pick: h("button", "pick", section.label) });
+    }
+  }
+
+  // Animations are a list you pick from: play the one you've picked, and see only its settings.
+  if (playable.length) {
+    const list = h("div", "list");
+    const bar = h("div", "play-bar");
+    const play = h("button", "btn play");
+    const back = h("button", "btn", "↺  Back to default");
+    back.title = "Stop everything, and put the spider back the way it was";
+    bar.append(play, back);
+
+    const choose = (key: string) => {
+      const picked = playable.find((p) => p.key === key) ?? playable[0];
+      for (const p of playable) {
+        p.el.hidden = p !== picked;
+        p.pick.classList.toggle("active", p === picked);
+      }
+      play.textContent = `▶  Play ${picked.label.toLowerCase()}`;
+      play.onclick = () => document.dispatchEvent(new CustomEvent("spider:play", { detail: { id: picked.key } }));
+      store(ANIMATION_KEY, picked.key);
+    };
+    for (const p of playable) {
+      p.pick.onclick = () => choose(p.key);
+      list.append(p.pick);
+    }
+    back.onclick = () => document.dispatchEvent(new CustomEvent("spider:reset"));
+
+    const pane = panes[PLAYABLE];
+    pane.insertBefore(list, playable[0].el);
+    pane.insertBefore(bar, playable[0].el);
+    choose(read(ANIMATION_KEY) ?? playable[0].key);
   }
 
   copy.onclick = async () => {
@@ -356,6 +394,16 @@ const styles = `
   .tab:hover { color: var(--fg); }
   .tab.active { color: var(--fg); border-bottom-color: var(--accent); }
   .group-info { margin: 0; padding: 8px 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .list { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 12px 0; }
+  .pick {
+    font: 600 12px/1 system-ui, sans-serif; color: var(--muted); background: var(--field);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; cursor: pointer;
+  }
+  .pick:hover { color: var(--fg); border-color: var(--accent); }
+  .pick.active { color: var(--fg); background: var(--soft); border-color: var(--accent); }
+  .play-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .play-bar .btn { flex: 1; padding: 7px 8px; font-weight: 600; }
+  .play { background: var(--soft); border-color: var(--accent); }
   .btn {
     font: inherit; color: inherit; background: var(--field);
     border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; cursor: pointer; white-space: nowrap;

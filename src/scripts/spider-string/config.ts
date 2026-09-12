@@ -673,10 +673,21 @@ export const schema = {
         info: "Use both pupils as drawn, or copy one pupil to both sides to compare which is better shaped.",
       },
       size: { value: 1, min: 0.3, max: 1.6, step: 0.01, unit: "×", label: "Size", info: "Scales each pupil around its own centre." },
+      home: {
+        value: "eye" as "eye" | "drawn",
+        options: { eye: "Middle of the eye", drawn: "Where they're drawn" },
+        label: "Pupils start from",
+        info: "The pupils are drawn a little inward of their eyes' middles, which is a nice resting face but means each one starts its travel from a different place: look left and the left pupil ends up mid-eye while the right one hits the rim. \"Middle of the eye\" measures every look from the middle so both move alike, and the resting inward look comes from the slider below instead. \"Where they're drawn\" keeps the artwork's own offset and the lopsidedness that comes with it.",
+      },
       restX: {
         value: 0, min: -1, max: 1, step: 0.01,
         label: "Resting look (across)",
-        info: "Where the pupils sit when not looking at anything: −1 = far left of the eye, 1 = far right.",
+        info: "Where the pupils sit when not looking at anything: −1 = far left of the eye, 1 = far right. Both eyes move the same way.",
+      },
+      restIn: {
+        value: 0.28, min: -1, max: 1, step: 0.01,
+        label: "Resting look (inward)",
+        info: "The mirrored version: both pupils toward each other, so it rests slightly cross-eyed. Negative pushes them apart. 0.28 is about how far inward they're drawn in the artwork.",
       },
       restY: {
         value: 0, min: -1, max: 1, step: 0.01,
@@ -684,6 +695,12 @@ export const schema = {
         info: "−1 = top of the eye, 1 = bottom.",
       },
       follow: { value: true, label: "Follow the cursor", info: "The pupils look toward the cursor when it's nearby." },
+      aim: {
+        value: "point" as "point" | "trail",
+        options: { point: "Point at it", trail: "Trail after it" },
+        label: "How they aim",
+        info: "Point at it: the pupil turns to face the cursor and travels the same amount however far away it is. Trail after it: the pupil copies where the cursor actually is, only reaching the rim of the eye once the cursor is a full look away — so small movements in front of its face barely shift the eyes.",
+      },
       range: {
         value: 0.75, min: 0, max: 1, step: 0.01, unit: "×",
         label: "Look range",
@@ -692,12 +709,22 @@ export const schema = {
       radius: {
         value: 4, min: 0.5, max: 20, step: 0.1, unit: "b",
         label: "Notice distance",
-        info: "How close the cursor has to be for the spider to look at it, measured from between the eyes (so both eyes always decide together). Further away, the pupils drift back to rest.",
+        info: "How close the cursor has to be before it looks at all, measured from the point between the eyes so both eyes always agree about it. Further away, the pupils drift back to rest.",
+      },
+      converge: {
+        value: 1, min: -1, max: 2, step: 0.05, unit: "×",
+        label: "Converge",
+        info: "Where each eye aims from, which is the whole of what makes it cross-eyed. 1 = its own centre, so a cursor between the eyes or right in front of its face turns them inward. 0 = both aim from the point between them, so they always point the same way and never cross. Above 1 exaggerates it; below 0 goes wall-eyed.",
+      },
+      closeUp: {
+        value: 1, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Close-up look",
+        info: "How much of the look range the pupils use when the cursor is right in front of its face. 1 = the full amount, which with Converge gives a hard cross-eye. 0 = too close to focus on, so they ease back to resting. Both eyes use this together, so neither is ever more interested than the other.",
       },
       reach: {
-        value: 1.5, min: 0.1, max: 10, step: 0.1, unit: "b",
+        value: 1, min: 0.05, max: 10, step: 0.05, unit: "b",
         label: "Full-look distance",
-        info: "At this distance or more the pupils look fully toward the cursor; closer, they move proportionally less (so it can look at a cursor right in front of it).",
+        info: "How far the cursor has to be for a full look, measured from between the eyes. Nearer than this the pupils ease toward Close-up look; with \"Trail after it\" it's also the distance at which the pupil reaches the rim of the eye.",
       },
       speed: {
         value: 10, min: 1, max: 40, step: 0.5, unit: "/s",
@@ -901,26 +928,6 @@ export const schema = {
 
   // ── Animations ────────────────────────────────────────────────────────────
 
-  play: {
-    group: "animation",
-    label: "Play",
-    info: "More will appear here as the spider learns new tricks.",
-    params: {
-      dropIn: {
-        value: 0,
-        kind: "action",
-        label: "▶  Drop in on a new thread",
-        info: "The spider comes out from behind the b upside down and abseils, spinning its thread out as it goes, then turns upright when the thread reaches its full length. Drag it on the way down and it waits, thread where it was, until you let go and it settles.",
-      },
-      reset: {
-        value: 0,
-        kind: "action",
-        label: "↺  Back to default",
-        info: "Stops whatever is playing and puts the spider back to hanging still on a full-length string.",
-      },
-    },
-  },
-
   dropIn: {
     group: "animation",
     label: "Drop in",
@@ -930,6 +937,11 @@ export const schema = {
         value: 1.2, min: 0.1, max: 8, step: 0.05, unit: "b/s",
         label: "Descent speed",
         info: "How fast the thread spins out, in b per second.",
+      },
+      attachY: {
+        value: 0.95, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Thread comes from",
+        info: "Where the thread leaves the spider while it's dropping, top to bottom of the drawing. Upside down the drawing is flipped, so 1 puts the thread at the top of the screen with the spider hanging below it — and right next to the legs holding on.",
       },
       startLength: {
         value: 0.04, min: 0, max: 0.5, step: 0.01, unit: "×",
@@ -942,8 +954,8 @@ export const schema = {
         info: "Hangs head-down on the way out, the way a real spider drops on its silk, then turns upright at the end.",
       },
       gripPair: {
-        value: "1" as "1" | "2" | "3",
-        options: { "1": "Top pair", "2": "Middle pair", "3": "Bottom pair" },
+        value: "3" as "1" | "2" | "3",
+        options: { "1": "Front pair", "2": "Middle pair", "3": "Rear pair" },
         label: "Legs holding the thread",
         info: "Which pair of legs reaches for the thread and works it on the way down, the way a real spider draws silk with its hind legs. They let go and return to normal as it turns upright.",
       },
@@ -957,8 +969,13 @@ export const schema = {
         label: "Hand over hand",
         info: "How far the holding legs alternate as they draw the thread out. 0 = they hold it still.",
       },
+      gripAlong: {
+        value: 0.7, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Where they hold on",
+        info: "How far up the thread the holding legs reach for it, as a multiple of the spider's width. 0 reaches for the spot where the thread meets its body, which folds them in over its back; further up and they hold the line above them, which reads better.",
+      },
       gripReach: {
-        value: 180, min: 0, max: 180, step: 1, unit: "°",
+        value: 70, min: 0, max: 180, step: 1, unit: "°",
         label: "Grip reach",
         info: "The furthest those legs will turn from their normal pose to get to the thread.",
       },
@@ -981,6 +998,176 @@ export const schema = {
         value: 0.8, min: 0, max: 10, step: 0.1, unit: "b/s",
         label: "Waits above",
         info: "While you're holding it, or it's swinging sideways faster than this, it stops paying out thread and waits. Its own descent never counts, and small movements don't interrupt it.",
+      },
+    },
+  },
+
+  blink: {
+    group: "animation",
+    label: "Blinking",
+    info: "The eyes shut and open again, now and then.",
+    params: {
+      enabled: { value: true, label: "Blinks", info: "Off = the eyes stay open." },
+      everyFrom: {
+        value: 2.5, min: 0.2, max: 20, step: 0.1, unit: "s",
+        label: "At least every",
+        info: "Shortest gap between blinks.",
+      },
+      everyTo: {
+        value: 7, min: 0.3, max: 30, step: 0.1, unit: "s",
+        label: "At most every",
+        info: "Longest gap between blinks. The gap is picked at random between the two.",
+      },
+      shutFor: {
+        value: 0.16, min: 0.04, max: 1, step: 0.01, unit: "s",
+        label: "Blink length",
+        info: "How long one blink takes, shut and open again.",
+      },
+      amount: {
+        value: 1, min: 0.2, max: 1, step: 0.01, unit: "×",
+        label: "How far it shuts",
+        info: "1 = fully closed; lower leaves it half-lidded, which reads as sleepy.",
+      },
+      doubleChance: {
+        value: 0.25, min: 0, max: 1, step: 0.01,
+        label: "Double blink",
+        info: "How often a blink is followed straight away by a second one.",
+      },
+    },
+  },
+
+  gaze: {
+    group: "animation",
+    label: "Idle eyes",
+    info: "Where the eyes wander when the cursor isn't near enough to hold their attention.",
+    params: {
+      enabled: { value: true, label: "Eyes wander", info: "Off = it stares straight ahead when nothing's happening." },
+      everyFrom: {
+        value: 1.2, min: 0.2, max: 15, step: 0.1, unit: "s",
+        label: "At least every",
+        info: "Shortest gap before it looks somewhere else.",
+      },
+      everyTo: {
+        value: 4, min: 0.3, max: 20, step: 0.1, unit: "s",
+        label: "At most every",
+        info: "Longest gap before it looks somewhere else.",
+      },
+      range: {
+        value: 0.7, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "How far it looks",
+        info: "As a fraction of the room inside the eye. 1 = right to the edge.",
+      },
+      centreChance: {
+        value: 0.3, min: 0, max: 1, step: 0.01,
+        label: "Looks ahead",
+        info: "How often it looks straight ahead instead of somewhere new.",
+      },
+      speed: {
+        value: 7, min: 0.5, max: 30, step: 0.5, unit: "/s",
+        label: "Eye speed",
+        info: "How quickly the eyes move to the new spot. High = darting; low = drifting.",
+      },
+    },
+  },
+
+  idleLegs: {
+    group: "animation",
+    label: "Idle legs",
+    info: "A leg stretches out and settles back, now and then.",
+    params: {
+      enabled: { value: true, label: "Legs stretch", info: "Off = the legs only move with the swing." },
+      everyFrom: {
+        value: 3, min: 0.3, max: 30, step: 0.1, unit: "s",
+        label: "At least every",
+        info: "Shortest gap between stretches.",
+      },
+      everyTo: {
+        value: 9, min: 0.5, max: 60, step: 0.5, unit: "s",
+        label: "At most every",
+        info: "Longest gap between stretches.",
+      },
+      time: {
+        value: 0.9, min: 0.1, max: 4, step: 0.05, unit: "s",
+        label: "Stretch length",
+        info: "How long one stretch takes, out and back.",
+      },
+      reach: {
+        value: 16, min: 0, max: 60, step: 0.5, unit: "°",
+        label: "How far it stretches",
+        info: "How far the leg reaches at the top of the stretch.",
+      },
+    },
+  },
+
+  feed: {
+    group: "animation",
+    label: "Feeding",
+    info: "Play this to put a fly on the page. Drag it to the spider: the mouth opens as it comes near, and eating it makes the spider a little bigger. Back to default puts its size back.",
+    params: {
+      growth: {
+        value: 0.1, min: 0, max: 0.5, step: 0.01, unit: "×",
+        label: "Growth per fly",
+        info: "How much bigger it gets each time it eats. 0.1 = 10% bigger, and the next one is 10% on top of that.",
+      },
+      maxSize: {
+        value: 2.5, min: 1, max: 6, step: 0.1, unit: "×",
+        label: "Size limit",
+        info: "How big eating can ever make it, compared with its normal size.",
+      },
+      growTime: {
+        value: 0.8, min: 0.1, max: 4, step: 0.05, unit: "s",
+        label: "Growing takes",
+        info: "How long the growth takes. It eases in and out rather than popping.",
+      },
+      openDistance: {
+        value: 1.2, min: 0.1, max: 6, step: 0.05, unit: "b",
+        label: "Mouth opens within",
+        info: "How close the fly has to get before the mouth starts opening.",
+      },
+      eatDistance: {
+        value: 0.35, min: 0.05, max: 3, step: 0.05, unit: "b",
+        label: "Eats within",
+        info: "Let go this close to its mouth and the fly is eaten.",
+      },
+      mouthOpen: {
+        value: 1.8, min: 1, max: 4, step: 0.05, unit: "×",
+        label: "Mouth opening",
+        info: "How much taller the mouth gets when it's wide open.",
+      },
+      mouthSpeed: {
+        value: 9, min: 1, max: 30, step: 0.5, unit: "/s",
+        label: "Mouth speed",
+        info: "How quickly the mouth opens and closes.",
+      },
+      flySize: {
+        value: 0.22, min: 0.05, max: 1, step: 0.01, unit: "b",
+        label: "Fly size",
+        info: "How big the fly is, next to the letter b.",
+      },
+      wingSpeed: {
+        value: 14, min: 0, max: 40, step: 0.5, unit: "Hz",
+        label: "Wing beat",
+        info: "How fast its wings go.",
+      },
+      flutter: {
+        value: 0.05, min: 0, max: 0.5, step: 0.01, unit: "b",
+        label: "Hover drift",
+        info: "How much it mills about in the air when you aren't holding it.",
+      },
+      grabArea: {
+        value: 0.8, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Grab area",
+        info: "Extra invisible area around the fly that still picks it up.",
+      },
+      spawnX: {
+        value: 0.5, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Appears across",
+        info: "Where it turns up, across the window.",
+      },
+      spawnY: {
+        value: 0.55, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Appears down",
+        info: "Where it turns up, down the window.",
       },
     },
   },

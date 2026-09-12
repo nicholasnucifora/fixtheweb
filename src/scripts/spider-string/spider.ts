@@ -98,6 +98,18 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
   const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
   const pct = W / 100;
+  /**
+   * Where the thread meets the spider, art units. Normally the point set in Spidey → Look,
+   * but an animation can hang it somewhere else (abseiling from the rear, say) and blend back.
+   */
+  const attachPoint = (): Vec => {
+    const blend = Math.max(0, Math.min(1, animation.attachBlend));
+    const look = config.look;
+    return [
+      (look.attachX + (animation.attachX - look.attachX) * blend) * W,
+      (look.attachY + (animation.attachY - look.attachY) * blend) * H,
+    ];
+  };
   const favicon = new Image();
   favicon.src = "/favicon.svg";
   const dark = matchMedia("(prefers-color-scheme: dark)");
@@ -156,8 +168,12 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       pupilShape: shapeOf(g?.querySelector('[data-part="pupil"]') ?? null),
       white: new Path2D(),
       pupil: new Path2D(),
+      /** Where the eye sits once placed, art units: a blink shuts toward this line. */
+      center: [0, 0] as Vec,
       pupilCenter: [0, 0] as Vec,
-      /** How far the pupil can move from the eye's centre, art units. */
+      /** How far off the eye's middle the pupil is drawn, art units. */
+      drawn: [0, 0] as Vec,
+      /** How far the pupil can move from the eye's middle, art units. */
       room: 0,
       look: [0, 0] as Vec,
     };
@@ -165,6 +181,8 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   const eyeOf = (side: Side) => eyes.find((e) => e.side === side)!;
   const mouthShape = shapeOf(svg.querySelector('[data-part="mouth"]'));
   let mouthPath = new Path2D();
+  /** The top of the mouth once placed: opening it drops the jaw from here. */
+  let mouthTop = 0;
   const faceCenter: Vec = [
     avg([...eyes.map((e) => e.whiteShape.center[0]), mouthShape.center[0]]),
     avg([...eyes.map((e) => e.whiteShape.center[1]), mouthShape.center[1]]),
@@ -198,6 +216,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       ];
       const white = pick(config.eyes.shape as Source, eye.side, (s) => eyeOf(s).whiteShape);
       eye.white = place(white.from, white.mirrored, at, size, size);
+      eye.center = at;
 
       // The pupil keeps its drawn position within the eye, scaled with it.
       eye.pupilCenter = [
@@ -208,13 +227,16 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       const pupil = pick(config.pupils.shape as Source, eye.side, (s) => eyeOf(s).pupilShape);
       eye.pupil = place(pupil.from, pupil.mirrored, eye.pupilCenter, pupilSize, pupilSize);
 
+      eye.drawn = [eye.pupilCenter[0] - at[0], eye.pupilCenter[1] - at[1]];
       const eyeRadius = (Math.min(...eye.whiteShape.size) / 2) * size;
       const pupilRadius = (Math.max(...pupil.from.size) / 2) * pupilSize;
       eye.room = Math.max(0, eyeRadius - pupilRadius);
     }
 
     const m = config.mouth;
-    mouthPath = place(mouthShape, false, [mouthShape.center[0], mouthShape.center[1] + m.y * pct], m.scaleX, m.scaleY);
+    const mouthAt: Vec = [mouthShape.center[0], mouthShape.center[1] + m.y * pct];
+    mouthPath = place(mouthShape, false, mouthAt, m.scaleX, m.scaleY);
+    mouthTop = mouthAt[1] - (mouthShape.size[1] * m.scaleY) / 2;
   };
 
   // ── Hidden hip roots ──────────────────────────────────────────────────────
@@ -233,7 +255,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   };
 
   // ── Legs: reshaped every frame from their spring state ────────────────────
-  const poseLegs = (torsoScale: Vec) => {
+  const poseLegs = (torsoScale: Vec, gripAt: Vec) => {
     const moving = config.legMotion.enabled;
     const curl = moving ? config.legMotion.curl : 0;
     const focus = config.legMotion.curlFocus;
@@ -247,8 +269,10 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       // …and one pair can be holding the thread, reaching for wherever it leaves the spider
       // and working it hand over hand. Those legs are busy, so they skip the idle swing.
       const holding = animation.grip > 0 && leg.pair === Number(config.dropIn.gripPair);
+      // An idle stretch reaches one leg out and brings it back.
+      const stretching = legs.indexOf(leg) === animation.stretchLeg ? up * animation.stretchAmount : 0;
       const swing =
-        up * pair.angle * DEG + leg.react + (holding ? 0 : worked) + leg.phi * (1 - curl);
+        up * pair.angle * DEG + leg.react + (holding ? 0 : worked + stretching) + leg.phi * (1 - curl);
       const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN;
       // Hips ride along with the torso's scale (breathing, width/height) so legs stay attached.
       const hip: Vec = [
@@ -259,8 +283,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       let reach = 0;
       if (holding) {
         const drop = config.dropIn;
-        const thread: Vec = [config.look.attachX * W, config.look.attachY * H];
-        const toThread: Vec = [thread[0] - hip[0], thread[1] - hip[1]];
+        const toThread: Vec = [gripAt[0] - hip[0], gripAt[1] - hip[1]];
         const rest = rotate(leg.weightDir, swing);
         const turn = Math.atan2(cross(rest, toThread), rest[0] * toThread[0] + rest[1] * toThread[1]);
         const most = drop.gripReach * DEG;
@@ -377,24 +400,69 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       p.follow && pointer
         ? faceToDoc.inverse().transformPoint(new DOMPoint(pointer.x + window.scrollX, pointer.y + window.scrollY))
         : null;
-    // Both eyes decide together, measured from the point between them, so they never
-    // disagree about whether the cursor is close enough to look at.
-    const between: Vec = [avg(eyes.map((e) => e.pupilCenter[0])), avg(eyes.map((e) => e.pupilCenter[1]))];
+    // Two separate questions, so that tuning one doesn't disturb the other:
+    //   which way does each eye point  →  where it aims from (Converge)
+    //   how far does the pupil travel  →  one shared amount (Close-up look, Full-look distance)
+    // Measuring the amount from between the eyes rather than from each eye is what keeps them even:
+    // per-eye, a cursor off to the left is nearly touching the left eye and miles from the right, so
+    // one pupil would creep while the other pinned itself to the rim.
+    const between: Vec = [avg(eyes.map((e) => e.center[0])), avg(eyes.map((e) => e.center[1]))];
     const distance = at ? Math.hypot(at.x - between[0], at.y - between[1]) / artPerB : Infinity;
-    const strength = distance < p.radius ? Math.min(1, distance / p.reach) * p.range : 0;
+    const noticed = at !== null && distance < p.radius;
+    const reach = Math.max(0.001, p.reach);
+    const effort = p.closeUp + (1 - p.closeUp) * Math.min(1, distance / reach);
     const k = 1 - Math.exp(-p.speed * dt);
     for (const eye of eyes) {
-      let target: Vec = [p.restX * eye.room, p.restY * eye.room];
-      if (strength > 0 && at) {
-        // Each eye still aims from its own centre, so they turn in slightly on a close cursor.
-        const dx = at.x - eye.pupilCenter[0];
-        const dy = at.y - eye.pupilCenter[1];
-        const dist = Math.hypot(dx, dy) || 1;
-        target = [(dx / dist) * strength * eye.room, (dy / dist) * strength * eye.room];
+      // Everything here is measured from the middle of the eye, so the two eyes travel alike.
+      // "Inward" is toward the other eye, which is +x for the left one.
+      const inward = eye.side === "left" ? 1 : -1;
+      // Left alone, the eyes sit at rest and wander (Animations → Idle eyes).
+      let look: Vec = [
+        (p.restX + inward * p.restIn + animation.gazeX) * eye.room,
+        (p.restY + animation.gazeY) * eye.room,
+      ];
+      if (noticed && at) {
+        const room = eye.room * p.range;
+        // Where this eye aims from: the point between the eyes, its own middle, or further out
+        // still. Its own middle is what crosses them, because each eye then sees a close cursor
+        // as being off to its inward side.
+        const from: Vec = [
+          between[0] + (eye.center[0] - between[0]) * p.converge,
+          between[1] + (eye.center[1] - between[1]) * p.converge,
+        ];
+        const dx = at.x - from[0];
+        const dy = at.y - from[1];
+        if (p.aim === "trail") {
+          // The pupil sits where the cursor is, shrunk to fit the eye: the rim at a full look away.
+          const scale = room / (reach * artPerB);
+          look = clampLength([dx * scale, dy * scale], room * effort);
+        } else {
+          const dist = Math.hypot(dx, dy) || 1;
+          look = [(dx / dist) * room * effort, (dy / dist) * room * effort];
+        }
       }
-      eye.look[0] += (target[0] - eye.look[0]) * k;
-      eye.look[1] += (target[1] - eye.look[1]) * k;
+      // Where the pupil wants to be, still from the middle of the eye…
+      const home = p.home === "drawn" ? eye.drawn : ([0, 0] as Vec);
+      const want = clampLength([home[0] + look[0], home[1] + look[1]], eye.room);
+      // …turned back into an offset from where it was drawn, which is what gets drawn.
+      eye.look[0] += (want[0] - eye.drawn[0] - eye.look[0]) * k;
+      eye.look[1] += (want[1] - eye.drawn[1] - eye.look[1]) * k;
     }
+  };
+
+  /**
+   * Where the holding legs reach, art units: a point a little way up the actual thread, so they
+   * hold the line above them rather than folding in over the spot it leaves their body.
+   */
+  const threadAt = (art: DOMMatrix, alpha: number, width: number, attach: Vec): Vec => {
+    const along = config.dropIn.gripAlong;
+    const n = rope.points.length;
+    if (animation.grip <= 0 || along <= 0 || n < 2 || rope.length <= 0) return attach;
+    const spacing = rope.length / (n - 1);
+    const back = Math.max(0, n - 1 - Math.round((along * width) / spacing));
+    const p = rope.at(back, alpha);
+    const q = art.inverse().transformPoint(new DOMPoint(p.x, p.y));
+    return [q.x, q.y];
   };
 
   // ── The grab target: sized and placed like the spider, DOM only touched on change ──
@@ -427,6 +495,13 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
     /** Sideways nudge (CSS px) that lines the string up with the pixel grid while the spider is snapped. */
     stringShift: () => stringShift,
 
+    /** The mouth, in document px — what food is dragged to. */
+    mouth(): Vec {
+      if (!pose) return [0, 0];
+      const p = pose.art.multiply(pose.torso).multiply(pose.face).transformPoint(new DOMPoint(mouthShape.center[0], mouthTop));
+      return [p.x, p.y];
+    },
+
     /**
      * Once per frame, after the string has moved. `dt` is this frame's time (time scale applied),
      * `simDt` the physics time actually stepped, and `alpha` how far between the last two physics
@@ -434,10 +509,12 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
      */
     update(a: AnchorFrame, dt: number, simDt: number, alpha: number, pixelRatio: number) {
       const fav = config.look.showFavicon;
-      const width = config.look.width * a.unit * (fav ? config.look.faviconScale : 1);
+      // Feeding it makes it bigger (Animations → Feeding).
+      const width = config.look.width * a.unit * (fav ? config.look.faviconScale : 1) * animation.size;
       const height = fav ? width : (width * H) / W;
-      const px = fav ? 50 : config.look.attachX * 100;
-      const py = (fav ? config.look.faviconAttachY : config.look.attachY) * 100;
+      const attach = attachPoint();
+      const px = fav ? 50 : (attach[0] / W) * 100;
+      const py = fav ? config.look.faviconAttachY * 100 : (attach[1] / H) * 100;
       sizeGrabTarget(width, height, px, py);
 
       const n = rope.points.length;
@@ -535,7 +612,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
         .translate(tail.x, tail.y)
         .rotate((tilt * (1 - snap) + animation.tilt) / DEG)
         .scale(kx, ky)
-        .translate(-config.look.attachX * W, -config.look.attachY * H);
+        .translate(-attach[0], -attach[1]);
       stringShift = 0;
       if (snap > 0) {
         // Line the string's edges up with pixel columns and the body's top edge with a pixel row
@@ -558,7 +635,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
           ? art.inverse().transformPoint(new DOMPoint(pointer.x + window.scrollX, pointer.y + window.scrollY))
           : null;
         reactToCursor(dt, at ? [at.x, at.y] : null);
-        poseLegs(torsoScale);
+        poseLegs(torsoScale, threadAt(art, alpha, width, attach));
         lookAround(dt, art.multiply(torso).multiply(faceMatrix));
       }
       pose = { art, box, width, height, artPerPx: 1 / kx, outline, torso, face: faceMatrix };
@@ -606,17 +683,33 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       transform(ctx, pose.torso);
       ctx.fill(bodyPath);
       transform(ctx, pose.face);
+      const shut = Math.max(0, Math.min(1, animation.blink));
       for (const eye of eyes) {
+        ctx.save();
+        if (shut > 0) {
+          // A blink squashes the eye flat, leaving the body showing through where it was.
+          ctx.translate(eye.center[0], eye.center[1]);
+          ctx.scale(1, Math.max(0.001, 1 - shut));
+          ctx.translate(-eye.center[0], -eye.center[1]);
+        }
         ctx.fillStyle = c.eyes;
         ctx.fill(eye.white);
-        ctx.save();
         ctx.translate(eye.look[0], eye.look[1]);
         ctx.fillStyle = c.pupils;
         ctx.fill(eye.pupil);
         ctx.restore();
       }
+      // The mouth drops open for food, hinged at the top.
+      const open = 1 + (config.feed.mouthOpen - 1) * Math.max(0, animation.mouth);
       ctx.fillStyle = c.mouth;
+      ctx.save();
+      if (open !== 1) {
+        ctx.translate(0, mouthTop);
+        ctx.scale(1, open);
+        ctx.translate(0, -mouthTop);
+      }
       ctx.fill(mouthPath);
+      ctx.restore();
       ctx.restore();
 
       if (config.spideyDebug.showPivots) {
