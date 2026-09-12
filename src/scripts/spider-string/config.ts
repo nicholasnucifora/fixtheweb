@@ -265,6 +265,16 @@ export const schema = {
         label: "Follow tightness",
         info: "How tightly the held point tracks the pointer. Lower = floaty and laggy; higher = glued to the cursor.",
       },
+      throwPower: {
+        value: 1, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Throw on release",
+        info: "How much of your own pointer speed the spider keeps when you let go. Without this it only keeps what the held point itself was doing, which is however far it still had to go to catch up with you — so flinging it into a corner of the window, or out past the end of the string, would sometimes drop it dead, because in both cases the point it was chasing had stopped. 0 = the old behaviour. Capped by Max fling speed below.",
+      },
+      throwWindow: {
+        value: 0.09, min: 0.01, max: 0.5, step: 0.01, unit: "s",
+        label: "Throw measured over",
+        info: "How much of your last movement counts toward the throw. Short reads the final flick exactly; longer smooths over a wobble on the way. It's also how long a pause counts as putting it down: hold still for longer than this before letting go and the throw fades to nothing, as it should.",
+      },
       maxThrow: {
         value: 12, min: 0, max: 40, step: 0.5, unit: "b/s",
         label: "Max fling speed",
@@ -964,10 +974,26 @@ export const schema = {
         label: "Grip",
         info: "How far those legs turn toward the thread. 0 = they ignore it and just wiggle with the rest.",
       },
+      work: {
+        value: "hand" as "hand" | "steady" | "together" | "one",
+        options: {
+          hand: "Hand over hand",
+          steady: "Just holds on",
+          together: "Both together",
+          one: "One leg works",
+        },
+        label: "What the holding legs do",
+        info: "Hand over hand: the two take turns, one reaching further up the thread while the other draws down — the way you'd climb down a rope. Just holds on: they grip and stay put, which is closest to the truth, since the silk is spun out of its back end and the legs only steady the line. Both together: they work in step, opening and closing at once. One leg works: one holds the line steady while the other does the pulling.",
+      },
+      workSlide: {
+        value: 0.45, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "How far they reach",
+        info: "How far up and down the thread a leg's grip slides on each beat, as a fraction of \"Where they hold on\". This is most of what you see in the hand-over-hand: the leg's angle follows from where it's reaching for. 0 = they keep hold of the same spot.",
+      },
       gripPull: {
         value: 14, min: 0, max: 40, step: 0.5, unit: "°",
-        label: "Hand over hand",
-        info: "How far the holding legs alternate as they draw the thread out. 0 = they hold it still.",
+        label: "Wrist flick",
+        info: "An extra turn of the holding legs on each beat, on top of the reaching. 0 = the angle is left to follow the thread on its own.",
       },
       gripHip: {
         value: 1, min: 0, max: 1, step: 0.01, unit: "×",

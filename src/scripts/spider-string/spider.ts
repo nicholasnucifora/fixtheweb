@@ -257,7 +257,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   };
 
   // ── Legs: reshaped every frame from their spring state ────────────────────
-  const poseLegs = (torsoScale: Vec, gripAt: Vec) => {
+  const poseLegs = (torsoScale: Vec, gripAt: (along: number) => Vec) => {
     const moving = config.legMotion.enabled;
     const curl = moving ? config.legMotion.curl : 0;
     const focus = config.legMotion.curlFocus;
@@ -299,11 +299,27 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       let reach = 0;
       if (holding) {
         const drop = config.dropIn;
-        const toThread: Vec = [gripAt[0] - hip[0], gripAt[1] - hip[1]];
+        // Where this leg is in its cycle. The two legs sharing a beat is what makes them clap;
+        // half a cycle apart is what makes it hand over hand.
+        const beat =
+          drop.work === "steady"
+            ? 0
+            : drop.work === "together"
+              ? Math.sin(animation.legPhase)
+              : drop.work === "one"
+                ? leg.side === "left"
+                  ? Math.sin(animation.legPhase)
+                  : 0
+                : Math.sin(animation.legPhase + (leg.side === "left" ? 0 : Math.PI));
+        // …so it reaches for a different spot up the thread, and its angle follows from that.
+        const swung = animation.pull * beat;
+        const along = Math.max(0, drop.gripAlong * (1 + swung * drop.workSlide));
+        const to = gripAt(along);
+        const toThread: Vec = [to[0] - hip[0], to[1] - hip[1]];
         const rest = rotate(leg.weightDir, swing);
         const turn = Math.atan2(cross(rest, toThread), rest[0] * toThread[0] + rest[1] * toThread[1]);
         const most = drop.gripReach * DEG;
-        const hand = animation.pull * drop.gripPull * DEG * (leg.side === "left" ? 1 : -1);
+        const hand = swung * drop.gripPull * DEG * (leg.side === "left" ? 1 : -1);
         reach = animation.grip * drop.grip * (Math.max(-most, Math.min(most, turn)) + hand);
       }
       const cos = Math.cos(swing + reach);
@@ -479,8 +495,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
    * Where the holding legs reach, art units: a point a little way up the actual thread, so they
    * hold the line above them rather than folding in over the spot it leaves their body.
    */
-  const threadAt = (art: DOMMatrix, alpha: number, width: number, attach: Vec): Vec => {
-    const along = config.dropIn.gripAlong;
+  const threadAt = (art: DOMMatrix, alpha: number, width: number, attach: Vec, along: number): Vec => {
     const n = rope.points.length;
     if (animation.grip <= 0 || along <= 0 || n < 2 || rope.length <= 0) return attach;
     const spacing = rope.length / (n - 1);
@@ -660,7 +675,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
           ? art.inverse().transformPoint(new DOMPoint(pointer.x + window.scrollX, pointer.y + window.scrollY))
           : null;
         reactToCursor(dt, at ? [at.x, at.y] : null);
-        poseLegs(torsoScale, threadAt(art, alpha, width, attach));
+        poseLegs(torsoScale, (along) => threadAt(art, alpha, width, attach, along));
         lookAround(dt, art.multiply(torso).multiply(faceMatrix));
       }
       pose = { art, box, width, height, artPerPx: 1 / kx, outline, torso, face: faceMatrix };

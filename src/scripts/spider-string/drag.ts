@@ -36,6 +36,30 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
   let releasedTension = 0;
   const pointer = { x: 0, y: 0 };
   const offset = { x: 0, y: 0 };
+  /** Where the pointer has been lately while held (document px, ms), for the throw on release. */
+  const trail: { x: number; y: number; t: number }[] = [];
+  /** Pointer speed when it was let go, px/s. */
+  let thrown: { x: number; y: number } | null = null;
+
+  /**
+   * How fast the pointer was moving when it let go, over the last `throwWindow` of movement.
+   * Fades to nothing if it had already been still for that long: stopping is putting it down.
+   */
+  const throwSpeed = (now: number) => {
+    const last = trail[trail.length - 1];
+    const span = Math.max(0.001, config.drag.throwWindow) * 1000;
+    if (!last) return null;
+    const rested = Math.max(0, 1 - Math.max(0, now - last.t) / span);
+    if (rested <= 0) return null;
+    let first = last;
+    for (let i = trail.length - 1; i >= 0; i--) {
+      first = trail[i];
+      if (last.t - first.t >= span) break;
+    }
+    const over = (last.t - first.t) / 1000;
+    if (over <= 0) return null;
+    return { x: ((last.x - first.x) / over) * rested, y: ((last.y - first.y) / over) * rested };
+  };
 
   const tailIndex = () => rope.points.length - 1;
   const docPoint = (e: PointerEvent) => ({ x: e.clientX + window.scrollX, y: e.clientY + window.scrollY });
@@ -68,6 +92,8 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
     pointerId = e.pointerId;
     held = index;
     Object.assign(pointer, docPoint(e));
+    trail.length = 0;
+    trail.push({ x: pointer.x, y: pointer.y, t: e.timeStamp });
     // Hold it where it was grabbed rather than snapping it to the pointer.
     const p = rope.points[index];
     offset.x = p.x - pointer.x;
@@ -81,6 +107,8 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
     if (e.pointerId !== pointerId) return;
     released = held;
     releasedTension = tension;
+    thrown = throwSpeed(e.timeStamp);
+    trail.length = 0;
     pointerId = null;
     held = null;
     // The pointer may have ended up away from the string; don't leave the grab cursor behind.
@@ -111,6 +139,10 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
     (e) => {
       if (e.pointerId === pointerId) {
         Object.assign(pointer, docPoint(e));
+        trail.push({ x: pointer.x, y: pointer.y, t: e.timeStamp });
+        // Only the last moment matters; anything older can go.
+        const keep = e.timeStamp - Math.max(0.001, config.drag.throwWindow) * 1000 * 2;
+        while (trail.length > 2 && trail[0].t < keep) trail.shift();
         return;
       }
       if (pointerId !== null) return;
@@ -230,18 +262,31 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
       if (released !== null) {
         const p = rope.points[released];
         const wound = releasedTension;
+        const toss = thrown;
         released = null;
         releasedTension = 0;
+        thrown = null;
         if (p) {
+          // What the point was doing on its own…
+          let vx = p.x - p.px;
+          let vy = p.y - p.py;
+          // …and what the pointer was doing. The held point only ever chases the pointer, and that
+          // chase is clamped to the window and to the string's reach — so at the moment you let go
+          // it can be barely moving even though you were flinging it. Whichever is faster wins.
+          if (toss && config.drag.throwPower > 0) {
+            const tx = toss.x * config.drag.throwPower * dt;
+            const ty = toss.y * config.drag.throwPower * dt;
+            if (Math.hypot(tx, ty) > Math.hypot(vx, vy)) {
+              vx = tx;
+              vy = ty;
+            }
+          }
           // Keep the fling, within reason.
           const max = config.drag.maxThrow * a.unit * dt;
-          const vx = p.x - p.px;
-          const vy = p.y - p.py;
           const v = Math.hypot(vx, vy);
-          if (v > max) {
-            p.px = p.x - (vx / v) * max;
-            p.py = p.y - (vy / v) * max;
-          }
+          const scale = v > max ? max / v : 1;
+          p.px = p.x - vx * scale;
+          p.py = p.y - vy * scale;
           // A wound-up string snaps back: an extra kick toward the anchor, the tighter it was wound.
           if (wound > 0 && config.pull.fling > 0) {
             const dx = a.x - p.x;

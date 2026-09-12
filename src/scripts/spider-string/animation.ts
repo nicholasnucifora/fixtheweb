@@ -23,6 +23,8 @@ import type { Rope } from "./rope";
 const DEG = Math.PI / 180;
 /** How long a played idle look keeps the eyes from the cursor, seconds. */
 const PREVIEW = 3;
+/** How quickly the holding legs get going, and stop again when you take hold (1/s). */
+const WORK_EASE = 6;
 
 export interface AnimationState {
   /** How much of the configured string length is spun out (1 = all of it). */
@@ -34,7 +36,7 @@ export interface AnimationState {
   legPhase: number;
   /** 0–1: how much the gripping legs are reaching for the thread. */
   grip: number;
-  /** −1..1: those legs working hand over hand. */
+  /** 0–1: how hard those legs are working the thread. Eases off when you take hold. */
   pull: number;
   /** While something overrides it, the thread hangs from here on the spider (fractions of the art). */
   attachX: number;
@@ -182,6 +184,7 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
 
       // ── Drop-in ─────────────────────────────────────────────────────────
       state.waiting = false;
+      let pullTo = 0;
       if (phase === "dropping") {
         const busy = isHeld() || sideways > drop.pauseSpeed;
         state.waiting = busy;
@@ -196,7 +199,7 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
         state.legSwing = busy ? 0 : drop.wiggle * DEG;
         // It keeps hold of the thread even while it waits; it just stops working it.
         state.grip = 1;
-        state.pull = busy ? 0 : Math.sin(state.legPhase);
+        pullTo = busy ? 0 : 1;
         // Abseiling spiders pay silk from the back end, so that's where the thread hangs from.
         state.attachX = 0.5;
         state.attachY = drop.attachY;
@@ -208,7 +211,7 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
         state.legSwing = drop.wiggle * DEG * (1 - eased);
         // Lets go of the thread and hands the attach point back as it rights itself.
         state.grip = 1 - eased;
-        state.pull = Math.sin(state.legPhase) * (1 - eased);
+        pullTo = 0;
         state.attachY = drop.attachY;
         state.attachBlend = 1 - eased;
         if (turned >= 1) phase = "off";
@@ -216,9 +219,11 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
         state.tilt = 0;
         state.legSwing = 0;
         state.grip = 0;
-        state.pull = 0;
+        pullTo = 0;
         state.attachBlend = 0;
       }
+      // Working the thread stops and starts gently, so grabbing it doesn't freeze the legs mid-beat.
+      state.pull += (pullTo - state.pull) * (1 - Math.exp(-WORK_EASE * dt));
       state.active = phase !== "off";
       state.lengthFactor = phase === "off" ? 1 : Math.max(0.01, spun);
 
