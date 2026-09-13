@@ -37,10 +37,11 @@ export function createZees() {
         owed += dt / Math.max(0.1, z.zeeEvery);
         while (owed >= 1) {
           owed -= 1;
-          // Alternate sides a little, so a string of them doesn't stack into one column.
-          const side = list.length % 2 === 0 ? 1 : 0.6;
+          // Alternate a little, so a string of them doesn't stack into one column. They leave from
+          // the side of its head the drift heads for, clear of the string it hangs from.
+          const side = list.length % 2 === 0 ? 1 : 0.75;
           list.push({
-            x: center[0] + radius * 0.35 * side,
+            x: center[0] + radius * 0.5 * side * (z.zeeDrift < 0 ? -1 : 1),
             y: center[1] - radius * 0.55,
             age: 0,
             life: Math.max(0.2, z.zeeLife),

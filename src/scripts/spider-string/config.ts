@@ -1792,17 +1792,17 @@ export const schema = {
         info: "How often a new Z floats up.",
       },
       zeeSize: {
-        value: 0.1, min: 0.02, max: 0.5, step: 0.01, unit: "b",
+        value: 0.16, min: 0.02, max: 0.5, step: 0.01, unit: "b",
         label: "Z size",
         info: "How big they are when they're fully grown.",
       },
       zeeRise: {
-        value: 0.6, min: 0, max: 3, step: 0.05, unit: "b",
+        value: 0.9, min: 0, max: 3, step: 0.05, unit: "b",
         label: "Z's float up",
         info: "How far each Z rises before it's gone.",
       },
       zeeDrift: {
-        value: 0.25, min: -2, max: 2, step: 0.05, unit: "b",
+        value: 0.45, min: -2, max: 2, step: 0.05, unit: "b",
         label: "Z's drift sideways",
         info: "Negative drifts them left.",
       },

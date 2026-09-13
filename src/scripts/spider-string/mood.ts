@@ -276,10 +276,10 @@ export function createMood(
   let previousV: Vec = [0, 0];
   let previousSpeed = 0;
   let blinkAt = -1;
-  /** Which way the last jolt went (screen), and how far the cursor has wandered since it last counted. */
+  /** Which way the last jolt went (screen), and where the cursor was when its movement last counted. */
   let impactAxis: Vec = [0, 1];
   let flipAxis = false;
-  let wandered = 0;
+  let restedAt: Vec | null = null;
 
   /** Something happened: it's awake, and if it was asleep, it's startled awake. */
   const stir = () => {
@@ -305,10 +305,10 @@ export function createMood(
       if (pointer && grabAt >= 0) grabMoved += step;
       pointer = p;
       gone = false;
-      // A resting hand still twitches the cursor a pixel or two; that isn't you being around.
-      wandered += step;
-      if (wandered >= config.faceSleepy.wakeMove * unit) {
-        wandered = 0;
+      // A resting hand still twitches the cursor a pixel or two; that isn't you being around. Measured
+      // from where it last counted, so jitter back and forth never adds up to a wake.
+      if (!restedAt || Math.hypot(p[0] - restedAt[0], p[1] - restedAt[1]) >= config.faceSleepy.wakeMove * unit) {
+        restedAt = p;
         stir();
       }
     },
