@@ -11,16 +11,43 @@ import {
   type ToggleParam,
 } from "./config";
 
-const STORAGE_KEY = "spider-string:tune";
-const COLLAPSED_KEY = "spider-string:tune-collapsed";
-const SIDE_KEY = "spider-string:tune-side";
-const TAB_KEY = "spider-string:tune-tab";
-const ANIMATION_KEY = "spider-string:tune-animation";
-/** Tabs whose sections are things to play, picked one at a time. */
-const PLAYABLE = ["animation", "expression"];
-
 type Value = number | boolean | string;
 type Values = Record<string, Record<string, Value>>;
+type AnySection = Omit<Section, "group"> & { group: string };
+
+/** A set of settings the panel edits: the spider's own (config.ts), or a page's, like the Spider Den's. */
+export interface Tuning {
+  /** The live values, edited in place. */
+  values: Values;
+  schema: Record<string, AnySection>;
+  /** Tabs, in order. */
+  groups: Record<string, { label: string; info: string }>;
+  /** Where its changes and the panel's own state are kept in this browser. */
+  key: string;
+  title: string;
+  intro: string;
+  /** Tabs whose sections are things to play (with `spider:play`), picked one at a time. */
+  playable?: string[];
+}
+
+/** The spider's own settings, shared by every page. */
+const SPIDER: Tuning = {
+  values: config as unknown as Values,
+  schema: schema as Record<string, AnySection>,
+  groups,
+  key: "spider-string:tune",
+  title: "Tuning",
+  intro:
+    "Changes apply instantly and are saved in this browser, but only while ?tune is in the URL. " +
+    "Sizes are in b (the height of the letter b), so they scale with the logo. " +
+    "Copy changes and paste them to Claude (or into config.ts) to make them the defaults.",
+  playable: ["animation", "expression"],
+};
+
+/** Puts this browser's saved changes to the spider's settings into effect, without the panel (for pages with a panel of their own). */
+export function applySpiderTuning() {
+  applySaved(SPIDER);
+}
 
 const isChoice = (p: Param): p is ChoiceParam => "options" in p;
 const isToggle = (p: Param): p is ToggleParam => typeof p.value === "boolean";
@@ -30,14 +57,18 @@ const isAction = (p: Param): p is ActionParam => "kind" in p && p.kind === "acti
 /**
  * Live tuning panel, loaded only when the page URL has ?tune.
  *
- * Built entirely from `schema` in config.ts, so new params show up here
- * automatically. Edits `config` in place (the sim reads it every frame) and
- * remembers changes in this browser.
+ * Built entirely from a schema (config.ts's, unless another is passed), so new params show up here
+ * automatically. Edits the values in place (the sim reads them every frame) and remembers changes
+ * in this browser.
  */
-export function mountTuner() {
-  const values = config as unknown as Values;
-  const sections = schema as Record<string, Section>;
-  applySaved(values, sections);
+export function mountTuner(tuning: Tuning = SPIDER) {
+  const { values, schema: sections, groups } = tuning;
+  const STORAGE_KEY = tuning.key;
+  const COLLAPSED_KEY = `${tuning.key}-collapsed`;
+  const SIDE_KEY = `${tuning.key}-side`;
+  const TAB_KEY = `${tuning.key}-tab`;
+  const ANIMATION_KEY = `${tuning.key}-animation`;
+  applySaved(tuning);
 
   // Shadow DOM keeps the page's styles and the panel's apart.
   const host = document.createElement("div");
@@ -47,7 +78,7 @@ export function mountTuner() {
   document.body.append(host);
 
   const panel = h("div", "panel");
-  const pill = h("button", "pill", "Tuning");
+  const pill = h("button", "pill", tuning.title);
   shadow.append(panel, pill);
 
   const status = h("span", "status");
@@ -57,20 +88,14 @@ export function mountTuner() {
   side.title = "Move the panel to the other side";
   const hide = h("button", "btn", "Hide");
   const titleRow = h("div", "title-row");
-  titleRow.append(h("strong", "title", "Tuning"), status);
+  titleRow.append(h("strong", "title", tuning.title), status);
   const actions = h("div", "actions");
   actions.append(copy, resetAll, side, hide);
   const tabs = h("nav", "tabs");
   const head = h("header", "head");
   head.append(titleRow, actions, tabs);
 
-  const intro = h(
-    "p",
-    "intro",
-    "Changes apply instantly and are saved in this browser, but only while ?tune is in the URL. " +
-      "Sizes are in b (the height of the letter b), so they scale with the logo. " +
-      "Copy changes and paste them to Claude (or into config.ts) to make them the defaults.",
-  );
+  const intro = h("p", "intro", tuning.intro);
   const fallback = h("textarea", "fallback");
   fallback.readOnly = true;
   fallback.hidden = true;
@@ -139,7 +164,7 @@ export function mountTuner() {
       details.append(r.el);
     }
     panes[section.group].append(details);
-    if (PLAYABLE.includes(section.group)) {
+    if (tuning.playable?.includes(section.group)) {
       (playable[section.group] ??= []).push({ key: s, label: section.label, el: details, pick: h("button", "pick", section.label) });
     }
   }
@@ -318,10 +343,10 @@ function row(param: Param, set: (v: Value) => void) {
   };
 }
 
-function applySaved(values: Values, sections: Record<string, Section>) {
+function applySaved({ values, schema: sections, key }: Tuning) {
   let saved: Record<string, unknown> = {};
   try {
-    saved = JSON.parse(read(STORAGE_KEY) ?? "{}");
+    saved = JSON.parse(read(key) ?? "{}");
   } catch {
     return;
   }

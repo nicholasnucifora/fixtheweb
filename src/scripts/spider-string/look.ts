@@ -42,7 +42,7 @@ function readList(raw: string | null) {
 }
 
 /** A saved look, with anything unknown (a renamed item, a colour that's gone) put back to its default. */
-function parseLook(raw: string | null): Look {
+export function parseLook(raw: string | null): Look {
   const look = blankLook();
   let saved: Partial<Look> = {};
   try {
@@ -87,26 +87,39 @@ export function isUnlocked(slot: Slot, id: string) {
 
 const announce = () => document.dispatchEvent(new CustomEvent(LOOK_EVENT));
 
-/** Saves `trying` as the look worn everywhere, keeping whatever was worn before in any slot whose item is still locked. */
-export function wear() {
-  const next = parseLook(JSON.stringify(trying));
+/** A copy of `look` that keeps what `before` had in any slot whose item is still locked. */
+export function keepUnlocked(look: Look, before: Look) {
+  const next = parseLook(JSON.stringify(look));
   for (const slot of Object.keys(SLOTS) as Slot[]) {
-    if (!isUnlocked(slot, trying.items[slot])) {
-      next.items[slot] = worn.items[slot];
-      next.tints[slot] = worn.tints[slot];
+    if (!isUnlocked(slot, look.items[slot])) {
+      next.items[slot] = before.items[slot];
+      next.tints[slot] = before.tints[slot];
     }
   }
-  setLook(worn, next);
+  return next;
+}
+
+/** Makes `look` the one worn everywhere, and saves it. */
+export function putOn(look: Look) {
+  setLook(worn, look);
   store(LOOK_KEY, JSON.stringify(worn));
   announce();
 }
 
-/** Counts a snack, saving anything being tried on that it's just unlocked. Returns what it unlocked. */
-export function ateSnack() {
+/** Saves `trying` as the look worn everywhere, keeping whatever was worn before in any slot whose item is still locked. */
+export function wear() {
+  putOn(keepUnlocked(trying, worn));
+}
+
+/**
+ * Counts a snack, then `save`s, so anything being tried on that it's just unlocked is kept. Returns
+ * what it unlocked. (The Spider Den saves to whichever of its spiders is being dressed.)
+ */
+export function ateSnack(save = wear) {
   const locked = lockedItems();
   store(SNACKS_KEY, String(snacks() + 1));
   const now = locked.filter(({ slot, item }) => isUnlocked(slot, item.id));
-  wear();
+  save();
   return now;
 }
 

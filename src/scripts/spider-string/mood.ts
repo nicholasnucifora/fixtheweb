@@ -53,7 +53,7 @@ const SHOVE: Partial<Record<Expression, () => number>> = {
   panicked: () => config.facePanicked.full,
 };
 
-interface LookContext {
+export interface LookContext {
   time: number;
   /** Seconds since this expression started, and how long it's meant to last (for the ones that play out over time). */
   since: number;
@@ -68,7 +68,8 @@ interface LookContext {
   wince: number;
 }
 
-const looks: Record<Expression, (m: LookContext) => FaceLook> = {
+/** Each expression's face, for the moment it's at. */
+export const looks: Record<Expression, (m: LookContext) => FaceLook> = {
   tired: () => ({
     eyes: { lid: 0.5, pupil: 0.45, lookY: 0.35, lookHold: 0.85 },
     mouth: { drawn: 0, curve: 0, width: 0.35, thick: 0.8 },
@@ -226,12 +227,24 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 /** How far through the stretch of time from `a` to `b` (fractions of the whole) `t` is, 0–1. */
 const part = (t: number, a: number, b: number) => clamp01((t - a) / (b - a));
 
+/**
+ * `listen: false` leaves the page's `spider:play` / `spider:reset` events alone (use `play` and
+ * `reset`), and `blink` is how it blinks after being startled awake: by default, a page-wide
+ * `spider:play`. For spiders played with one at a time, like the Spider Den's colony.
+ */
 export function createMood(
   root: HTMLElement,
   rope: Rope,
   isHeld: () => boolean,
   isHoldingSpider: () => boolean,
+  {
+    listen = true,
+    blink = () => document.dispatchEvent(new CustomEvent("spider:play", { detail: { id: "blink" } })),
+  }: { listen?: boolean; blink?: () => void } = {},
 ) {
+  /** Everything it listens to, so `dispose` can stop it all. */
+  const events = new AbortController();
+  const signal = events.signal;
   const face: Face = neutralFace();
   const timers = new Map<Expression, number>();
   const strength = new Map<Expression, number>();
@@ -319,34 +332,40 @@ export function createMood(
         stir();
       }
     },
-    { passive: true },
+    { passive: true, signal },
   );
 
   // Bubbling, so a press that grabbed the spider has already been claimed by the time this sees it.
-  window.addEventListener("pointerdown", (e) => {
-    stir();
-    if (e.button !== 0 || isHeld() || isIgnored(e.target) || !center || !unit) return;
-    const p = docPoint(e);
-    const gap = Math.hypot(p[0] - center[0], p[1] - center[1]) - radius;
-    if (gap < config.faceSmug.radius * unit) misses.push(now);
-  });
+  window.addEventListener(
+    "pointerdown",
+    (e) => {
+      stir();
+      if (e.button !== 0 || isHeld() || isIgnored(e.target) || !center || !unit) return;
+      const p = docPoint(e);
+      const gap = Math.hypot(p[0] - center[0], p[1] - center[1]) - radius;
+      if (gap < config.faceSmug.radius * unit) misses.push(now);
+    },
+    { signal },
+  );
 
-  document.documentElement.addEventListener("pointerleave", () => {
+  const left = () => {
     if (!pointer) return;
     gone = true;
     goneAt = now;
     exit = pointer;
-  });
+  };
+  document.documentElement.addEventListener("pointerleave", left, { signal });
 
-  root.addEventListener("spider:grab", () => {
+  const grabbed = () => {
     grabAt = now;
     grabMoved = 0;
     grabs.push(now);
     annoyance += config.faceAngry.grabCost;
     stir();
-  });
+  };
+  root.addEventListener("spider:grab", grabbed, { signal });
 
-  root.addEventListener("spider:release", () => {
+  const released = () => {
     const poke = config.facePoked;
     if (grabAt >= 0 && now - grabAt < poke.time && grabMoved < poke.move * unit && on("poked")) {
       wince = Math.random() < 0.5 ? -1 : 1;
@@ -358,10 +377,11 @@ export function createMood(
     releasedAt = now;
     releaseCounted = false;
     stir();
-  });
+  };
+  root.addEventListener("spider:release", released, { signal });
 
-  document.addEventListener("spider:play", (e) => {
-    const id = (e as CustomEvent).detail?.id;
+  /** Shows the expression played by this id (its Faces section) for a moment. */
+  const play = (id: string) => {
     const expression = BY_SECTION.get(id);
     if (!expression) return;
     preview = expression;
@@ -381,9 +401,9 @@ export function createMood(
       const side = Math.random() < 0.5 ? -1 : 1;
       rope.addVelocity(rope.points.length - 1, side * speed, -speed * 0.35, 1 / config.sim.rate);
     }
-  });
+  };
 
-  document.addEventListener("spider:reset", () => {
+  const reset = () => {
     timers.clear();
     strength.clear();
     preview = null;
@@ -397,7 +417,12 @@ export function createMood(
     misses.length = 0;
     lastActive = now;
     blinkAt = -1;
-  });
+  };
+
+  if (listen) {
+    document.addEventListener("spider:play", (e) => play((e as CustomEvent).detail?.id), { signal });
+    document.addEventListener("spider:reset", reset, { signal });
+  }
 
   return {
     /** The face as it is right now, eased; the spider draws this. */
@@ -424,6 +449,22 @@ export function createMood(
       if (on("content")) trigger("content", config.faceContent.hold);
     },
 
+    play,
+    reset,
+
+    /** Sets off an expression for `seconds`, as if what sets it off had happened (if it's switched on). */
+    feel(expression: Expression, seconds: number, amount = 1) {
+      if (on(expression)) trigger(expression, seconds, amount);
+    },
+
+    /** Something's going on: it's awake (startled awake, if it was asleep). */
+    stir,
+
+    /** Stops listening to the page. */
+    dispose() {
+      events.abort();
+    },
+
     update(dt: number, frame: MoodFrame) {
       now += dt;
       unit = frame.unit;
@@ -448,7 +489,7 @@ export function createMood(
       if (speed > 1.5 || frame.busy || frame.foodNear > 0) stir();
       if (blinkAt >= 0 && now >= blinkAt) {
         blinkAt = -1;
-        document.dispatchEvent(new CustomEvent("spider:play", { detail: { id: "blink" } }));
+        blink();
       }
 
       // Spin: every bit of swing around the anchor counts, and it's forgotten over time.

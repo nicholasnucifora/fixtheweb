@@ -444,8 +444,12 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
 
   // ── Pupils look at the cursor ──────────────────────────────────────────────
   let pointer: { x: number; y: number } | null = null;
-  window.addEventListener("pointermove", (e) => (pointer = { x: e.clientX, y: e.clientY }), { passive: true });
-  document.documentElement.addEventListener("pointerleave", () => (pointer = null));
+  const events = new AbortController();
+  window.addEventListener("pointermove", (e) => (pointer = { x: e.clientX, y: e.clientY }), {
+    passive: true,
+    signal: events.signal,
+  });
+  document.documentElement.addEventListener("pointerleave", () => (pointer = null), { signal: events.signal });
 
   /** `faceToDoc` maps the face's coordinates to document px, so tilt, breathing and face sliders all count. */
   const lookAround = (dt: number, faceToDoc: DOMMatrix) => {
@@ -611,6 +615,9 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   });
 
   return {
+    /** Stops following the cursor, for a spider that's gone for good. */
+    dispose: () => events.abort(),
+
     /** Sideways nudge (CSS px) that lines the string up with the pixel grid while the spider is snapped. */
     stringShift: () => stringShift,
 

@@ -1,7 +1,24 @@
+import {
+  COLONY_EVENT,
+  byId,
+  canLay,
+  feed,
+  grownUp,
+  makeMain,
+  members,
+  nameOf,
+  picked,
+  pickSpider,
+  sizeOf,
+  wear,
+  type Member,
+} from "./den/colony";
+import { den, groups as denGroups, schema as denSchema } from "./den/config";
+import { createWorld } from "./den/world";
 import { config } from "./spider-string/config";
 import { getFigure } from "./spider-string/figure";
 import { drawSnack, type Snack } from "./spider-string/food";
-import { LOOK_EVENT, ateSnack, isUnlocked, setLook, snacks, trying, wear } from "./spider-string/look";
+import { LOOK_EVENT, ateSnack, isUnlocked, setLook, snacks, trying } from "./spider-string/look";
 import {
   PALETTE,
   PATTERNS,
@@ -17,15 +34,23 @@ import {
 } from "./spider-string/wardrobe";
 
 /**
- * The Spider Den's wardrobe (src/pages/den.astro).
+ * The Spider Den (src/pages/den.astro): its two views, and the wardrobe they share.
  *
- * Picking something dresses the den's spider in it straight away, and saves it as what the spider
- * wears everywhere (look.ts). Something locked can still be tried on here: the den's spider wears
- * it, but it isn't saved until it's unlocked. Tiles are pictures of the spider in your current look
- * with that item swapped in, redrawn whenever the look changes.
+ * Dress up: the picked spider hangs from a web, big, next to the wardrobe. The den: every spider you
+ * have, living on webs across the whole page (den/world.ts), with a card for the picked one and the
+ * wardrobe in a drawer, whose clothes can be dragged straight onto a spider.
+ *
+ * Picking something dresses the picked spider in it straight away, and saves it (den/colony.ts). The
+ * main spider's look is the one worn all over the site. Something locked can still be tried on: the
+ * picked spider wears it, but it isn't saved until it's unlocked. Tiles are pictures of the spider in
+ * its current look with that item swapped in, redrawn whenever the look changes.
+ *
+ * With ?tune, the den's own tuning panel (den/config.ts). The spider's own settings are tuned on the
+ * home page.
  */
 
 type View = [x: number, y: number, w: number, h: number];
+type DenView = "dress" | "den";
 
 /** The part of the spider (art units) each kind of tile shows. */
 const VIEWS: Record<string, View> = {
@@ -38,27 +63,102 @@ const VIEWS: Record<string, View> = {
   whole: [-30, -30, 656, 470],
 };
 
+const VIEW_KEY = "den:view";
+const DRAWER_KEY = "den:wardrobe";
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const DEFAULT_NAME = blankLook().name;
 
 export function mountDen() {
+  const main = document.querySelector<HTMLElement>(".den");
   const wardrobe = document.querySelector<HTMLElement>(".wardrobe");
-  if (!wardrobe) return;
+  if (!main || !wardrobe) return;
+
+  if (new URLSearchParams(location.search).has("tune")) {
+    import("./spider-string/tune").then((m) =>
+      m.mountTuner({
+        values: den as unknown as Record<string, Record<string, number | boolean | string>>,
+        schema: denSchema,
+        groups: denGroups,
+        key: "den:tune",
+        title: "Den tuning",
+        intro:
+          "Just what's special to the den: its webs, the spiders' habits and strings, their lives and the flies. " +
+          "How the spiders themselves move, look and feel is shared with the whole site: tune that on the home page with ?tune (saved tweaks from there apply here too). " +
+          "b here is the den's own: a grown-up spider is 0.48 b wide, like the home page's by default. " +
+          "Changes are saved in this browser, but only while ?tune is in the URL. Copy changes and paste them to Claude (or into den/config.ts) to make them the defaults.",
+      }),
+    );
+  }
+
   const $$ = <T extends Element = HTMLElement>(selector: string, within: ParentNode = wardrobe) => [...within.querySelectorAll<T>(selector)] as T[];
   const notice = wardrobe.querySelector<HTMLElement>("[data-den-notice]")!;
   const nameInput = wardrobe.querySelector<HTMLInputElement>("[data-den-name-input]")!;
   const slotEl = document.querySelector<HTMLElement>("[data-den-slot]");
+  const stageRig = document.querySelector<HTMLElement>('.spider-string[data-mode="stage"]');
+  const card = document.querySelector<HTMLElement>("[data-den-card]")!;
+  const cardNote = card.querySelector<HTMLElement>("[data-card-note]")!;
+  const picker = document.querySelector<HTMLElement>("[data-den-picker]")!;
 
   // Snacks make it bigger, but here that shouldn't take it out of its stage. And this spider's big
   // enough that snacks sized for the logo's would be the size of its head.
   config.feed.maxSize = Math.min(config.feed.maxSize, 1.6);
   config.feed.flySize *= 0.6;
 
-  const nameOf = () => trying.name.trim() || DEFAULT_NAME;
-  const say = (html: string) => (notice.innerHTML = html);
+  const nameOfTrying = () => trying.name.trim() || DEFAULT_NAME;
   const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const say = (html: string) => {
+    notice.innerHTML = html;
+    cardNote.innerHTML = html;
+  };
   const play = (id: string, detail: object = {}) =>
     document.dispatchEvent(new CustomEvent("spider:play", { detail: { id, ...detail } }));
+
+  const world = createWorld(document.querySelector<HTMLElement>("[data-den-world]")!, {
+    pick: (id) => {
+      if (picked().id !== id) pickSpider(id);
+    },
+    say,
+  });
+
+  // ── The two views ─────────────────────────────────────────────────────────
+  let view: DenView = "dress";
+  const showView = (to: DenView, remember = true) => {
+    view = to;
+    main.dataset.denView = to;
+    document.documentElement.dataset.denView = to;
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-den-show]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.denShow === to));
+    }
+    // The big spider's rig keeps its hands off the page while the den is showing.
+    stageRig?.toggleAttribute("data-inactive", to === "den");
+    world.setActive(to === "den");
+    if (remember) {
+      try {
+        localStorage.setItem(VIEW_KEY, to);
+      } catch {
+        // ignore
+      }
+    }
+    refresh();
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-den-show]")) {
+    button.addEventListener("click", () => showView(button.dataset.denShow as DenView));
+  }
+
+  const setDrawer = (open: boolean, remember = true) => {
+    main.dataset.wardrobe = open ? "open" : "closed";
+    document.querySelector("[data-den-wardrobe-toggle]")?.setAttribute("aria-expanded", String(open));
+    if (open) drawTiles();
+    if (remember) {
+      try {
+        localStorage.setItem(DRAWER_KEY, open ? "open" : "closed");
+      } catch {
+        // ignore
+      }
+    }
+  };
+  document.querySelector("[data-den-wardrobe-toggle]")?.addEventListener("click", () => setDrawer(main.dataset.wardrobe !== "open"));
+  wardrobe.querySelector("[data-den-wardrobe-close]")?.addEventListener("click", () => setDrawer(false));
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const tabs = $$<HTMLButtonElement>('[role="tab"]');
@@ -112,21 +212,28 @@ export function mountDen() {
     return { ctx, width, height };
   };
 
-  const drawTile = (canvas: HTMLCanvasElement) => {
+  /** The spider in `look`, fitted to the canvas (a `view` of it), `scale` of the size. False if the canvas isn't showing. */
+  const drawSpider = (canvas: HTMLCanvasElement, look: Look, view: View = VIEWS.whole, scale = 1) => {
     const fit = fitCanvas(canvas);
-    if (!fit) return;
+    if (!fit) return false;
     const { ctx, width, height } = fit;
+    const [vx, vy, vw, vh] = view;
+    const s = Math.min(width / vw, height / vh) * scale;
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(s, s);
+    ctx.translate(-(vx + vw / 2), -(vy + vh / 2));
+    getFigure().draw(ctx, look, dark.matches);
+    return true;
+  };
+
+  const drawTile = (canvas: HTMLCanvasElement) => {
     const icon = canvas.dataset.icon as Snack | undefined;
     if (icon) {
-      drawSnack(ctx, icon, width / 2, height / 2, Math.min(width, height) * 0.62, 1.2);
+      const fit = fitCanvas(canvas);
+      if (fit) drawSnack(fit.ctx, icon, fit.width / 2, fit.height / 2, Math.min(fit.width, fit.height) * 0.62, 1.2);
       return;
     }
-    const [vx, vy, vw, vh] = VIEWS[canvas.dataset.view ?? "whole"] ?? VIEWS.whole;
-    const scale = Math.min(width / vw, height / vh);
-    ctx.translate(width / 2, height / 2);
-    ctx.scale(scale, scale);
-    ctx.translate(-(vx + vw / 2), -(vy + vh / 2));
-    getFigure().draw(ctx, previewFor(canvas.closest<HTMLElement>(".tile")!), dark.matches);
+    drawSpider(canvas, previewFor(canvas.closest<HTMLElement>(".tile")!), VIEWS[canvas.dataset.view ?? "whole"] ?? VIEWS.whole);
   };
 
   /** Draws the tiles in the open tab; the rest wait until they're opened. */
@@ -142,19 +249,35 @@ export function mountDen() {
     trying.items[slot] = id;
     wear();
     if (!item || isUnlocked(slot, id)) {
-      say("Saved in this browser: it wears this on every page.");
+      say(picked().main ? "Saved in this browser: it wears this on every page." : `Saved in this browser: ${escape(nameOfTrying())} wears this in the den.`);
     } else {
       const need = item.unlock!;
       const how =
         need.kind === "snacks"
-          ? `Feed ${escape(nameOf())} ${need.count} snacks to keep it (${need.count - snacks()} to go).`
+          ? `Feed ${escape(nameOfTrying())} ${need.count} snacks to keep it (${need.count - snacks()} to go).`
           : `${unlockLabel(need)} to keep it. That's coming soon.`;
       say(`<strong>Just trying on the ${escape(item.label.toLowerCase())}.</strong> ${how}`);
     }
   };
 
-  for (const tile of $$<HTMLButtonElement>(".tile[data-item]")) {
-    tile.addEventListener("click", () => tryOn(tile.dataset.slot as Slot, tile.dataset.item!));
+  /** What a tile does to the picked spider. */
+  const apply = (tile: HTMLElement) => {
+    const { slot, item, skin, pattern, thread } = tile.dataset;
+    if (slot && item) return tryOn(slot as Slot, item);
+    if (skin) trying.skin = skin as Look["skin"];
+    if (pattern) trying.pattern = pattern as Look["pattern"];
+    if (thread) trying.thread = thread as Look["thread"];
+    wear();
+  };
+
+  /** A tile dragged out of the wardrobe in the den can be let go of over a spider. */
+  let dragged = false;
+  for (const tile of $$<HTMLButtonElement>(".tile[data-item], [data-skin], [data-pattern], [data-thread]")) {
+    tile.addEventListener("click", () => {
+      if (dragged) return;
+      apply(tile);
+    });
+    tile.addEventListener("pointerdown", (e) => startTileDrag(tile, e));
   }
   for (const swatch of $$<HTMLButtonElement>(".swatch")) {
     swatch.addEventListener("click", () => {
@@ -162,15 +285,72 @@ export function mountDen() {
       wear();
     });
   }
-  for (const tile of $$<HTMLButtonElement>("[data-skin], [data-pattern], [data-thread]")) {
-    tile.addEventListener("click", () => {
-      const { skin, pattern, thread } = tile.dataset;
-      if (skin) trying.skin = skin as Look["skin"];
-      if (pattern) trying.pattern = pattern as Look["pattern"];
-      if (thread) trying.thread = thread as Look["thread"];
-      wear();
-    });
-  }
+
+  const startTileDrag = (tile: HTMLElement, down: PointerEvent) => {
+    if (view !== "den" || down.button !== 0) return;
+    dragged = false;
+    const art = tile.querySelector<HTMLCanvasElement>("canvas");
+    let ghost: HTMLCanvasElement | null = null;
+    let over: string | null = null;
+    // On a touchscreen the drawer scrolls, so a drag starts with a moment's hold instead.
+    const touch = down.pointerType === "touch";
+    let ready = !touch;
+    const hold = touch ? window.setTimeout(() => (ready = true), 280) : 0;
+
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== down.pointerId) return;
+      const far = Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY);
+      if (!ghost) {
+        if (touch && !ready && far > 8) return end(e, true);
+        if (!ready || far < 6) return;
+        dragged = true;
+        ghost = document.createElement("canvas");
+        ghost.className = "tile-ghost";
+        if (art) {
+          ghost.width = art.width;
+          ghost.height = art.height;
+          ghost.getContext("2d")?.drawImage(art, 0, 0);
+          ghost.style.width = `${art.clientWidth}px`;
+          ghost.style.height = `${art.clientHeight}px`;
+        }
+        document.body.append(ghost);
+        try {
+          tile.setPointerCapture(e.pointerId);
+        } catch {
+          // window listeners still see the moves
+        }
+        document.documentElement.classList.add("spider-held");
+      }
+      ghost.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+      over = world.spiderAt(e.clientX, e.clientY);
+      world.highlight(over);
+    };
+    const end = (e: PointerEvent, cancelled = false) => {
+      if (e.pointerId !== down.pointerId) return;
+      window.clearTimeout(hold);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      if (!ghost) return;
+      ghost.remove();
+      document.documentElement.classList.remove("spider-held");
+      world.highlight(null);
+      const id = cancelled ? null : world.spiderAt(e.clientX, e.clientY);
+      if (id) {
+        const spider = byId(id);
+        if (spider && picked().id !== id) pickSpider(id);
+        apply(tile);
+        if (spider) world.play(id, "faceHappy");
+      }
+      // The click that follows a drag isn't a click.
+      window.setTimeout(() => (dragged = false), 0);
+    };
+    const up = (e: PointerEvent) => end(e);
+    const cancel = (e: PointerEvent) => end(e, true);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+  };
 
   nameInput.addEventListener("input", () => {
     trying.name = nameInput.value.slice(0, 24);
@@ -189,37 +369,47 @@ export function mountDen() {
     trying.pattern = Math.random() < 0.7 ? "none" : pick(Object.keys(PATTERNS) as Look["pattern"][]);
     trying.thread = Math.random() < 0.7 ? "silk" : pick(Object.keys(THREADS) as Look["thread"][]);
     wear();
-    say(`Ta-da. ${escape(nameOf())} has never looked better.`);
-    play("faceExcited");
+    say(`Ta-da. ${escape(nameOfTrying())} has never looked better.`);
+    playFor("faceExcited");
   });
   wardrobe.querySelector("[data-den-undress]")?.addEventListener("click", () => {
-    setLook(trying, { ...blankLook(), name: trying.name });
+    setLook(trying, { ...blankLook(), name: trying.name, skin: trying.skin, pattern: trying.pattern });
     wear();
     say("Back to basics.");
-    play("faceSurprised");
+    playFor("faceSurprised");
   });
 
   // ── Snacks, tricks and moods ──────────────────────────────────────────────
+  /** A trick or mood: the big spider plays it, or in the den, the picked one. */
+  const playFor = (id: string) => (view === "den" ? world.play(picked().id, id) : play(id));
+
   for (const button of $$<HTMLButtonElement>("[data-snack]")) {
     button.addEventListener("click", () => {
       const kind = button.dataset.snack as Snack;
+      if (view === "den") {
+        world.offer(kind, picked().id);
+        say(`Drag the ${kind} to a spider's mouth.`);
+        return;
+      }
       // Beside the spider, on whichever side has room.
       const r = slotEl?.getBoundingClientRect();
       const width = document.documentElement.clientWidth;
       let x = r ? r.right + r.width * 0.45 : undefined;
       if (r && x !== undefined && x > width - 40) x = r.left - r.width * 0.45;
       play("feed", { kind, x, y: r ? r.top - r.height * 0.1 : undefined });
-      say(`Drag the ${kind} to ${escape(nameOf())}'s mouth.`);
+      say(`Drag the ${kind} to ${escape(nameOfTrying())}'s mouth.`);
     });
   }
   for (const button of $$<HTMLButtonElement>("[data-play]")) {
-    button.addEventListener("click", () => play(button.dataset.play!));
+    button.addEventListener("click", () => playFor(button.dataset.play!));
   }
   wardrobe.querySelector("[data-den-reset]")?.addEventListener("click", () => document.dispatchEvent(new CustomEvent("spider:reset")));
 
-  document.addEventListener("spider:eat", () => {
-    // Counting it saves the look, which refreshes everything.
-    const unlocked = ateSnack();
+  // The big spider in the dress-up view ate something you gave it.
+  document.addEventListener("spider:eat", (e) => {
+    if ((e.target as Element | null)?.closest?.('[data-mode="stage"]') === null) return;
+    const unlocked = ateSnack(wear);
+    feed(picked().id);
     if (unlocked.length) {
       const names = unlocked.map(({ item }) => `the ${escape(item.label.toLowerCase())}`).join(" and ");
       say(`<strong>Yum! You unlocked ${names}.</strong> It's in the wardrobe now.`);
@@ -228,8 +418,99 @@ export function mountDen() {
     }
   });
 
+  // ── The picked spider's card (the den) ────────────────────────────────────
+  const $card = <T extends HTMLElement = HTMLElement>(selector: string) => card.querySelector<T>(selector)!;
+  const age = (m: Member) => {
+    const minutes = Math.max(0, (Date.now() - m.born) / 60_000);
+    if (minutes < 1) return "just hatched";
+    if (minutes < 60) return `${Math.floor(minutes)} minute${Math.floor(minutes) === 1 ? "" : "s"} old`;
+    const hours = minutes / 60;
+    if (hours < 48) return `${Math.floor(hours)} hour${Math.floor(hours) === 1 ? "" : "s"} old`;
+    return `${Math.floor(hours / 24)} days old`;
+  };
+  const tummy = (full: number) =>
+    full >= 0.75 ? "Full" : full >= 0.45 ? "Peckish" : full >= 0.2 ? "Hungry" : full > 0 ? "Starving" : "Empty";
+
+  $card("[data-card-dress]").addEventListener("click", () => {
+    setDrawer(true);
+    wardrobe.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+  });
+  $card("[data-card-feed]").addEventListener("click", () => {
+    world.offer("fly", picked().id);
+    say(`Drag the fly to ${escape(nameOf(picked()))}'s mouth.`);
+  });
+  $card("[data-card-lay]").addEventListener("click", () => {
+    const m = picked();
+    const why = world.layEggs(m.id);
+    say(why ? `${escape(why)}.` : `<strong>${escape(nameOf(m))} laid a clutch of eggs!</strong> Keep an eye on the egg sac.`);
+    refreshCard();
+  });
+  $card("[data-card-make-main]").addEventListener("click", () => {
+    const m = picked();
+    makeMain(m.id);
+    say(`<strong>${escape(nameOf(m))} is your main spider now.</strong> It's the one on the logo and in the header.`);
+  });
+
+  let portraitKey = "";
+  const refreshCard = () => {
+    const m = picked();
+    $card("[data-card-name]").textContent = nameOf(m);
+    $card("[data-card-main]").hidden = !m.main;
+    $card("[data-card-make-main]").hidden = m.main;
+    const stage = grownUp(m) ? "Grown up" : m.growth < 0.35 ? "Baby" : "Growing up";
+    // The spider that was here before the den had babies didn't hatch here.
+    $card("[data-card-age]").textContent = `${stage} · ${m.parent || !m.main ? age(m) : "here from the start"}`;
+    const growth = $card("[data-card-growth]");
+    growth.hidden = grownUp(m);
+    growth.querySelector<HTMLElement>(".meter-bar span")!.style.setProperty("--done", `${Math.round(m.growth * 100)}%`);
+    growth.querySelector(".meter-value")!.textContent = `${Math.round(m.growth * 100)}%`;
+    const fullness = $card("[data-card-fullness]");
+    fullness.querySelector<HTMLElement>(".meter-bar span")!.style.setProperty("--done", `${Math.round(m.fullness * 100)}%`);
+    fullness.querySelector(".meter-value")!.textContent = tummy(m.fullness);
+    fullness.toggleAttribute("data-low", m.fullness < 0.2);
+    const lay = $card<HTMLButtonElement>("[data-card-lay]");
+    const can = canLay(m);
+    lay.hidden = !grownUp(m);
+    lay.setAttribute("aria-disabled", String(!can.ok));
+    lay.title = can.ok ? "" : can.why;
+    const key = JSON.stringify([trying, sizeOf(m), dark.matches]);
+    if (key !== portraitKey) {
+      const drawn = drawSpider($card<HTMLCanvasElement>("[data-card-portrait]"), trying, VIEWS.whole, 0.55 + 0.45 * Math.min(1, sizeOf(m)));
+      portraitKey = drawn ? key : "";
+    }
+  };
+
+  // ── Your spiders ──────────────────────────────────────────────────────────
+  let pickerKey = "";
+  const refreshPicker = () => {
+    const list = members();
+    const key = JSON.stringify([picked().id, dark.matches, list.map((m) => [m.id, m.id === picked().id ? trying : m.look, m.main, Math.round(sizeOf(m) * 20)])]);
+    if (key === pickerKey) return;
+    pickerKey = key;
+    const buttons = new Map([...picker.querySelectorAll<HTMLButtonElement>("button")].map((b) => [b.dataset.id!, b]));
+    for (const [id, button] of buttons) if (!list.some((m) => m.id === id)) button.remove();
+    for (const m of list) {
+      let button = buttons.get(m.id);
+      if (!button) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.className = "picker-spider";
+        button.dataset.id = m.id;
+        button.innerHTML = `<canvas aria-hidden="true"></canvas><span class="picker-name"></span>`;
+        button.addEventListener("click", () => pickSpider(m.id));
+        picker.append(button);
+      }
+      button.querySelector(".picker-name")!.textContent = nameOf(m);
+      button.setAttribute("aria-pressed", String(m.id === picked().id));
+      button.toggleAttribute("data-main", m.main);
+      button.title = m.main ? `${nameOf(m)} (main spider)` : nameOf(m);
+      drawSpider(button.querySelector("canvas")!, m.id === picked().id ? trying : m.look, VIEWS.whole, 0.5 + 0.5 * Math.min(1, sizeOf(m)));
+    }
+  };
+
   // ── Keeping it all up to date ─────────────────────────────────────────────
   const refresh = () => {
+    const m = picked();
     for (const tile of $$<HTMLButtonElement>(".tile[data-item]")) {
       const slot = tile.dataset.slot as Slot;
       tile.setAttribute("aria-pressed", String(trying.items[slot] === tile.dataset.item));
@@ -248,8 +529,16 @@ export function mountDen() {
     }
     for (const chip of $$<HTMLButtonElement>("[data-thread]")) chip.setAttribute("aria-pressed", String(trying.thread === chip.dataset.thread));
 
-    for (const el of document.querySelectorAll("[data-den-name]")) el.textContent = nameOf();
+    for (const el of document.querySelectorAll("[data-den-name]")) el.textContent = nameOfTrying();
     if (document.activeElement !== nameInput) nameInput.value = trying.name;
+    const lede = document.querySelector("[data-den-lede]");
+    if (lede) {
+      lede.textContent = m.main
+        ? "Your main spider: the one on our logo, and in the header. Give it a hat, pick its colours, feed it a snack. Whatever it wears here, it wears all over the site."
+        : `${nameOfTrying()} lives in the den. Dress it up however you like, or make it your main spider to wear its look all over the site.`;
+    }
+    // The big spider is as big as the picked one's grown.
+    slotEl?.style.setProperty("--grow", String(Math.min(1.3, 0.45 + 0.55 * sizeOf(m))));
 
     const eaten = snacks();
     wardrobe.querySelector("[data-den-snack-count]")!.textContent = String(eaten);
@@ -260,18 +549,41 @@ export function mountDen() {
       row.querySelector<HTMLElement>(".progress-bar span")!.style.setProperty("--done", `${(done / count) * 100}%`);
       row.querySelector(".progress-count")!.textContent = done >= count ? "Unlocked" : `${done} / ${count}`;
     }
+    refreshPicker();
+    refreshCard();
     drawTiles();
   };
 
-  // Whenever the look changes (here, as it's saved, or in another tab), or the colour scheme flips
-  // (tiles have a dark-mode outline).
+  // Whenever the look or the spiders change (here, as it's saved, or in another tab), or the colour
+  // scheme flips (pictures have a dark-mode outline).
   document.addEventListener(LOOK_EVENT, refresh);
-  dark.addEventListener("change", drawTiles);
+  document.addEventListener(COLONY_EVENT, refresh);
+  dark.addEventListener("change", () => {
+    pickerKey = portraitKey = "";
+    refresh();
+  });
   let resized = 0;
   window.addEventListener("resize", () => {
     cancelAnimationFrame(resized);
     resized = requestAnimationFrame(drawTiles);
   });
+  // Hunger and growing up tick along: keep the card and picker current.
+  window.setInterval(() => {
+    if (view === "den") {
+      refreshCard();
+      refreshPicker();
+    }
+  }, 1000);
 
-  refresh();
+  let saved: string | null = null;
+  let drawer: string | null = null;
+  try {
+    saved = localStorage.getItem(VIEW_KEY);
+    drawer = localStorage.getItem(DRAWER_KEY);
+  } catch {
+    // ignore
+  }
+  // The den starts with the wardrobe tucked away, so you can see everyone.
+  setDrawer(drawer === "open", false);
+  showView(saved === "den" || location.hash === "#den" ? "den" : "dress", false);
 }

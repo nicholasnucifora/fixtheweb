@@ -13,11 +13,15 @@ import { createSpider } from "./spider";
 import { trying, worn } from "./look";
 import { createZees } from "./zees";
 
-/** Mounts every `[data-spider-string]` rig on the page, plus the tuning panel with ?tune. */
+/**
+ * Mounts every `[data-spider-string]` rig on the page, plus the tuning panel with ?tune. A page with
+ * a panel of its own (a `data-tuner` element, like the Spider Den's) still gets the spider's saved
+ * tuning, but its own panel instead: the spider's settings are tuned on the home page.
+ */
 export function mountAll() {
   document.querySelectorAll<HTMLElement>("[data-spider-string]").forEach(mount);
   if (new URLSearchParams(location.search).has("tune")) {
-    import("./tune").then((m) => m.mountTuner());
+    import("./tune").then((m) => (document.querySelector("[data-tuner]") ? m.applySpiderTuning() : m.mountTuner()));
   }
 }
 

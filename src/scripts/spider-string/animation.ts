@@ -85,7 +85,11 @@ const blank = (): AnimationState => ({
   waiting: false,
 });
 
-export function createAnimations(rope: Rope, isHeld: () => boolean) {
+/**
+ * `listen: false` leaves the page's `spider:play` / `spider:reset` events alone: for spiders that
+ * are played with one at a time (the Spider Den's colony), through `play` and `reset`.
+ */
+export function createAnimations(rope: Rope, isHeld: () => boolean, { listen = true } = {}) {
   const state = blank();
 
   // ── The drop-in ───────────────────────────────────────────────────────────
@@ -120,11 +124,22 @@ export function createAnimations(rope: Rope, isHeld: () => boolean) {
 
   let pending: string | null = null;
   let resetting = false;
-  document.addEventListener("spider:play", (e) => (pending = (e as CustomEvent).detail?.id ?? null));
-  document.addEventListener("spider:reset", () => (resetting = true));
+  if (listen) {
+    document.addEventListener("spider:play", (e) => (pending = (e as CustomEvent).detail?.id ?? null));
+    document.addEventListener("spider:reset", () => (resetting = true));
+  }
 
   return {
     state,
+
+    /** Plays the animation with this id (its config section), like a `spider:play` event. */
+    play(id: string) {
+      pending = id;
+    },
+
+    reset() {
+      resetting = true;
+    },
 
     /** True while the spider is out on a fresh thread, so food and idles can hold off. */
     get busy() {

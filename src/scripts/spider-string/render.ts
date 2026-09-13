@@ -97,7 +97,8 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
 
 const RAINBOW = [PALETTE.coral, PALETTE.sunflower, PALETTE.mint, PALETTE.sky, PALETTE.plum].map((c) => c.color);
 
-function threadStyle(ctx: CanvasRenderingContext2D, thread: keyof typeof THREADS, pts: Point[], ink: string) {
+/** The stroke for a thread in the Spider Den's colour `thread`, running through `pts`. */
+export function threadStyle(ctx: CanvasRenderingContext2D, thread: keyof typeof THREADS, pts: Point[], ink: string) {
   if (thread !== "rainbow") return THREADS[thread]?.color || ink;
   const head = pts[0];
   const tail = pts[pts.length - 1];
@@ -107,7 +108,7 @@ function threadStyle(ctx: CanvasRenderingContext2D, thread: keyof typeof THREADS
 }
 
 /** Smooth curve through the rope points (quadratic segments via midpoints). */
-function drawString(ctx: CanvasRenderingContext2D, pts: Point[], width: number) {
+export function drawString(ctx: CanvasRenderingContext2D, pts: Point[], width: number) {
   ctx.lineWidth = width;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
