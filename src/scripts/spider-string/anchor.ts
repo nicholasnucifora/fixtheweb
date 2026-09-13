@@ -6,6 +6,33 @@ export interface AnchorFrame {
   y: number;
   /** Rendered height of the anchor glyph in px: the size everything else is scaled by. */
   unit: number;
+  /**
+   * For a spider kept in a slot: how far below the anchor the middle of the spider should hang, px.
+   * The string is as long as that takes, rather than Strings → Length.
+   */
+  hangTo?: number;
+}
+
+/**
+ * A spider sitting in a slot on the page (the header's logo) rather than hanging from a glyph: it
+ * hangs on a thread from the top of the window, sized to the slot's width and as low as its middle.
+ * The slot is measured every frame, so it can be fixed in place while the page scrolls under it.
+ */
+export function createSlotAnchor(slot: HTMLElement) {
+  return {
+    measure(): AnchorFrame | null {
+      const r = slot.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      // Just above the top of the window, so the thread runs off it.
+      const top = -2;
+      return {
+        x: r.left + r.width / 2 + window.scrollX,
+        y: top + window.scrollY,
+        unit: r.width / Math.max(0.1, config.look.width),
+        hangTo: r.top + r.height / 2 - top,
+      };
+    },
+  };
 }
 
 /**

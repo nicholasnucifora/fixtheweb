@@ -9,17 +9,35 @@
  *
  * Emits bubbling `spider:grab`, `spider:release` and `spider:pluck` events
  * from the root, and sets `data-spider` / `data-string` ("idle|hover|held")
- * on it for styling hooks.
+ * on it for styling hooks. Set `data-inactive` on it to stop it being grabbed.
+ *
+ * Pass `badge` instead of `anchor` for a badge: a spider that sits in that
+ * element (sized to its width) on a thread from the top of the window, with
+ * all its faces but no dragging, and presses go through it to the page.
  */
-interface Props {
-  /** CSS selector for the SVG glyph the string hangs from. */
-  anchor: string;
-}
+type Props =
+  | {
+      /** CSS selector for the SVG glyph the string hangs from. */
+      anchor: string;
+      badge?: never;
+    }
+  | {
+      /** CSS selector for the element the badge spider sits in. */
+      badge: string;
+      anchor?: never;
+    };
 
-const { anchor } = Astro.props;
+const { anchor, badge } = Astro.props;
 ---
 
-<div class="spider-string" data-spider-string data-anchor={anchor} aria-hidden="true">
+<div
+  class="spider-string"
+  data-spider-string
+  data-anchor={anchor}
+  data-slot={badge}
+  data-mode={badge ? "badge" : undefined}
+  aria-hidden="true"
+>
   <canvas class="canvas"></canvas>
   <div class="bob" data-bob></div>
 </div>
@@ -56,6 +74,11 @@ const { anchor } = Astro.props;
     touch-action: none;
     cursor: grab;
     -webkit-user-drag: none;
+  }
+  /* A badge, or a rig that's been switched off, can't be grabbed: presses go through to the page. */
+  .spider-string[data-mode="badge"] .bob,
+  .spider-string[data-inactive] .bob {
+    pointer-events: none;
   }
   /* Bigger hit area than the spider itself (config bob.hitArea), so it's easy to grab. */
   .bob::after {

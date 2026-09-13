@@ -594,6 +594,9 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
     /** Half the spider's width, px. */
     radius: () => (pose ? pose.width / 2 : 0),
 
+    /** How far below the thread's end the middle of the spider hangs at rest, px, for a spider `unit` big. */
+    hang: (unit: number) => ((H / 2 - attachPoint()[1]) * config.look.width * unit) / W,
+
     /** The mouth, in document px — what food is dragged to. */
     mouth(): Vec {
       if (!pose) return [0, 0];

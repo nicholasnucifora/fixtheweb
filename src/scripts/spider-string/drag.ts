@@ -15,6 +15,8 @@ import type { Rope } from "./rope";
  * the string gives less and less, like a rubber band: it shudders as it winds
  * up, and flings the spider when you let go.
  *
+ * A `data-inactive` root (faded out, say) can't be grabbed.
+ *
  * While anything is held, text selection and native drag-and-drop are
  * blocked, otherwise the browser can start dragging selected page content
  * (the "no drop" cursor).
@@ -121,7 +123,7 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
   window.addEventListener(
     "pointerdown",
     (e) => {
-      if (e.button !== 0 || pointerId !== null) return;
+      if (e.button !== 0 || pointerId !== null || root.hasAttribute("data-inactive")) return;
       if (bob.contains(e.target as Node)) {
         grab(e, tailIndex());
         return;
@@ -147,7 +149,7 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
       }
       if (pointerId !== null) return;
       const p = docPoint(e);
-      const near = !isIgnored(e.target) && stringAt(p.x, p.y) !== null;
+      const near = !isIgnored(e.target) && !root.hasAttribute("data-inactive") && stringAt(p.x, p.y) !== null;
       if (near !== overString) {
         overString = near;
         refresh();

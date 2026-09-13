@@ -1,4 +1,4 @@
-import { createAnchor } from "./anchor";
+import { createAnchor, createSlotAnchor } from "./anchor";
 import { createAnimations } from "./animation";
 import { config } from "./config";
 import { createDrag } from "./drag";
@@ -20,20 +20,30 @@ export function mountAll() {
   }
 }
 
+/** A badge can't be grabbed: nothing is ever held. */
+const noDrag = { held: null as number | null, stretch: 0, tension: 0, step() {} };
+
+/**
+ * One rig. `data-mode="badge"` is a spider kept in a slot (`data-slot`) instead of hanging from a
+ * glyph: it keeps its faces and fidgets, but it can't be dragged, plucked or fed, stays put while
+ * the page scrolls, and ignores the window's edges.
+ */
 function mount(root: HTMLElement) {
-  const glyph = document.querySelector(root.dataset.anchor ?? "");
+  const badge = root.dataset.mode === "badge";
+  const glyph = badge ? null : document.querySelector(root.dataset.anchor ?? "");
+  const slot = badge ? document.querySelector(root.dataset.slot ?? "") : null;
   const canvas = root.querySelector("canvas");
   const bob = root.querySelector<HTMLElement>("[data-bob]");
-  if (!(glyph instanceof SVGGraphicsElement) || !canvas || !bob) {
-    console.warn("[spider-string] anchor glyph, canvas or bob missing", root.dataset.anchor);
+  if (!(glyph instanceof SVGGraphicsElement || slot instanceof HTMLElement) || !canvas || !bob) {
+    console.warn("[spider-string] anchor glyph or slot, canvas or bob missing", root.dataset.anchor ?? root.dataset.slot);
     return;
   }
 
-  const anchor = createAnchor(glyph);
+  const anchor = slot instanceof HTMLElement ? createSlotAnchor(slot) : createAnchor(glyph as SVGGraphicsElement);
   const rope = new Rope(config.rope.segments);
   const particles = new Particles();
-  const drag = createDrag(root, bob, rope);
-  const pluck = createPluck(root, rope, particles);
+  const drag = badge ? noDrag : createDrag(root, bob, rope);
+  const pluck = badge ? null : createPluck(root, rope, particles);
   const renderer = createRenderer(root, canvas);
   const animations = createAnimations(rope, () => drag.held !== null);
   // What it feels about what you're doing, and so the face it pulls (Faces tab).
@@ -54,25 +64,27 @@ function mount(root: HTMLElement) {
 
   // Food: dragged to the spider's mouth, which needs to know where that is and how big it is.
   let unit = 0;
-  const food = createFood(
-    root,
-    () => {
-      const [x, y] = spider.mouth();
-      return { x, y, unit };
-    },
-    (amount) => {
-      animations.mouthOpen(amount);
-      foodNear = amount;
-    },
-    () => {
-      animations.eat();
-      mood.ate();
-    },
-  );
+  const food = badge
+    ? null
+    : createFood(
+        root,
+        () => {
+          const [x, y] = spider.mouth();
+          return { x, y, unit };
+        },
+        (amount) => {
+          animations.mouthOpen(amount);
+          foodNear = amount;
+        },
+        () => {
+          animations.eat();
+          mood.ate();
+        },
+      );
   document.addEventListener("spider:play", (e) => {
-    if ((e as CustomEvent).detail?.id === "feed") food.spawn();
+    if ((e as CustomEvent).detail?.id === "feed") food?.spawn();
   });
-  document.addEventListener("spider:reset", () => food.clear());
+  document.addEventListener("spider:reset", () => food?.clear());
 
   let placed = false;
   let behind: boolean | null = null;
@@ -97,7 +109,8 @@ function mount(root: HTMLElement) {
     const a = anchor.measure();
     if (a) {
       unit = a.unit;
-      if (config.rope.behind !== behind) {
+      // A badge always sits in front of the page: behind, it would be under the header it sits in.
+      if (!badge && config.rope.behind !== behind) {
         behind = config.rope.behind;
         root.toggleAttribute("data-behind", behind);
       }
@@ -108,18 +121,20 @@ function mount(root: HTMLElement) {
       const tail = rope.tail;
       const sideways = (Math.abs(tail.x - tail.px) * config.sim.rate) / a.unit;
       animations.update(a, real * config.sim.timeScale, sideways);
-      // Asleep, it hangs a little lower (Faces → Asleep).
-      const length = config.rope.length * a.unit * animations.state.lengthFactor * (1 + mood.face.sag);
+      // Asleep, it hangs a little lower (Faces → Asleep). In a slot, the string reaches down to it.
+      const full = a.hangTo === undefined ? config.rope.length * a.unit : Math.max(1, a.hangTo - spider.hang(a.unit));
+      const length = full * animations.state.lengthFactor * (1 + mood.face.sag);
       if (Math.abs(length - rope.length) > 0.01) rope.setLength(length);
       if (!placed) {
         rope.reset(a.x, a.y);
         placed = true;
       }
 
-      // Big jumps (first layout, a resize) carry the string along instead of flinging it.
+      // Big jumps (first layout, a resize) carry the string along instead of flinging it. A badge is
+      // always carried along, so scrolling the page under it doesn't swing it about.
       const jx = a.x - rope.head.x;
       const jy = a.y - rope.head.y;
-      if (Math.hypot(jx, jy) > config.anchor.snapDistance * a.unit) rope.translate(jx, jy);
+      if (badge || Math.hypot(jx, jy) > config.anchor.snapDistance * a.unit) rope.translate(jx, jy);
 
       const dt = real * config.sim.timeScale;
       const step = 1 / config.sim.rate;
@@ -146,7 +161,7 @@ function mount(root: HTMLElement) {
           config.rope.springBack,
           config.rope.springDamping,
         );
-        if (config.edges.enabled) {
+        if (config.edges.enabled && !badge) {
           const page = document.documentElement;
           rope.contain(
             window.scrollX,
@@ -172,7 +187,7 @@ function mount(root: HTMLElement) {
         anchor: [a.x, a.y],
         center: spider.center(),
         radius: spider.radius(),
-        foodNear: food.out ? foodNear : 0,
+        foodNear: food?.out ? foodNear : 0,
         busy: animations.busy,
         windUp: drag.held === rope.points.length - 1 ? drag.tension : 0,
       });
@@ -180,7 +195,7 @@ function mount(root: HTMLElement) {
       speedLines.update(dt, spider.center(), velocity, a.unit, spider.radius());
       wind.update(dt);
       zees.update(dt, mood.asleep, spider.center(), spider.radius(), a.unit);
-      food.update(dt);
+      food?.update(dt);
       renderer.draw(
         rope,
         particles,
@@ -190,12 +205,12 @@ function mount(root: HTMLElement) {
           wind.draw(ctx);
           spider.draw(ctx);
           zees.draw(ctx);
-          food.draw(ctx, a.unit);
+          food?.draw(ctx, a.unit);
         },
         spider.stringShift(),
       );
       // After drawing: a pluck nudges the string's step history, which would skew this frame's blend.
-      pluck.update(a, now / 1000, real, drag.held === null);
+      pluck?.update(a, now / 1000, real, drag.held === null);
     }
 
     requestAnimationFrame(tick);
