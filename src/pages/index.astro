@@ -217,17 +217,21 @@ const sections = [
   :root:has(.header:hover, .header:focus-within) .spider-string[data-mode="badge"] {
     opacity: 1;
   }
-  /* The same column as the page's content, so the logo starts where the headings do. */
+  /*
+   * The same column as the page's content, so the logo starts where the headings do. The sections
+   * sit in the middle of it: equal space either side keeps them centred whatever the logo's width.
+   */
   .header-inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: start;
     gap: 2rem;
     max-width: var(--content-width);
     margin: 0 auto;
     padding: 0 var(--gutter);
   }
   .brand {
+    justify-self: start;
     display: flex;
     align-items: center;
     height: var(--header-height);
@@ -267,12 +271,11 @@ const sections = [
     margin: 0;
     padding: 0;
   }
-  /* Equal columns (as wide as the widest list), so the headings are evenly spaced. */
+  /* Each column is as wide as its heading, so the headings are evenly spaced; the gap leaves room for
+     a link longer than its heading (Press Center) to run on into it. */
   .nav-list {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 1rem;
+    display: flex;
+    gap: 2rem;
   }
   .nav-top {
     display: flex;
@@ -287,8 +290,10 @@ const sections = [
     text-transform: uppercase;
     white-space: nowrap;
   }
-  /* Rows 0fr → 1fr: the links' own height, eased open, so the bar grows to fit the longest list. */
+  /* Rows 0fr → 1fr: the links' own height, eased open, so the bar grows to fit the longest list. Its
+     width doesn't count towards the column's (contain), so the heading alone sets that. */
   .nav-drop {
+    contain: inline-size;
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
@@ -304,8 +309,10 @@ const sections = [
     opacity: 1;
     visibility: visible;
   }
+  /* Clipped top to bottom while it opens, but free to run on sideways. */
   .nav-menu {
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: clip;
     min-height: 0;
   }
   .nav-menu li:last-child {
@@ -313,6 +320,7 @@ const sections = [
   }
   .nav-menu a {
     display: block;
+    width: max-content;
     padding: 0.4rem 0.875rem;
     border-radius: 8px;
     color: var(--muted);
