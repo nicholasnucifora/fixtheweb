@@ -111,15 +111,15 @@ const sections = [
   // logo's halfway gone. --swap goes 0 → 1 over that.
   const hero = document.querySelector<HTMLElement>(".hero");
   const header = document.querySelector<HTMLElement>(".header");
-  let swapped: boolean | null = null;
+  let showing: boolean | null = null;
   const update = () => {
     if (!hero || !header) return;
     const swap = Math.min(1, Math.max(0, window.scrollY / (hero.offsetHeight * 0.5)));
     document.documentElement.style.setProperty("--swap", String(swap));
-    // Past halfway in, the header can be used.
-    if (swap > 0.5 !== swapped) {
-      swapped = swap > 0.5;
-      header.inert = !swapped;
+    // As soon as any of it shows, it can be used (and hovering it brings it fully in).
+    if (swap > 0 !== showing) {
+      showing = swap > 0;
+      header.inert = !showing;
     }
   };
   addEventListener("scroll", update, { passive: true });
@@ -138,6 +138,9 @@ const sections = [
     /* The header's own colour, a step off the page's, so it reads as a bar over it. */
     --header-bg: #ecece4;
     --header-height: 76px;
+    /* The page's content column, which the header lines up with. */
+    --content-width: 960px;
+    --gutter: 1.5rem;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -192,30 +195,39 @@ const sections = [
     height: auto;
   }
 
-  /* ── The header: the logo on the left, the sections together in the middle ── */
+  /* ── The header: the logo on the left and the sections on the right, lined up with the content ── */
   .header {
     position: fixed;
     inset: 0 0 auto;
     /* Above the page; the badge spider (z-index 10) is drawn above this. */
     z-index: 5;
-    padding: 0 1.5rem;
-    /* Background and all: fades in as you scroll away from the big logo. */
+    /* Background and all: fades in as you scroll away from the big logo… */
     background: var(--header-bg);
     opacity: var(--swap, 0);
+    transition: opacity 0.15s ease;
   }
   /* The header's spider fades in with it. */
   .spider-string[data-mode="badge"] {
     opacity: var(--swap, 0);
+    transition: opacity 0.15s ease;
   }
-  /* Equal space either side of the sections keeps them centred on the page, whatever the logo's width. */
+  /* …and while you're over it, it's all the way in, part-way through the fade or not. */
+  .header:hover,
+  .header:focus-within,
+  :root:has(.header:hover, .header:focus-within) .spider-string[data-mode="badge"] {
+    opacity: 1;
+  }
+  /* The same column as the page's content, so the logo starts where the headings do. */
   .header-inner {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: start;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     gap: 2rem;
+    max-width: var(--content-width);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
   }
   .brand {
-    justify-self: start;
     display: flex;
     align-items: center;
     height: var(--header-height);
@@ -322,9 +334,9 @@ const sections = [
 
   /* ── Placeholder content ── */
   .placeholder {
-    max-width: 960px;
+    max-width: var(--content-width);
     margin: 0 auto;
-    padding: 4rem 1.5rem;
+    padding: 4rem var(--gutter);
     border-top: 1px solid var(--line);
   }
   .placeholder h2 {
