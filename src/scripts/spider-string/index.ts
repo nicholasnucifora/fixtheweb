@@ -90,6 +90,8 @@ function mount(root: HTMLElement) {
   let behind: boolean | null = null;
   /** How far the rope is currently let out past its length: follows the pull, eases back after a release. */
   let letOut = 0;
+  /** The scroll position the window's edges are kept at (see the edges, below). */
+  let edgeScroll: number | null = null;
   let time = 0;
   let pending = 0;
   let last = performance.now();
@@ -140,12 +142,32 @@ function mount(root: HTMLElement) {
       const step = 1 / config.sim.rate;
       const gravity = config.rope.gravity * a.unit;
       const sway = reducedMotion.matches ? 0 : config.sway.strength * a.unit;
+      const edges = config.edges.enabled && !badge;
+      const page = document.documentElement;
+      const spiderEdge = config.edges.spiderSize * config.look.width * animations.state.size * a.unit;
       let steps = 0;
       for (pending += dt; pending >= step; pending -= step, steps++) {
         time += step;
         rope.setMass(config.rope.mass);
         rope.head.x = rope.head.px = a.x;
         rope.head.y = rope.head.py = a.y;
+        // The top and bottom edges stay where the window was, and only catch up with it while you're
+        // holding the spider: scrolling the page shouldn't shove the string along, or drop a spider
+        // resting on the bottom, and then have it bounce about when you scroll back. And wherever the
+        // string is already outside them (the page was opened scrolled down, or the window shrank),
+        // that edge gives way rather than yanking it in.
+        if (edgeScroll === null || drag.held !== null) edgeScroll = window.scrollY;
+        let top = edgeScroll;
+        let bottom = edgeScroll + page.clientHeight;
+        if (edges) {
+          const last = rope.points.length - 1;
+          rope.points.forEach((p, i) => {
+            if (p.w === 0) return;
+            const r = i === last ? spiderEdge : 0;
+            top = Math.min(top, p.y - r);
+            bottom = Math.max(bottom, p.y + r);
+          });
+        }
         drag.step(a, step);
         rope.integrate(step, gravity, config.rope.drag, config.bob.drag, (i) => breeze(i, sway));
         // Let the rope out as far as it's being pulled, so a wound-up string stretches evenly, and
@@ -161,16 +183,15 @@ function mount(root: HTMLElement) {
           config.rope.springBack,
           config.rope.springDamping,
         );
-        if (config.edges.enabled && !badge) {
-          const page = document.documentElement;
+        if (edges) {
           rope.contain(
             window.scrollX,
-            window.scrollY,
+            top,
             window.scrollX + page.clientWidth,
-            window.scrollY + page.clientHeight,
+            bottom,
             config.edges.bounce,
             config.edges.friction,
-            config.edges.spiderSize * config.look.width * animations.state.size * a.unit,
+            spiderEdge,
           );
         }
       }
