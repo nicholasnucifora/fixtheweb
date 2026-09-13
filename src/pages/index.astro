@@ -35,9 +35,9 @@ const pillars = [
     body: "Regulators shouldn't have to guess what works, or take Big Tech's word for it. Give researchers and policy teams direct API sandbox access to test UX safeguards in live environments, so decisions rest on evidence and benefit everyone.",
   },
   {
-    kicker: "Building Real Proofs (Velo)",
+    kicker: "Building Real Proofs (Villow)",
     headline: "Tools, Not Just Talk",
-    body: "We use public APIs to build working alternatives like Velo, showing exactly how platforms can put user control, intentional viewing and sanity back into the front-end experience.",
+    body: "We use public APIs to build working alternatives like Villow, showing exactly how platforms can put user control, intentional viewing and sanity back into the front-end experience.",
   },
 ];
 
@@ -58,6 +58,37 @@ const ageChecks = {
       "Sites only learn “old enough”: nothing to leak",
     ],
   },
+};
+
+/** Our work: a taste of Villow. Its own site goes into the detail; give `site` an href once it's live. */
+const villow = {
+  site: { label: "Visit Villow" } as Link,
+  features: [
+    {
+      title: "A subscription feed worth using",
+      body: "Choose how often each channel shows up and which kinds of videos you want from them, so the feed you picked beats the one picked for you.",
+    },
+    {
+      title: "The algorithm, on your terms",
+      body: "We don't ban recommendations. Our YouTube extension lets you cap how many you see, how many videos you watch and how long you spend each day.",
+    },
+    {
+      title: "Swipe, then reflect",
+      body: "Swipe through what's waiting to pick what's worth your time, and rate every video once it ends: did you actually enjoy that?",
+    },
+    {
+      title: "See where your time really goes",
+      body: "What you watched, when, and how much you liked it, across desktop and mobile. Then suggestions from your own ratings, like dropping a channel you keep disliking.",
+    },
+    {
+      title: "Social that brings people together",
+      body: "Watch with friends, send them videos and see who watched, and catch what's popular in your country today, so we're not each stuck in our own bubble.",
+    },
+    {
+      title: "Back to real life",
+      body: "Creators can add a call to action to go and do something offline, and Villow can put your to-do list in front of you when you hit a limit.",
+    },
+  ],
 };
 ---
 
@@ -166,7 +197,7 @@ const ageChecks = {
         </div>
       </section>
 
-      <section class="section stance">
+      <section class="section">
         <p class="eyebrow">Where we stand</p>
         <h2>Open by default. Better by design.</h2>
         <p>
@@ -175,6 +206,28 @@ const ageChecks = {
           recommending healthier features at the right moment, putting controls where people will actually find them,
           and making the better choice the easy one.
         </p>
+      </section>
+      <section class="section work">
+        <p class="eyebrow">Our work</p>
+        <h2>Villow: proof it can be better</h2>
+        <p class="lede">
+          Villow is our app for watching YouTube, on desktop and mobile. It doesn't take the algorithm away. It hands you the
+          controls platforms won't, and makes them fun enough that you'll actually use them.
+        </p>
+        <div class="features">
+          {
+            villow.features.map((feature) => (
+              <article class="feature">
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+              </article>
+            ))
+          }
+        </div>
+        <div class="cta">
+          <a class="button" {...linkAttrs(villow.site)}>{villow.site.label}</a>
+          <p class="cta-note">That's just a taste. Villow's own site goes into everything.</p>
+        </div>
       </section>
     </main>
 
@@ -573,8 +626,55 @@ const ageChecks = {
     color: var(--accent);
   }
 
-  /* Where we stand */
-  .section.stance {
+  /* Our work: Villow */
+  .work {
     padding-bottom: 7rem;
+  }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin: 2.5rem 0 2rem;
+  }
+  .feature {
+    padding: 1.25rem 1.375rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .feature h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1.0625rem;
+    line-height: 1.3;
+  }
+  .section .feature p {
+    margin: 0;
+    font-size: 0.9375rem;
+  }
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.375rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  /* Not built yet, like the header's links. */
+  .button[aria-disabled="true"] {
+    background: var(--fill);
+    color: var(--unbuilt);
+    cursor: default;
+  }
+  .section .cta-note {
+    margin: 0;
+    font-size: 0.9375rem;
   }
 </style>
