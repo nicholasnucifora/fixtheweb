@@ -3,10 +3,12 @@ import { createAnimations } from "./animation";
 import { config } from "./config";
 import { createDrag } from "./drag";
 import { createFood } from "./food";
+import { createMood } from "./mood";
 import { Particles } from "./particles";
 import { createPluck } from "./pluck";
 import { createRenderer } from "./render";
 import { Rope } from "./rope";
+import { createSpeedLines } from "./speedlines";
 import { createSpider } from "./spider";
 
 /** Mounts every `[data-spider-string]` rig on the page, plus the tuning panel with ?tune. */
@@ -33,7 +35,18 @@ function mount(root: HTMLElement) {
   const pluck = createPluck(root, rope, particles);
   const renderer = createRenderer(root, canvas);
   const animations = createAnimations(rope, () => drag.held !== null);
-  const spider = createSpider(bob, rope, animations.state);
+  // What it feels about what you're doing, and so the face it pulls (Faces tab).
+  const mood = createMood(
+    root,
+    rope,
+    () => drag.held !== null,
+    () => drag.held === rope.points.length - 1,
+  );
+  const spider = createSpider(bob, rope, animations.state, mood.face);
+  // Air streaks behind it when it's moving fast; drawn behind the spider, so their own particles.
+  const wind = new Particles();
+  const speedLines = createSpeedLines(wind);
+  let foodNear = 0;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   // Food: dragged to the spider's mouth, which needs to know where that is and how big it is.
@@ -44,8 +57,14 @@ function mount(root: HTMLElement) {
       const [x, y] = spider.mouth();
       return { x, y, unit };
     },
-    (amount) => animations.mouthOpen(amount),
-    () => animations.eat(),
+    (amount) => {
+      animations.mouthOpen(amount);
+      foodNear = amount;
+    },
+    () => {
+      animations.eat();
+      mood.ate();
+    },
   );
   document.addEventListener("spider:play", (e) => {
     if ((e as CustomEvent).detail?.id === "feed") food.spawn();
@@ -86,7 +105,8 @@ function mount(root: HTMLElement) {
       const tail = rope.tail;
       const sideways = (Math.abs(tail.x - tail.px) * config.sim.rate) / a.unit;
       animations.update(a, real * config.sim.timeScale, sideways);
-      const length = config.rope.length * a.unit * animations.state.lengthFactor;
+      // Asleep, it hangs a little lower (Faces → Asleep).
+      const length = config.rope.length * a.unit * animations.state.lengthFactor * (1 + mood.face.sag);
       if (Math.abs(length - rope.length) > 0.01) rope.setLength(length);
       if (!placed) {
         rope.reset(a.x, a.y);
@@ -140,7 +160,21 @@ function mount(root: HTMLElement) {
       // Draw part-way between the last two physics steps, so motion is even at any refresh rate.
       const alpha = pending / step;
       particles.update(dt);
+      const velocity: [number, number] = [
+        ((tail.x - tail.px) * config.sim.rate) / a.unit,
+        ((tail.y - tail.py) * config.sim.rate) / a.unit,
+      ];
+      mood.update(dt, {
+        unit: a.unit,
+        anchor: [a.x, a.y],
+        center: spider.center(),
+        radius: spider.radius(),
+        foodNear: food.out ? foodNear : 0,
+        busy: animations.busy,
+      });
       spider.update(a, dt, steps * step, alpha, renderer.pixelRatio);
+      speedLines.update(dt, spider.center(), velocity, a.unit, spider.radius());
+      wind.update(dt);
       food.update(dt);
       renderer.draw(
         rope,
@@ -148,6 +182,7 @@ function mount(root: HTMLElement) {
         a,
         alpha,
         (ctx) => {
+          wind.draw(ctx);
           spider.draw(ctx);
           food.draw(ctx, a.unit);
         },

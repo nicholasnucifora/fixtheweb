@@ -16,8 +16,8 @@ const COLLAPSED_KEY = "spider-string:tune-collapsed";
 const SIDE_KEY = "spider-string:tune-side";
 const TAB_KEY = "spider-string:tune-tab";
 const ANIMATION_KEY = "spider-string:tune-animation";
-/** The tab whose sections are animations to play, one at a time. */
-const PLAYABLE = "animation";
+/** Tabs whose sections are things to play, picked one at a time. */
+const PLAYABLE = ["animation", "expression"];
 
 type Value = number | boolean | string;
 type Values = Record<string, Record<string, Value>>;
@@ -128,7 +128,7 @@ export function mountTuner() {
     refresh();
   };
 
-  const playable: { key: string; label: string; el: HTMLElement; pick: HTMLButtonElement }[] = [];
+  const playable: Record<string, { key: string; label: string; el: HTMLElement; pick: HTMLButtonElement }[]> = {};
   for (const [s, section] of Object.entries(sections)) {
     const details = h("details", "section");
     details.open = true;
@@ -139,13 +139,13 @@ export function mountTuner() {
       details.append(r.el);
     }
     panes[section.group].append(details);
-    if (section.group === PLAYABLE) {
-      playable.push({ key: s, label: section.label, el: details, pick: h("button", "pick", section.label) });
+    if (PLAYABLE.includes(section.group)) {
+      (playable[section.group] ??= []).push({ key: s, label: section.label, el: details, pick: h("button", "pick", section.label) });
     }
   }
 
-  // Animations are a list you pick from: play the one you've picked, and see only its settings.
-  if (playable.length) {
+  // Animations and faces are lists you pick from: play the one you've picked, and see only its settings.
+  for (const [group, items] of Object.entries(playable)) {
     const list = h("div", "list");
     const bar = h("div", "play-bar");
     const play = h("button", "btn play");
@@ -153,26 +153,27 @@ export function mountTuner() {
     back.title = "Stop everything, and put the spider back the way it was";
     bar.append(play, back);
 
+    const remembered = group === "animation" ? ANIMATION_KEY : `${ANIMATION_KEY}:${group}`;
     const choose = (key: string) => {
-      const picked = playable.find((p) => p.key === key) ?? playable[0];
-      for (const p of playable) {
+      const picked = items.find((p) => p.key === key) ?? items[0];
+      for (const p of items) {
         p.el.hidden = p !== picked;
         p.pick.classList.toggle("active", p === picked);
       }
       play.textContent = `▶  Play ${picked.label.toLowerCase()}`;
       play.onclick = () => document.dispatchEvent(new CustomEvent("spider:play", { detail: { id: picked.key } }));
-      store(ANIMATION_KEY, picked.key);
+      store(remembered, picked.key);
     };
-    for (const p of playable) {
+    for (const p of items) {
       p.pick.onclick = () => choose(p.key);
       list.append(p.pick);
     }
     back.onclick = () => document.dispatchEvent(new CustomEvent("spider:reset"));
 
-    const pane = panes[PLAYABLE];
-    pane.insertBefore(list, playable[0].el);
-    pane.insertBefore(bar, playable[0].el);
-    choose(read(ANIMATION_KEY) ?? playable[0].key);
+    const pane = panes[group];
+    pane.insertBefore(list, items[0].el);
+    pane.insertBefore(bar, items[0].el);
+    choose(read(remembered) ?? items[0].key);
   }
 
   copy.onclick = async () => {

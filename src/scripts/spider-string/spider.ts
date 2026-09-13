@@ -2,6 +2,7 @@ import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
 import type { AnimationState } from "./animation";
 import { config } from "./config";
+import { type Face, drawEyes, drawMouth } from "./face";
 import { stringDeviceWidth } from "./render";
 import type { Rope } from "./rope";
 
@@ -94,7 +95,7 @@ interface Pose {
   face: DOMMatrix;
 }
 
-export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationState) {
+export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationState, face: Face) {
   const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
   const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
   const pct = W / 100;
@@ -176,14 +177,20 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       /** How far the pupil can move from the eye's middle, art units, and the eye's own radius. */
       room: 0,
       radius: 0,
+      /** Pupils left behind by a sudden move (art units), and how fast they're swinging back (fractions of room/s). */
+      slosh: [0, 0] as Vec,
+      sloshAt: [0, 0] as Vec,
+      sloshSpeed: [0, 0] as Vec,
       look: [0, 0] as Vec,
     };
   });
   const eyeOf = (side: Side) => eyes.find((e) => e.side === side)!;
   const mouthShape = shapeOf(svg.querySelector('[data-part="mouth"]'));
   let mouthPath = new Path2D();
-  /** The top of the mouth once placed: opening it drops the jaw from here. */
+  /** The top of the mouth once placed: opening it drops the jaw from here. Its middle and width shape the drawn-on mouths. */
   let mouthTop = 0;
+  let mouthCenter: Vec = [0, 0];
+  let mouthWidth = 0;
   const faceCenter: Vec = [
     avg([...eyes.map((e) => e.whiteShape.center[0]), mouthShape.center[0]]),
     avg([...eyes.map((e) => e.whiteShape.center[1]), mouthShape.center[1]]),
@@ -239,6 +246,8 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
     const mouthAt: Vec = [mouthShape.center[0], mouthShape.center[1] + m.y * pct];
     mouthPath = place(mouthShape, false, mouthAt, m.scaleX, m.scaleY);
     mouthTop = mouthAt[1] - (mouthShape.size[1] * m.scaleY) / 2;
+    mouthCenter = mouthAt;
+    mouthWidth = mouthShape.size[0] * m.scaleX;
   };
 
   // ── Hidden hip roots ──────────────────────────────────────────────────────
@@ -257,7 +266,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   };
 
   // ── Legs: reshaped every frame from their spring state ────────────────────
-  const poseLegs = (torsoScale: Vec, gripAt: (along: number) => Vec) => {
+  const poseLegs = (torsoPoint: (p: Vec) => Vec, gripAt: (along: number) => Vec) => {
     const moving = config.legMotion.enabled;
     const curl = moving ? config.legMotion.curl : 0;
     const focus = config.legMotion.curlFocus;
@@ -273,16 +282,18 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       const holding = animation.grip > 0 && leg.pair === Number(config.dropIn.gripPair);
       // An idle stretch reaches one leg out and brings it back.
       const stretching = legs.indexOf(leg) === animation.stretchLeg ? up * animation.stretchAmount : 0;
+      // Expressions fan the legs out (top pair up, bottom pair down) and curl them in to brace.
+      const fan = leg.pair === 1 ? 1 : leg.pair === 3 ? -1 : 0;
+      const spread = up * fan * config.faceMotion.spread * DEG * face.spread;
       const swing =
-        up * pair.angle * DEG + leg.react + (holding ? 0 : worked + stretching) + leg.phi * (1 - curl);
+        up * pair.angle * DEG + leg.react + (holding ? 0 : worked + stretching) + leg.phi * (1 - curl) + spread;
       // The legs with nothing to hold tuck up while it drops.
       const tuck = holding ? 0 : up * config.dropIn.curl * DEG * animation.grip;
-      const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN + tuck;
-      // Hips ride along with the torso's scale (breathing, width/height) so legs stay attached.
-      const hip: Vec = [
-        bodyCenter[0] + (leg.pivot[0] - bodyCenter[0]) * torsoScale[0] - up * pair.x * pct,
-        bodyCenter[1] + (leg.pivot[1] - bodyCenter[1]) * torsoScale[1] + pair.y * pct,
-      ];
+      const brace = up * config.faceMotion.tuck * DEG * face.tuck;
+      const bend = up * pair.bend * DEG + leg.reactBend + leg.phi * curl * CURL_GAIN + tuck + brace;
+      // Hips ride along with the torso (breathing, width/height, a squash) so legs stay attached.
+      const onBody = torsoPoint(leg.pivot);
+      const hip: Vec = [onBody[0] - up * pair.x * pct, onBody[1] + pair.y * pct];
       if (holding) {
         // …except the pair holding the thread, whose hips slide toward where the thread leaves the
         // body so the legs can actually reach it. The slide follows the grip, which fades over the
@@ -483,12 +494,50 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
         look = [idle[0] + (aimed[0] - idle[0]) * ease, idle[1] + (aimed[1] - idle[1]) * ease];
       }
       // Where the pupil wants to be, still from the middle of the eye…
+      const expression = eye.side === "left" ? face.left : face.right;
+      // Shrunk pupils have more room to move in.
+      const room = Math.max(0, eye.radius - (eye.radius - eye.room) * expression.pupil);
       const home = p.home === "drawn" ? eye.drawn : ([0, 0] as Vec);
-      const want = clampLength([home[0] + look[0], home[1] + look[1]], eye.room);
+      let want: Vec = [home[0] + look[0], home[1] + look[1]];
+      // An expression can have a look of its own (Faces), and win over the cursor as much as it says.
+      const hold = Math.max(0, Math.min(1, expression.lookHold));
+      if (hold > 0) {
+        want = [
+          want[0] + (expression.lookX * room - want[0]) * hold,
+          want[1] + (expression.lookY * room - want[1]) * hold,
+        ];
+      }
+      want = clampLength(want, room);
       // …turned back into an offset from where it was drawn, which is what gets drawn.
       eye.look[0] += (want[0] - eye.drawn[0] - eye.look[0]) * k;
       eye.look[1] += (want[1] - eye.drawn[1] - eye.look[1]) * k;
+      slosh(eye, dt, room);
     }
+  };
+
+  /**
+   * Pupils have a little inertia: yank the spider one way and they get left behind the other way
+   * for a moment, then swing back. A damped spring driven by the body's acceleration, felt in the
+   * face's own frame so a tilted spider sloshes along its own axes.
+   */
+  const slosh = (eye: (typeof eyes)[number], dt: number, room: number) => {
+    const m = config.faceMotion;
+    const turn = -(tilt + animation.tilt);
+    const felt = rotate(accel, turn);
+    const push: Vec = [-felt[0] * m.inertia, -felt[1] * m.inertia];
+    const w = Math.PI * 2 * m.inertiaSpring;
+    const steps = Math.max(1, Math.ceil(dt / MAX_STEP));
+    const h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      for (const j of [0, 1]) {
+        eye.sloshSpeed[j] += (w * w * (push[j] - eye.sloshAt[j]) - 2 * m.inertiaDamping * w * eye.sloshSpeed[j]) * h;
+        eye.sloshAt[j] += eye.sloshSpeed[j] * h;
+      }
+    }
+    // Kept inside the eye along with wherever it's already looking.
+    const at: Vec = [eye.look[0] + eye.drawn[0], eye.look[1] + eye.drawn[1]];
+    const total = clampLength([at[0] + eye.sloshAt[0] * room, at[1] + eye.sloshAt[1] * room], room);
+    eye.slosh = [total[0] - at[0], total[1] - at[1]];
   };
 
   /**
@@ -534,6 +583,16 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   return {
     /** Sideways nudge (CSS px) that lines the string up with the pixel grid while the spider is snapped. */
     stringShift: () => stringShift,
+
+    /** The middle of the body in document px, or null before the first frame. */
+    center(): Vec | null {
+      if (!pose) return null;
+      const p = pose.art.multiply(pose.torso).transformPoint(new DOMPoint(bodyCenter[0], bodyCenter[1]));
+      return [p.x, p.y];
+    },
+
+    /** Half the spider's width, px. */
+    radius: () => (pose ? pose.width / 2 : 0),
 
     /** The mouth, in document px — what food is dragged to. */
     mouth(): Vec {
@@ -620,7 +679,16 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
 
       const breath = reducedMotion.matches ? 1 : 1 + b.breathe * Math.sin(time * b.breatheSpeed * Math.PI * 2);
       const torsoScale: Vec = [b.scaleX * breath, b.scaleY * breath];
-      const torso = new DOMMatrix().scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
+      // An expression can squash it flat (Faces → Impact), about where the thread holds it so it
+      // stays on the string rather than shrinking away from it.
+      const squashed: Vec = [1 + face.squash * 0.6, Math.max(0.2, 1 - face.squash)];
+      const torso = new DOMMatrix()
+        .scale(squashed[0], squashed[1], 1, attach[0], attach[1])
+        .scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
+      const torsoPoint = (q: Vec): Vec => {
+        const t = torso.transformPoint(new DOMPoint(q[0], q[1]));
+        return [t.x, t.y];
+      };
 
       // ── Pixel crispness (Spidey → Crispness) ──
       const crisp = config.crisp;
@@ -675,7 +743,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
           ? art.inverse().transformPoint(new DOMPoint(pointer.x + window.scrollX, pointer.y + window.scrollY))
           : null;
         reactToCursor(dt, at ? [at.x, at.y] : null);
-        poseLegs(torsoScale, (along) => threadAt(art, alpha, width, attach, along));
+        poseLegs(torsoPoint, (along) => threadAt(art, alpha, width, attach, along));
         lookAround(dt, art.multiply(torso).multiply(faceMatrix));
       }
       pose = { art, box, width, height, artPerPx: 1 / kx, outline, torso, face: faceMatrix };
@@ -723,33 +791,9 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       transform(ctx, pose.torso);
       ctx.fill(bodyPath);
       transform(ctx, pose.face);
-      const shut = Math.max(0, Math.min(1, animation.blink));
-      for (const eye of eyes) {
-        ctx.save();
-        if (shut > 0) {
-          // A blink squashes the eye flat, leaving the body showing through where it was.
-          ctx.translate(eye.center[0], eye.center[1]);
-          ctx.scale(1, Math.max(0.001, 1 - shut));
-          ctx.translate(-eye.center[0], -eye.center[1]);
-        }
-        ctx.fillStyle = c.eyes;
-        ctx.fill(eye.white);
-        ctx.translate(eye.look[0], eye.look[1]);
-        ctx.fillStyle = c.pupils;
-        ctx.fill(eye.pupil);
-        ctx.restore();
-      }
-      // The mouth drops open for food, hinged at the top.
-      const open = 1 + (config.feed.mouthOpen - 1) * Math.max(0, animation.mouth);
-      ctx.fillStyle = c.mouth;
-      ctx.save();
-      if (open !== 1) {
-        ctx.translate(0, mouthTop);
-        ctx.scale(1, open);
-        ctx.translate(0, -mouthTop);
-      }
-      ctx.fill(mouthPath);
-      ctx.restore();
+      // The face is whatever expression it's pulling (face.ts, mood.ts), blinks included.
+      drawEyes(ctx, eyes, face, animation.blink, c, time);
+      drawMouth(ctx, face.mouth, { path: mouthPath, center: mouthCenter, top: mouthTop, width: mouthWidth }, animation.mouth, c.mouth);
       ctx.restore();
 
       if (config.spideyDebug.showPivots) {

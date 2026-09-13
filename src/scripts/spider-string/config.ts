@@ -57,9 +57,13 @@ export const groups = {
     label: "Animations",
     info: "Moves the spider plays on top of everything else. Click one to play it from the start; the settings below each one shape how it goes.",
   },
+  expression: {
+    label: "Faces",
+    info: "Expressions it pulls when you do things to it. Each one has what sets it off and how long it lasts; pick one and Play to see it on its own. Turn off the first switch in any of them to stop it happening by itself.",
+  },
   spidey: {
     label: "Spidey",
-    info: "The spider on the end of the string: how it looks, where its parts sit and how they move. Blinking and other life will be added here later.",
+    info: "The spider on the end of the string: how it looks, where its parts sit and how they move.",
   },
 };
 
@@ -1049,6 +1053,12 @@ export const schema = {
     info: "The eyes shut and open again, now and then.",
     params: {
       enabled: { value: true, label: "Blinks", info: "Off = the eyes stay open." },
+      style: {
+        value: "squash" as "squash" | "lids",
+        options: { squash: "Squash flat", lids: "Close into lids" },
+        label: "How it blinks",
+        info: "Squash flat: the eye squashes down to nothing and the body shows through, as it always has. Close into lids: it squashes, and as it goes the eye turns into a shut ◡ line, like the closed eyes in the reference drawings.",
+      },
       everyFrom: {
         value: 2.5, min: 0.2, max: 20, step: 0.1, unit: "s",
         label: "At least every",
@@ -1209,6 +1219,601 @@ export const schema = {
         value: 0.55, min: 0, max: 1, step: 0.01, unit: "×",
         label: "Appears down",
         info: "Where it turns up, down the window.",
+      },
+    },
+  },
+
+  faceMotion: {
+    group: "spidey",
+    label: "Face motion",
+    info: "How expressions blend in and out, the pupils' inertia, and the squash.",
+    params: {
+      speed: {
+        value: 9, min: 1, max: 40, step: 0.5, unit: "/s",
+        label: "Expression speed",
+        info: "How quickly the face moves to a new expression. Reactions (Impact, Poked, Grabbed…) go three times as fast.",
+      },
+      preview: {
+        value: 2.5, min: 0.5, max: 10, step: 0.1, unit: "s",
+        label: "Played faces last",
+        info: "How long an expression played from the Faces tab stays up.",
+      },
+      previewShove: { value: true, label: "Played fast faces throw it", info: "Playing Thrown, Scared or Panicked gives the spider a shove too, so you see them with speed lines and all." },
+      inertia: {
+        value: 0.035, min: 0, max: 0.2, step: 0.001, unit: "",
+        label: "Pupil inertia",
+        info: "How far the pupils get left behind when it's yanked about, for each b/s² of acceleration, as a fraction of the room in the eye. Shoot it right and they slosh left, then settle. 0 = off.",
+      },
+      inertiaSpring: {
+        value: 3, min: 0.5, max: 15, step: 0.1, unit: "Hz",
+        label: "Pupil springiness",
+        info: "How quickly the pupils swing back to where they should be.",
+      },
+      inertiaDamping: {
+        value: 0.35, min: 0.05, max: 1.5, step: 0.01, unit: "",
+        label: "Pupil settle",
+        info: "Low and they slosh back and forth a few times; high and they settle straight away.",
+      },
+      tuck: {
+        value: 18, min: 0, max: 60, step: 0.5, unit: "°",
+        label: "Legs tuck (most)",
+        info: "How far the legs curl in for expressions that brace themselves: Grabbed, Scared, Panicked, Surprised.",
+      },
+      spread: {
+        value: 14, min: 0, max: 60, step: 0.5, unit: "°",
+        label: "Legs spread (most)",
+        info: "How far the legs fan out for Angry.",
+      },
+      squashSpring: {
+        value: 5, min: 0.5, max: 20, step: 0.1, unit: "Hz",
+        label: "Squash spring",
+        info: "How bouncily the body springs back from being squashed (Faces → Impact).",
+      },
+      squashDamping: {
+        value: 0.3, min: 0.05, max: 1.5, step: 0.01, unit: "",
+        label: "Squash settle",
+        info: "Low = it wobbles back; high = it just un-squashes.",
+      },
+    },
+  },
+
+  speedLines: {
+    group: "spidey",
+    label: "Speed lines",
+    info: "Little air streaks trailing behind it when it's really moving, so a throw feels like a throw and a fall like a fall.",
+    params: {
+      enabled: { value: true, label: "Speed lines", info: "Off = no streaks." },
+      minSpeed: {
+        value: 4, min: 0.5, max: 40, step: 0.5, unit: "b/s",
+        label: "Start at",
+        info: "Slower than this and there are none.",
+      },
+      fullSpeed: {
+        value: 14, min: 1, max: 80, step: 0.5, unit: "b/s",
+        label: "Most at",
+        info: "At this speed they're as many and as long as they get.",
+      },
+      rate: {
+        value: 45, min: 1, max: 200, step: 1, unit: "/s",
+        label: "How many",
+        info: "Streaks per second at full speed.",
+      },
+      length: {
+        value: 0.3, min: 0.02, max: 2, step: 0.01, unit: "b",
+        label: "Length",
+        info: "",
+      },
+      thickness: {
+        value: 0.014, min: 0.002, max: 0.08, step: 0.001, unit: "b",
+        label: "Thickness",
+        info: "",
+      },
+      lifetime: {
+        value: 0.22, min: 0.03, max: 2, step: 0.01, unit: "s",
+        label: "Last for",
+        info: "",
+      },
+      spread: {
+        value: 0.7, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Spread",
+        info: "How wide a band behind it they appear in, as a multiple of its size.",
+      },
+      behind: {
+        value: 0.5, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Start behind",
+        info: "How far behind the spider they appear, as a multiple of its size.",
+      },
+      drift: {
+        value: 0.08, min: 0.01, max: 1, step: 0.01, unit: "×",
+        label: "Drift",
+        info: "How fast they drift backwards, as a fraction of its speed.",
+      },
+    },
+  },
+
+  faceHappy: {
+    group: "expression",
+    label: "Happy",
+    info: "Eyes close into happy arcs and it smiles bigger. Set off by being swung gently: playing nicely, as opposed to yeeting it.",
+    params: {
+      enabled: { value: true, label: "When swung gently", info: "Off = only when played from here." },
+      minSpeed: {
+        value: 0.8, min: 0, max: 10, step: 0.1, unit: "b/s",
+        label: "Swinging at least",
+        info: "Slower than this doesn't count as being swung.",
+      },
+      maxSpeed: {
+        value: 3.5, min: 0.5, max: 20, step: 0.1, unit: "b/s",
+        label: "…but slower than",
+        info: "Faster than this isn't gentle any more.",
+      },
+      after: {
+        value: 1.2, min: 0, max: 10, step: 0.1, unit: "s",
+        label: "For at least",
+        info: "How long it has to be swung nicely before it cheers up.",
+      },
+      linger: {
+        value: 1.5, min: 0, max: 10, step: 0.1, unit: "s",
+        label: "Stays happy for",
+        info: "Once it stops being swung.",
+      },
+      smile: {
+        value: 1.25, min: 0.5, max: 2, step: 0.01, unit: "×",
+        label: "Smile size",
+        info: "",
+      },
+    },
+  },
+
+  faceContent: {
+    group: "expression",
+    label: "Content",
+    info: "Soft happy eyes and a small smile, for a while after it's eaten.",
+    params: {
+      enabled: { value: true, label: "After eating", info: "Off = only when played from here." },
+      hold: {
+        value: 3, min: 0, max: 20, step: 0.1, unit: "s",
+        label: "Lasts",
+        info: "",
+      },
+    },
+  },
+
+  faceExcited: {
+    group: "expression",
+    label: "Excited",
+    info: "Big eyes and an open grin while food is on its way to its mouth.",
+    params: {
+      enabled: { value: true, label: "When food is near", info: "Off = only when played from here." },
+      near: {
+        value: 0.25, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Food this close",
+        info: "How far into its mouth-opening range the fly has to be (Animations → Feeding → Mouth opens within). 0 = as soon as it's in range, 1 = only right at its mouth.",
+      },
+      eyes: {
+        value: 1.12, min: 0.8, max: 1.6, step: 0.01, unit: "×",
+        label: "Eye size",
+        info: "",
+      },
+    },
+  },
+
+  faceSuspicious: {
+    group: "expression",
+    label: "Suspicious",
+    info: "Heavy lids and a flat mouth, still watching you. Set off by the cursor hanging around near it without doing anything, like it knows you're up to something.",
+    params: {
+      enabled: { value: true, label: "When the cursor lurks", info: "Off = only when played from here." },
+      radius: {
+        value: 1, min: 0.1, max: 6, step: 0.05, unit: "b",
+        label: "Cursor within",
+        info: "Measured from the edge of the spider.",
+      },
+      slow: {
+        value: 1.2, min: 0.1, max: 10, step: 0.1, unit: "b/s",
+        label: "Moving slower than",
+        info: "",
+      },
+      after: {
+        value: 2.5, min: 0.2, max: 20, step: 0.1, unit: "s",
+        label: "For at least",
+        info: "",
+      },
+      lid: {
+        value: 0.45, min: 0, max: 0.9, step: 0.01, unit: "×",
+        label: "Lids down",
+        info: "",
+      },
+    },
+  },
+
+  faceAngry: {
+    group: "expression",
+    label: "Angry",
+    info: "Brows slanting in, a frown, legs spread wide. Set off by annoyance building up: grabbing, throwing and jolting it all add to it, and it calms down by itself. Kept rare on purpose, so finding it is funny.",
+    params: {
+      enabled: { value: true, label: "When annoyed enough", info: "Off = only when played from here." },
+      at: {
+        value: 6, min: 1, max: 40, step: 0.5, unit: "",
+        label: "Annoyance above",
+        info: "How annoyed it has to get. The next three say what adds how much.",
+      },
+      grabCost: {
+        value: 1, min: 0, max: 10, step: 0.1, unit: "",
+        label: "Each grab adds",
+        info: "",
+      },
+      throwCost: {
+        value: 1.5, min: 0, max: 10, step: 0.1, unit: "",
+        label: "Each hard throw adds",
+        info: "Up to twice this for a really hard one.",
+      },
+      impactCost: {
+        value: 1, min: 0, max: 10, step: 0.1, unit: "",
+        label: "Each jolt adds",
+        info: "",
+      },
+      calm: {
+        value: 6, min: 0.5, max: 60, step: 0.5, unit: "s",
+        label: "Calms down over",
+        info: "How quickly annoyance fades.",
+      },
+      hold: {
+        value: 2, min: 0, max: 20, step: 0.1, unit: "s",
+        label: "Stays angry for at least",
+        info: "",
+      },
+      slant: {
+        value: 1, min: 0, max: 1.5, step: 0.01, unit: "×",
+        label: "Brow slant",
+        info: "",
+      },
+    },
+  },
+
+  faceSurprised: {
+    group: "expression",
+    label: "Surprised",
+    info: "Big eyes, tiny pupils, a little o, legs flinching in. Set off by whipping the cursor at it; no click needed.",
+    params: {
+      enabled: { value: true, label: "When the cursor rushes at it", info: "Off = only when played from here." },
+      speed: {
+        value: 10, min: 1, max: 60, step: 0.5, unit: "b/s",
+        label: "Coming in faster than",
+        info: "",
+      },
+      radius: {
+        value: 1.5, min: 0.1, max: 6, step: 0.05, unit: "b",
+        label: "Within",
+        info: "Measured from the edge of the spider.",
+      },
+      hold: {
+        value: 0.5, min: 0.05, max: 5, step: 0.05, unit: "s",
+        label: "Lasts",
+        info: "",
+      },
+      cooldown: {
+        value: 1.5, min: 0, max: 10, step: 0.1, unit: "s",
+        label: "Not again for",
+        info: "",
+      },
+    },
+  },
+
+  faceScared: {
+    group: "expression",
+    label: "Scared",
+    info: "Worried brows and an open mouth, legs tucked. Set off by moving fast: thrown, falling, swung hard.",
+    params: {
+      enabled: { value: true, label: "When moving fast", info: "Off = only when played from here." },
+      speed: {
+        value: 5, min: 0.5, max: 40, step: 0.5, unit: "b/s",
+        label: "Faster than",
+        info: "",
+      },
+      linger: {
+        value: 0.4, min: 0, max: 5, step: 0.05, unit: "s",
+        label: "Lingers for",
+        info: "Once it slows down again.",
+      },
+    },
+  },
+
+  facePanicked: {
+    group: "expression",
+    label: "Panicked",
+    info: "Huge eyes, pinprick pupils and a wobbling scream. Scared, but for really fast, and the faster it goes the more of it you get.",
+    params: {
+      enabled: { value: true, label: "When moving really fast", info: "Off = only when played from here." },
+      speed: {
+        value: 9, min: 1, max: 60, step: 0.5, unit: "b/s",
+        label: "Starts at",
+        info: "",
+      },
+      full: {
+        value: 16, min: 1, max: 80, step: 0.5, unit: "b/s",
+        label: "Full panic at",
+        info: "",
+      },
+      linger: {
+        value: 0.5, min: 0, max: 5, step: 0.05, unit: "s",
+        label: "Lingers for",
+        info: "",
+      },
+      eyes: {
+        value: 1.35, min: 1, max: 2, step: 0.01, unit: "×",
+        label: "Eye size",
+        info: "",
+      },
+      pupils: {
+        value: 0.42, min: 0.2, max: 1, step: 0.01, unit: "×",
+        label: "Pupil size",
+        info: "",
+      },
+    },
+  },
+
+  faceGrabbed: {
+    group: "expression",
+    label: "Grabbed",
+    info: "> < eyes, a wobbly grimace, legs braced in. While you're holding it.",
+    params: {
+      enabled: { value: true, label: "While held", info: "Off = only when played from here." },
+      delay: {
+        value: 0.2, min: 0, max: 2, step: 0.01, unit: "s",
+        label: "After holding for",
+        info: "A short delay, so a quick click can show Poked instead.",
+      },
+      string: { value: false, label: "Grabbing the string counts", info: "Off = only when you've got hold of the spider itself." },
+    },
+  },
+
+  faceThrown: {
+    group: "expression",
+    label: "Thrown",
+    info: "Mismatched wonky eyes and a little o, the moment you let go of it fast.",
+    params: {
+      enabled: { value: true, label: "When let go fast", info: "Off = only when played from here." },
+      speed: {
+        value: 4, min: 0.5, max: 40, step: 0.5, unit: "b/s",
+        label: "Faster than",
+        info: "",
+      },
+      hold: {
+        value: 0.7, min: 0.05, max: 5, step: 0.05, unit: "s",
+        label: "Lasts",
+        info: "",
+      },
+    },
+  },
+
+  faceImpact: {
+    group: "expression",
+    label: "Impact",
+    info: "— — eyes, a flat mouth and a squished body for a split second, then it springs back. Set off by a sudden jolt: the string snapping taut, or hitting the edge of the window.",
+    params: {
+      enabled: { value: true, label: "When jolted", info: "Off = only when played from here." },
+      jolt: {
+        value: 70, min: 5, max: 600, step: 5, unit: "b/s²",
+        label: "A jolt harder than",
+        info: "How sudden a stop it takes. Lower and ordinary swinging sets it off.",
+      },
+      hold: {
+        value: 0.16, min: 0.05, max: 1, step: 0.01, unit: "s",
+        label: "Lasts",
+        info: "",
+      },
+      squash: {
+        value: 0.35, min: 0, max: 0.8, step: 0.01, unit: "×",
+        label: "Squash",
+        info: "",
+      },
+    },
+  },
+
+  faceDizzy: {
+    group: "expression",
+    label: "Dizzy",
+    info: "Spiralling or wonky eyes and a crooked mouth, after being whirled around.",
+    params: {
+      enabled: { value: true, label: "After being spun around", info: "Off = only when played from here." },
+      turns: {
+        value: 2.5, min: 0.5, max: 20, step: 0.1, unit: "turns",
+        label: "After spinning",
+        info: "How much swinging round it takes. Every bit of swing around the anchor counts, so hard back-and-forth gets there too.",
+      },
+      forget: {
+        value: 3, min: 0.5, max: 20, step: 0.1, unit: "s",
+        label: "Forgets spins over",
+        info: "How quickly spinning stops counting once it stops.",
+      },
+      hold: {
+        value: 2.5, min: 0.2, max: 10, step: 0.1, unit: "s",
+        label: "Stays dizzy for",
+        info: "",
+      },
+      eyes: {
+        value: "spirals" as "spirals" | "wonky",
+        options: {spirals: "Spirals", wonky: "Wonky pupils"},
+        label: "Dizzy eyes",
+        info: "Spirals: the eyes become turning spirals. Wonky pupils: one pupil up, one down, swimming.",
+      },
+      spin: {
+        value: 1.2, min: 0, max: 5, step: 0.05, unit: "Hz",
+        label: "Spiral speed",
+        info: "How fast the spirals turn, or the wonky pupils swim.",
+      },
+    },
+  },
+
+  faceAnnoyed: {
+    group: "expression",
+    label: "Annoyed",
+    info: "The ಠ_ಠ: half-shut eyes still staring right at you, and a flat little mouth. Set off by being grabbed over and over.",
+    params: {
+      enabled: { value: true, label: "When grabbed again and again", info: "Off = only when played from here." },
+      count: {
+        value: 4, min: 2, max: 20, step: 1, unit: "",
+        label: "After this many grabs",
+        info: "",
+      },
+      window: {
+        value: 6, min: 1, max: 60, step: 0.5, unit: "s",
+        label: "…within",
+        info: "",
+      },
+      hold: {
+        value: 3, min: 0.2, max: 20, step: 0.1, unit: "s",
+        label: "Stays annoyed for",
+        info: "",
+      },
+    },
+  },
+
+  facePoked: {
+    group: "expression",
+    label: "Poked",
+    info: "One eye scrunched shut and a sideways mouth: ow. Set off by a quick click on it without dragging.",
+    params: {
+      enabled: { value: true, label: "When clicked quickly", info: "Off = only when played from here." },
+      time: {
+        value: 0.2, min: 0.05, max: 1, step: 0.01, unit: "s",
+        label: "A click shorter than",
+        info: "",
+      },
+      move: {
+        value: 0.15, min: 0, max: 2, step: 0.01, unit: "b",
+        label: "…moving less than",
+        info: "",
+      },
+      hold: {
+        value: 0.5, min: 0.05, max: 5, step: 0.05, unit: "s",
+        label: "Lasts",
+        info: "",
+      },
+    },
+  },
+
+  faceSmug: {
+    group: "expression",
+    label: "Smug",
+    info: "One eye half-closed and a crooked grin, very pleased with itself. Set off by clicks that just miss it.",
+    params: {
+      enabled: { value: true, label: "When you keep missing it", info: "Off = only when played from here." },
+      count: {
+        value: 3, min: 1, max: 20, step: 1, unit: "",
+        label: "After this many misses",
+        info: "",
+      },
+      window: {
+        value: 5, min: 1, max: 60, step: 0.5, unit: "s",
+        label: "…within",
+        info: "",
+      },
+      radius: {
+        value: 0.8, min: 0.05, max: 4, step: 0.05, unit: "b",
+        label: "A miss is a click within",
+        info: "Measured from the edge of the spider.",
+      },
+      hold: {
+        value: 2.5, min: 0.2, max: 20, step: 0.1, unit: "s",
+        label: "Stays smug for",
+        info: "",
+      },
+    },
+  },
+
+  faceSleepy: {
+    group: "expression",
+    label: "Sleepy",
+    info: "Eyelids drooping, after a while with nothing going on.",
+    params: {
+      enabled: { value: true, label: "When nothing happens for a while", info: "Off = only when played from here." },
+      after: {
+        value: 30, min: 3, max: 600, step: 1, unit: "s",
+        label: "Nothing happening for",
+        info: "Any cursor movement, click or motion resets this.",
+      },
+      lid: {
+        value: 0.55, min: 0, max: 0.9, step: 0.01, unit: "×",
+        label: "Lids droop",
+        info: "",
+      },
+    },
+  },
+
+  faceAsleep: {
+    group: "expression",
+    label: "Asleep",
+    info: "Eyes shut, mouth a small o, hanging a little lower on its string. Moving the cursor wakes it.",
+    params: {
+      enabled: { value: true, label: "When nothing happens for longer", info: "Off = only when played from here." },
+      after: {
+        value: 60, min: 5, max: 1200, step: 1, unit: "s",
+        label: "Nothing happening for",
+        info: "",
+      },
+      sag: {
+        value: 0.08, min: 0, max: 0.5, step: 0.01, unit: "×",
+        label: "Hangs lower by",
+        info: "As a fraction of the string's length.",
+      },
+    },
+  },
+
+  faceWake: {
+    group: "expression",
+    label: "Waking up",
+    info: "Eyes pop open enormous for a moment, then it blinks. When something wakes it from Sleepy or Asleep.",
+    params: {
+      enabled: { value: true, label: "When woken", info: "Off = only when played from here." },
+      hold: {
+        value: 0.3, min: 0.05, max: 3, step: 0.05, unit: "s",
+        label: "Lasts",
+        info: "",
+      },
+      eyes: {
+        value: 1.4, min: 1, max: 2, step: 0.01, unit: "×",
+        label: "Eye size",
+        info: "",
+      },
+    },
+  },
+
+  faceTired: {
+    group: "expression",
+    label: "Deadpan",
+    info: "Tiny blank pupils, heavy lids, a flat mouth, and it stops reacting to anything for a bit. What it does after a ridiculous amount of abuse.",
+    params: {
+      enabled: { value: true, label: "After far too much", info: "Off = only when played from here." },
+      at: {
+        value: 14, min: 2, max: 80, step: 0.5, unit: "",
+        label: "Annoyance above",
+        info: "The same annoyance as Angry (and what adds to it is set there), but further up.",
+      },
+      hold: {
+        value: 4, min: 0.5, max: 30, step: 0.1, unit: "s",
+        label: "Ignores you for",
+        info: "",
+      },
+    },
+  },
+
+  faceSearch: {
+    group: "expression",
+    label: "Looking for you",
+    info: "When the cursor leaves the page, it looks toward where it went, then the other way, then gives up.",
+    params: {
+      enabled: { value: true, label: "When the cursor leaves the page", info: "Off = only when played from here." },
+      after: {
+        value: 0.3, min: 0, max: 5, step: 0.05, unit: "s",
+        label: "Starts after",
+        info: "",
+      },
+      look: {
+        value: 0.9, min: 0.1, max: 5, step: 0.05, unit: "s",
+        label: "Looks each way for",
+        info: "",
       },
     },
   },
