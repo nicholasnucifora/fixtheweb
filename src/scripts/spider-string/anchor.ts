@@ -11,6 +11,8 @@ export interface AnchorFrame {
    * The string is as long as that takes, rather than Strings → Length.
    */
   hangTo?: number;
+  /** Thickest the string is drawn, CSS px, however big the spider is. */
+  maxThread?: number;
 }
 
 /**
@@ -30,6 +32,30 @@ export function createSlotAnchor(slot: HTMLElement) {
         y: top + window.scrollY,
         unit: r.width / Math.max(0.1, config.look.width),
         hangTo: r.top + r.height / 2 - top,
+      };
+    },
+  };
+}
+
+/**
+ * A spider hanging from the bottom-middle of `hook` (the Spider Den's web) down to `slot`: sized to
+ * the slot's width, and hanging as low as its middle. Measured every frame, like the others.
+ */
+export function createHookAnchor(hook: Element, slot: HTMLElement) {
+  return {
+    measure(): AnchorFrame | null {
+      const h = hook.getBoundingClientRect();
+      const r = slot.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      const x = h.left + h.width / 2 + window.scrollX;
+      const y = h.bottom + window.scrollY;
+      return {
+        x,
+        y,
+        unit: r.width / Math.max(0.1, config.look.width),
+        hangTo: r.top + r.height / 2 + window.scrollY - y,
+        // A big spider's string would be a rope next to the web's threads.
+        maxThread: 2.5,
       };
     },
   };

@@ -2,14 +2,18 @@ import type { AnchorFrame } from "./anchor";
 import { config } from "./config";
 import type { Particles } from "./particles";
 import type { Rope } from "./rope";
+import { PALETTE, THREADS } from "./wardrobe";
 
 const DEBUG_COLOR = "#ff5a5f";
 
 type Point = { x: number; y: number };
 
-/** The string's thickness in device pixels (whole pixels when Spidey → Crispness → Whole-pixel sizes is on). */
-export function stringDeviceWidth(unit: number, pixelRatio: number) {
-  const px = Math.max(1, config.rope.thickness * unit) * pixelRatio;
+/**
+ * The string's thickness in device pixels (whole pixels when Spidey → Crispness → Whole-pixel sizes is on).
+ * `a.maxThread` caps it in CSS px.
+ */
+export function stringDeviceWidth(a: AnchorFrame, pixelRatio: number) {
+  const px = Math.max(1, Math.min(a.maxThread ?? Infinity, config.rope.thickness * a.unit)) * pixelRatio;
   return config.crisp.wholePixels ? Math.max(1, Math.round(px)) : px;
 }
 
@@ -58,6 +62,7 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
      * `alpha`: how far between the last two physics steps to draw (see Rope.at).
      * `drawSpider` draws on top of the string, in the same document-px space.
      * `stringShift` nudges the string sideways (CSS px) to sit on the pixel grid.
+     * `thread` is the colour picked in the Spider Den (silk follows the page's ink).
      */
     draw(
       rope: Rope,
@@ -66,6 +71,7 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
       alpha: number,
       drawSpider?: (ctx: CanvasRenderingContext2D) => void,
       stringShift = 0,
+      thread: keyof typeof THREADS = "silk",
     ) {
       const sx = window.scrollX;
       const sy = window.scrollY;
@@ -78,7 +84,8 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
       const pts = rope.points.map((_, i) => rope.at(i, alpha));
       ctx.save();
       ctx.translate(stringShift, 0);
-      drawString(ctx, pts, stringDeviceWidth(a.unit, scaleX) / scaleX);
+      ctx.strokeStyle = threadStyle(ctx, thread, pts, color);
+      drawString(ctx, pts, stringDeviceWidth(a, scaleX) / scaleX);
       ctx.restore();
       drawSpider?.(ctx);
       ctx.strokeStyle = color;
@@ -86,6 +93,17 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
       if (config.debug.showPoints) drawPoints(ctx, rope, pts, a);
     },
   };
+}
+
+const RAINBOW = [PALETTE.coral, PALETTE.sunflower, PALETTE.mint, PALETTE.sky, PALETTE.plum].map((c) => c.color);
+
+function threadStyle(ctx: CanvasRenderingContext2D, thread: keyof typeof THREADS, pts: Point[], ink: string) {
+  if (thread !== "rainbow") return THREADS[thread]?.color || ink;
+  const head = pts[0];
+  const tail = pts[pts.length - 1];
+  const gradient = ctx.createLinearGradient(head.x, head.y, tail.x + 0.01, tail.y + 0.01);
+  RAINBOW.forEach((c, i) => gradient.addColorStop(i / (RAINBOW.length - 1), c));
+  return gradient;
 }
 
 /** Smooth curve through the rope points (quadratic segments via midpoints). */

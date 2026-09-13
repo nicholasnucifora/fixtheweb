@@ -1,0 +1,75 @@
+---
+import Header from "../components/Header.astro";
+import SpiderString from "../components/SpiderString.astro";
+
+interface Props {
+  title: string;
+  /** Which page this is, for the header. */
+  page: "home" | "den";
+}
+
+const { title, page } = Astro.props;
+---
+
+<!-- --swap is how far the header has faded in: the home page fades it in as you scroll, the rest start with it in. -->
+<html lang="en" style={page === "home" ? undefined : "--swap: 1"}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <Header page={page} />
+    <slot />
+    <SpiderString badge=".brand-spider" />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafaf7;
+    --ink: #1b1e29;
+    --muted: color-mix(in srgb, var(--ink) 60%, transparent);
+    --line: color-mix(in srgb, var(--ink) 12%, transparent);
+    --fill: color-mix(in srgb, var(--ink) 6%, transparent);
+    /* Links that aren't built yet. */
+    --unbuilt: color-mix(in srgb, var(--ink) 32%, transparent);
+    /* The logo's green; darker on light, where the logo's own would be too faint as text. */
+    --accent: #2b8666;
+    /* Cards, a step up from the page. */
+    --surface: #ffffff;
+    /* The header's own colour, a step off the page's, so it reads as a bar over it. */
+    --header-bg: #ecece4;
+    --header-height: 76px;
+    /* The page's content column, which the header lines up with. */
+    --content-width: 960px;
+    --gutter: 1.5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1e29;
+      --ink: #f2f2ee;
+      --accent: #6ac7a7;
+      --surface: #222633;
+      --header-bg: #282c3b;
+    }
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 18px/1.5 system-ui, sans-serif;
+  }
+</style>

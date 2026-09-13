@@ -1,0 +1,673 @@
+---
+import SpiderString from "../components/SpiderString.astro";
+import Base from "../layouts/Base.astro";
+import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, unlockLabel, type Slot } from "../scripts/spider-string/wardrobe";
+
+/**
+ * The Spider Den: the spider from the logo, hanging from a web, with a wardrobe to dress it up.
+ * Everything here is built from the catalogue in wardrobe.ts; src/scripts/den.ts makes it work.
+ */
+
+const tabs: { id: string; label: string; shelves?: Slot[] }[] = [
+  { id: "hats", label: "Hats", shelves: ["hat"] },
+  { id: "face", label: "Face", shelves: ["eyes", "face"] },
+  { id: "clothes", label: "Clothes", shelves: ["outfit", "back", "feet"] },
+  { id: "colours", label: "Colours" },
+  { id: "snacks", label: "Snacks & tricks" },
+];
+
+const snacks = [
+  { id: "fly", label: "Fly" },
+  { id: "ladybird", label: "Ladybird" },
+  { id: "moth", label: "Moth" },
+  { id: "cookie", label: "Cookie" },
+];
+const tricks = [
+  { id: "dropIn", label: "Abseil in" },
+  { id: "idleLegs", label: "Stretch" },
+  { id: "blink", label: "Blink" },
+];
+const moods = [
+  { id: "faceHappy", label: "Happy" },
+  { id: "faceExcited", label: "Excited" },
+  { id: "faceSmug", label: "Smug" },
+  { id: "faceSurprised", label: "Surprised" },
+  { id: "faceAngry", label: "Grumpy" },
+  { id: "faceDizzy", label: "Dizzy" },
+  { id: "faceAsleep", label: "Sleepy" },
+];
+/** Items earned by feeding it, for the progress list. */
+const snackUnlocks = (Object.keys(SLOTS) as Slot[]).flatMap((slot) =>
+  SLOTS[slot].items.flatMap((item) => (item.unlock?.kind === "snacks" ? [{ slot, item, count: item.unlock.count }] : [])),
+);
+
+/**
+ * The web the spider hangs from: threads out from a hub to the stage's edges, and rings between
+ * them that sag toward the hub, a little uneven like the real thing. Drawn in a 400×240 box that
+ * stretches across the top of the stage; the hub is where the thread hangs from (.hook).
+ */
+const HUB = [200, 80];
+const web = (() => {
+  const [hx, hy] = HUB;
+  const angles = [-172, -148, -122, -98, -74, -50, -26, -4, 22, 48, 72, 108, 132, 158].map((a) => (a * Math.PI) / 180);
+  const reach = angles.map((a) => {
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const tx = dx > 0 ? (400 - hx) / dx : dx < 0 ? -hx / dx : Infinity;
+    const ty = dy > 0 ? (240 - hy) / dy : dy < 0 ? -hy / dy : Infinity;
+    return Math.min(tx, ty);
+  });
+  const at = (i: number, r: number) => [hx + Math.cos(angles[i]) * r, hy + Math.sin(angles[i]) * r].map((v) => +v.toFixed(1));
+  const radials = angles.map((_, i) => `M${hx} ${hy}L${at(i, reach[i]).join(" ")}`).join("");
+  let rings = "";
+  for (const [k, radius] of [10, 20, 32, 46, 62, 80, 101, 125, 152, 182, 216].entries()) {
+    for (let i = 0; i < angles.length; i++) {
+      const j = (i + 1) % angles.length;
+      // Leave a gap under the hub, where the thread comes down.
+      if (angles[i] < Math.PI / 2 && angles[j] > Math.PI / 2) continue;
+      const ri = radius * (1 + 0.05 * Math.sin(i * 1.7 + k));
+      const rj = radius * (1 + 0.05 * Math.sin(j * 1.7 + k));
+      if (ri > reach[i] * 0.97 || rj > reach[j] * 0.97) continue;
+      const [ax, ay] = at(i, ri);
+      const [bx, by] = at(j, rj);
+      const sag = 0.86;
+      const cx = +(hx + ((ax + bx) / 2 - hx) * sag).toFixed(1);
+      const cy = +(hy + ((ay + by) / 2 - hy) * sag).toFixed(1);
+      rings += `M${ax} ${ay}Q${cx} ${cy} ${bx} ${by}`;
+    }
+  }
+  return { radials, rings };
+})();
+
+const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M4.5 7V5a3.5 3.5 0 1 1 7 0v2h.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h.5Zm1.75 0h3.5V5a1.75 1.75 0 1 0-3.5 0v2Z"/></svg>`;
+---
+
+<Base title="Spider Den · Fix the Web" page="den">
+  <main class="den">
+    <div class="den-stage-col">
+      <div class="den-intro">
+        <p class="eyebrow">Spider Den</p>
+        <h1>Dress up <span data-den-name>Webby</span></h1>
+        <p class="lede">
+          The spider from our logo lives here. Give it a hat, pick its colours, feed it a snack. Whatever it wears here,
+          it wears all over the site.
+        </p>
+      </div>
+      <div class="stage">
+        <svg class="web" viewBox="0 0 400 240" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="web-fade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0.55" stop-color="#fff" />
+              <stop offset="1" stop-color="#fff" stop-opacity="0" />
+            </linearGradient>
+            <mask id="web-mask" maskContentUnits="objectBoundingBox">
+              <rect width="1" height="1" fill="url(#web-fade)" />
+            </mask>
+          </defs>
+          <g mask="url(#web-mask)">
+            <path d={web.radials} />
+            <path d={web.rings} />
+          </g>
+        </svg>
+        <span class="hook" data-den-hook></span>
+        <div class="stage-slot" data-den-slot></div>
+        <p class="stage-hint">Drag it, fling it, or drag a snack to its mouth.</p>
+      </div>
+    </div>
+
+    <section class="wardrobe" data-spider-ignore aria-label="Wardrobe">
+      <div class="wardrobe-head">
+        <label class="name-field">
+          <span>Name</span>
+          <input data-den-name-input maxlength="24" value="Webby" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="head-actions">
+          <button class="chip" type="button" data-den-surprise>Surprise me</button>
+          <button class="chip" type="button" data-den-undress>Take it all off</button>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Wardrobe">
+        {
+          tabs.map((tab, i) => (
+            <button
+              type="button"
+              role="tab"
+              id={`den-tab-${tab.id}`}
+              aria-controls={`den-panel-${tab.id}`}
+              aria-selected={i === 0 ? "true" : "false"}
+              tabindex={i === 0 ? 0 : -1}
+            >
+              {tab.label}
+            </button>
+          ))
+        }
+      </div>
+
+      {
+        tabs
+          .filter((tab) => tab.shelves)
+          .map((tab, i) => (
+            <div class="panel" role="tabpanel" id={`den-panel-${tab.id}`} aria-labelledby={`den-tab-${tab.id}`} hidden={i !== 0}>
+              {tab.shelves!.map((slot) => (
+                <section class="shelf">
+                  <h2>{SLOTS[slot].label}</h2>
+                  <div class="tiles">
+                    <button type="button" class="tile" data-slot={slot} data-item="none" aria-pressed="false">
+                      <canvas class="tile-art" data-view={slot} aria-hidden="true" />
+                      <span class="tile-label">None</span>
+                    </button>
+                    {SLOTS[slot].items.map((item) => (
+                      <button
+                        type="button"
+                        class="tile"
+                        data-slot={slot}
+                        data-item={item.id}
+                        data-locked={item.unlock ? "" : undefined}
+                        aria-pressed="false"
+                      >
+                        <canvas class="tile-art" data-view={slot} aria-hidden="true" />
+                        <span class="tile-label">{item.label}</span>
+                        {item.unlock && (
+                          <span class="tile-lock" title={`Locked: ${unlockLabel(item.unlock)}`}>
+                            <Fragment set:html={lock} />
+                            <span class="visually-hidden">(locked: {unlockLabel(item.unlock)})</span>
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div class="swatches" data-swatches={slot} role="group" aria-label={`${SLOTS[slot].label} colour`} hidden>
+                    {Object.entries(PALETTE).map(([key, { label, color }]) => (
+                      <button
+                        type="button"
+                        class="swatch"
+                        data-slot={slot}
+                        data-tint={key}
+                        style={`--swatch: ${color}`}
+                        aria-label={label}
+                        title={label}
+                        aria-pressed="false"
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ))
+      }
+
+      <div class="panel" role="tabpanel" id="den-panel-colours" aria-labelledby="den-tab-colours" hidden>
+        <section class="shelf">
+          <h2>Body</h2>
+          <div class="tiles">
+            {
+              Object.entries(SKINS).map(([key, { label }]) => (
+                <button type="button" class="tile" data-skin={key} aria-pressed="false">
+                  <canvas class="tile-art" data-view="whole" aria-hidden="true" />
+                  <span class="tile-label">{label}</span>
+                </button>
+              ))
+            }
+          </div>
+        </section>
+        <section class="shelf">
+          <h2>Pattern</h2>
+          <div class="tiles">
+            {
+              Object.entries(PATTERNS).map(([key, { label }]) => (
+                <button type="button" class="tile" data-pattern={key} aria-pressed="false">
+                  <canvas class="tile-art" data-view="whole" aria-hidden="true" />
+                  <span class="tile-label">{label}</span>
+                </button>
+              ))
+            }
+          </div>
+        </section>
+        <section class="shelf">
+          <h2>Thread</h2>
+          <div class="threads">
+            {
+              Object.entries(THREADS).map(([key, { label, color }]) => (
+                <button type="button" class="chip thread" data-thread={key} aria-pressed="false">
+                  <span class="thread-line" data-kind={key} style={color ? `--thread: ${color}` : undefined} aria-hidden="true" />
+                  {label}
+                </button>
+              ))
+            }
+          </div>
+        </section>
+      </div>
+
+      <div class="panel" role="tabpanel" id="den-panel-snacks" aria-labelledby="den-tab-snacks" hidden>
+        <section class="shelf">
+          <h2>Snacks</h2>
+          <div class="tiles snacks">
+            {
+              snacks.map((snack) => (
+                <button type="button" class="tile" data-snack={snack.id}>
+                  <canvas class="tile-art" data-icon={snack.id} aria-hidden="true" />
+                  <span class="tile-label">{snack.label}</span>
+                </button>
+              ))
+            }
+          </div>
+          <p class="shelf-note">
+            <strong data-den-snack-count>0</strong> <span data-den-snack-word>snacks</span> eaten. Each one makes it a little
+            bigger, for a while.
+          </p>
+          <ul class="progress">
+            {
+              snackUnlocks.map(({ slot, item, count }) => (
+                <li data-progress-slot={slot} data-progress-item={item.id} data-count={count}>
+                  <span class="progress-label">{item.label}</span>
+                  <span class="progress-bar" aria-hidden="true">
+                    <span />
+                  </span>
+                  <span class="progress-count">0 / {count}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </section>
+        <section class="shelf">
+          <h2>Tricks</h2>
+          <div class="chips">
+            {
+              tricks.map((trick) => (
+                <button type="button" class="chip" data-play={trick.id}>
+                  {trick.label}
+                </button>
+              ))
+            }
+            <button type="button" class="chip" data-den-reset>Back to normal size</button>
+          </div>
+        </section>
+        <section class="shelf">
+          <h2>Moods</h2>
+          <div class="chips">
+            {
+              moods.map((mood) => (
+                <button type="button" class="chip" data-play={mood.id}>
+                  {mood.label}
+                </button>
+              ))
+            }
+          </div>
+        </section>
+      </div>
+
+      <p class="notice" data-den-notice aria-live="polite">Saved in this browser: it wears this on every page.</p>
+    </section>
+  </main>
+
+  <SpiderString stage="[data-den-slot]" hook="[data-den-hook]" tryOn />
+</Base>
+
+<script>
+  import { mountDen } from "../scripts/den";
+  mountDen();
+</script>
+
+<style is:global>
+  .den {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 2.5rem;
+    align-items: start;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: calc(var(--header-height) + 2.5rem) var(--gutter) 5rem;
+    box-sizing: border-box;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .den :is(button, input):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ── The spider, hanging from its web ── */
+  .den-stage-col {
+    position: sticky;
+    top: calc(var(--header-height) + 1.5rem);
+  }
+  .den .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .den h1 {
+    margin: 0 0 0.75rem;
+    font-size: clamp(2rem, 4.5vw, 3rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    overflow-wrap: anywhere;
+  }
+  .den h1 [data-den-name] {
+    color: var(--accent);
+  }
+  .den .lede {
+    max-width: 42ch;
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+  }
+  .stage {
+    position: relative;
+    height: clamp(340px, calc(100svh - var(--header-height) - 20rem), 540px);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .web {
+    position: absolute;
+    inset: 0 0 auto;
+    width: 100%;
+    height: 240px;
+    color: var(--ink);
+  }
+  .web path {
+    fill: none;
+    stroke: currentColor;
+    stroke-opacity: 0.2;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  /* The web's hub (see HUB): where the thread hangs from. */
+  .hook {
+    position: absolute;
+    left: 50%;
+    top: 80px;
+  }
+  /* Where the spider rests, and how big it is: the rig sizes it to this width. */
+  .stage-slot {
+    position: absolute;
+    left: 50%;
+    top: 62%;
+    width: clamp(120px, 40%, 210px);
+    aspect-ratio: 596 / 401;
+    transform: translate(-50%, -50%);
+  }
+  .stage-hint {
+    position: absolute;
+    inset: auto 1rem 0.875rem;
+    margin: 0;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+
+  /* ── The wardrobe ── */
+  .wardrobe {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .wardrobe-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .name-field {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+  .name-field input {
+    width: 11ch;
+    padding: 0.45rem 0.75rem;
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .head-actions,
+  .chips,
+  .threads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    font: 600 0.875rem/1 system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .chip:hover {
+    border-color: var(--accent);
+  }
+  .chip:active {
+    background: var(--fill);
+  }
+  .chip[aria-pressed="true"] {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0 0.75rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+  .tabs [role="tab"] {
+    flex: none;
+    padding: 1rem 0.625rem 0.875rem;
+    font: 700 0.8125rem/1 system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tabs [role="tab"]:hover {
+    color: var(--ink);
+  }
+  .tabs [role="tab"][aria-selected="true"] {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+
+  .panel {
+    padding: 1.25rem;
+  }
+  .shelf + .shelf {
+    margin-top: 1.75rem;
+  }
+  .shelf h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 0.5rem;
+  }
+  .tile {
+    position: relative;
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.5rem 0.375rem 0.5rem;
+    font: 600 0.75rem/1.2 system-ui, sans-serif;
+    color: var(--ink);
+    text-align: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .tile:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  .tile[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg));
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .tile-art {
+    display: block;
+    width: 100%;
+    height: 68px;
+  }
+  .tile[data-locked] .tile-art {
+    opacity: 0.6;
+  }
+  .tile-lock {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    display: none;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    color: var(--bg);
+    background: var(--ink);
+    border-radius: 50%;
+  }
+  .tile[data-locked] .tile-lock {
+    display: grid;
+  }
+  .snacks .tile-art {
+    height: 44px;
+  }
+
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+  }
+  .swatch {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: var(--swatch);
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--line);
+    cursor: pointer;
+  }
+  .swatch[aria-pressed="true"] {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .thread-line {
+    width: 1.5rem;
+    height: 3px;
+    background: var(--thread, var(--ink));
+    border-radius: 2px;
+  }
+  .thread-line[data-kind="rainbow"] {
+    background: linear-gradient(90deg, #e8705a, #f0b43c, #6ac7a7, #5b9bd5, #7a5aa6);
+  }
+
+  .shelf-note {
+    margin: 0.875rem 0 0.5rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .shelf-note strong {
+    color: var(--ink);
+  }
+  .progress {
+    display: grid;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+  }
+  .progress li {
+    display: grid;
+    grid-template-columns: 7rem 1fr 3.5rem;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .progress-bar {
+    height: 6px;
+    overflow: hidden;
+    background: var(--fill);
+    border-radius: 3px;
+  }
+  .progress-bar span {
+    display: block;
+    width: var(--done, 0%);
+    height: 100%;
+    background: var(--accent);
+    border-radius: inherit;
+    transition: width 0.3s ease;
+  }
+  .progress-count {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .notice {
+    margin: 0;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+  }
+  .notice strong {
+    color: var(--ink);
+  }
+
+  /* One column: the spider on top, not following you down. */
+  @media (max-width: 860px) {
+    .den {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+      padding-top: calc(var(--header-height) + 1.5rem);
+    }
+    .den-stage-col {
+      position: static;
+    }
+    .stage {
+      height: 360px;
+    }
+    .wardrobe-head,
+    .panel {
+      padding-inline: 1rem;
+    }
+    .tile-art {
+      height: 56px;
+    }
+  }
+</style>

@@ -2,9 +2,11 @@ import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
 import type { AnimationState } from "./animation";
 import { config } from "./config";
+import { type Fit, type Pen, dressBack, dressBody, dressFace, dressFeet, dressHat } from "./dress";
 import { type Face, drawEyes, drawMouth } from "./face";
 import { stringDeviceWidth } from "./render";
 import type { Rope } from "./rope";
+import { SKINS, type Look } from "./wardrobe";
 
 /**
  * The spider on the end of the string, drawn onto the string's canvas.
@@ -25,6 +27,9 @@ import type { Rope } from "./rope";
  *
  * Paths are rebuilt from their original points, so shape swaps (a mirrored eye,
  * pupil or leg), placement sliders and curls never accumulate drift.
+ *
+ * Whatever it's wearing (`look`, from wardrobe.ts) is drawn in among those layers by dress.ts:
+ * a cape behind the legs, socks on them, an outfit on the body, glasses over the face, a hat on top.
  */
 
 const DEG = Math.PI / 180;
@@ -37,11 +42,11 @@ const DEBUG_COLOR = "#ff5a5f";
 type Vec = [number, number];
 type Side = "left" | "right";
 type Source = "drawn" | "left" | "right";
-interface Cmd {
+export interface Cmd {
   cmd: string;
   args: number[];
 }
-interface Shape {
+export interface Shape {
   cmds: Cmd[];
   center: Vec;
   size: Vec;
@@ -56,8 +61,11 @@ interface Leg {
   cmds: Cmd[];
   /** Ends of the straight cut where the leg meets the body. */
   cut: [Vec, Vec] | null;
-  /** Furthest point from the hip, art units. */
+  /** Furthest point from the hip, art units… */
   reach: number;
+  /** …which is the tip, relative to the hip as drawn, and where it is this frame (art units). */
+  tipRel: Vec;
+  tip: Vec;
   /** Direction of the leg's weight from the hip, as drawn. */
   weightDir: Vec;
   /** Angle away from its placed pose (rad), and its angular velocity. */
@@ -95,7 +103,7 @@ interface Pose {
   face: DOMMatrix;
 }
 
-export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationState, face: Face) {
+export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationState, face: Face, look: Look) {
   const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
   const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
   const pct = W / 100;
@@ -135,6 +143,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
     const pts = points(cmds).map(([x, y]) => [x - pivot[0], y - pivot[1]] as Vec);
     const mean: Vec = [avg(pts.map((p) => p[0])), avg(pts.map((p) => p[1]))];
     const every = Math.max(1, Math.ceil(pts.length / 8));
+    const tipRel = pts.reduce((far, p) => (Math.hypot(p[0], p[1]) > Math.hypot(far[0], far[1]) ? p : far), [0, 0] as Vec);
     return {
       side: id[0] === "R" ? "right" : "left",
       pair: Number(id[1]) as 1 | 2 | 3,
@@ -143,6 +152,8 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       cmds,
       cut: cut.length === 4 ? ([[cut[0], cut[1]], [cut[2], cut[3]]] as [Vec, Vec]) : null,
       reach: Math.max(...pts.map((p) => Math.hypot(p[0], p[1]))),
+      tipRel,
+      tip: pivot,
       // From the build script, measured before the hidden root is added; the mean is a fallback.
       weightDir: normalize(weight.length === 2 ? (weight as Vec) : mean),
       phi: 0,
@@ -345,6 +356,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       const d = mapPath(from.cmds, put);
       // Where the leg ended up, so the cursor's distance to it can be measured next frame.
       leg.sampled = from.spine.map(([sx, sy]) => put(sx + from.pivot[0], sy + from.pivot[1]));
+      leg.tip = put(from.tipRel[0] + from.pivot[0], from.tipRel[1] + from.pivot[1]);
       if (d !== leg.d) {
         leg.d = d;
         leg.path = new Path2D(d);
@@ -579,6 +591,24 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   let stillFor = 0;
   let snap = 0;
   let stringShift = 0;
+  /** What hats and dangly clothes wobble by (rad), and how fast. */
+  let swing = 0;
+  let swingSpeed = 0;
+
+  /** Where everything is this frame, for the clothes (dress.ts). */
+  const fitNow = (skin: string, mouthColor: string): Fit => ({
+    body: { cx: bodyCenter[0], cy: bodyCenter[1], rx: bodyShape.size[0] / 2, ry: bodyShape.size[1] / 2, path: bodyPath },
+    legs: legs.map((leg) => ({ path: leg.path, tip: leg.tip, side: leg.side })),
+    eyes: eyes.map((eye) => ({ side: eye.side, center: eye.center, radius: eye.radius, size: face[eye.side].size })),
+    mouth: { center: mouthCenter, top: mouthTop, width: mouthWidth, drawn: face.mouth.drawn },
+    time,
+    velocity: rotate(velocity, -(tilt + animation.tilt)),
+    swing,
+    hang: -(tilt + animation.tilt),
+    still: reducedMotion.matches,
+    skin,
+    mouthColor,
+  });
 
   return {
     /** Sideways nudge (CSS px) that lines the string up with the pixel grid while the spider is snapped. */
@@ -672,10 +702,16 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
         const steps = Math.ceil(dt / MAX_STEP);
         const h = dt / steps;
         const tw = 2 * Math.PI * b.tiltSpring;
+        // Clothes lag behind being shoved sideways, or turned, and bounce back: a loose, springy wobble.
+        const shove = rotate(accel, -tilt)[0];
+        const swingTo = still ? 0 : Math.max(-0.6, Math.min(0.6, -shove * 0.004));
+        const sw = 2 * Math.PI * 2.2;
         for (let i = 0; i < steps; i++) {
           tiltSpeed += (tw * tw * (tiltTarget - tilt) - 2 * b.tiltDamping * tw * tiltSpeed) * h;
           tilt += tiltSpeed * h;
           stepLegs(h, rotate(felt, -tilt), still ? 0 : config.legMotion.fidget);
+          swingSpeed += (sw * sw * (swingTo - swing) - 2 * 0.18 * sw * swingSpeed - (still ? 0 : tiltSpeed * sw * 0.5)) * h;
+          swing += swingSpeed * h;
         }
         time += dt;
       }
@@ -735,7 +771,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       if (snap > 0) {
         // Line the string's edges up with pixel columns and the body's top edge with a pixel row
         // (the body's height is whole pixels, so the bottom edge lines up too).
-        const left = (tail.x - window.scrollX) * pixelRatio - stringDeviceWidth(a.unit, pixelRatio) / 2;
+        const left = (tail.x - window.scrollX) * pixelRatio - stringDeviceWidth(a, pixelRatio) / 2;
         const top = art.multiply(torso).transformPoint(new DOMPoint(bodyCenter[0], bodyCenter[1] - bodyShape.size[1] / 2));
         const row = (top.y - window.scrollY) * pixelRatio;
         stringShift = ((Math.round(left) - left) / pixelRatio) * snap;
@@ -776,35 +812,55 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       }
 
       transform(ctx, pose.art);
-      const c = config.colors;
+      const c = { ...config.colors, body: SKINS[look.skin].color || config.colors.body };
       ctx.lineJoin = "round";
+      const fit = fitNow(c.body, c.mouth);
+      const { torso: torsoMatrix, face: faceMatrixNow, outline } = pose;
+      const inTorso = (fn: () => void) => {
+        ctx.save();
+        transform(ctx, torsoMatrix);
+        fn();
+        ctx.restore();
+      };
 
-      // Outline: the whole silhouette, filled and stroked, behind everything.
-      if (pose.outline > 0 && (c.outlineMode === "always" || (c.outlineMode === "dark" && dark.matches))) {
+      // Outline: the whole silhouette, filled and stroked, behind everything. Clothes that stick
+      // out past the spider are part of the silhouette too.
+      if (outline > 0 && (c.outlineMode === "always" || (c.outlineMode === "dark" && dark.matches))) {
+        const edge: Pen = { mode: "edge", outline: c.outline, width: outline * 2 };
+        inTorso(() => dressBack(ctx, fit, look, edge));
         ctx.fillStyle = ctx.strokeStyle = c.outline;
-        ctx.lineWidth = pose.outline * 2; // half is hidden behind the parts
+        ctx.lineWidth = outline * 2; // half is hidden behind the parts
         for (const leg of legs) {
           ctx.fill(leg.path);
           ctx.stroke(leg.path);
         }
-        ctx.save();
-        transform(ctx, pose.torso);
-        ctx.fill(bodyPath);
-        ctx.stroke(bodyPath);
-        ctx.restore();
+        inTorso(() => {
+          ctx.fill(bodyPath);
+          ctx.stroke(bodyPath);
+          dressBody(ctx, fit, look, edge);
+          dressHat(ctx, fit, look, edge);
+        });
       }
 
+      const paint: Pen = { mode: "paint", outline: c.outline, width: 0 };
+      inTorso(() => dressBack(ctx, fit, look, paint));
       ctx.fillStyle = c.body;
       for (const leg of legs) ctx.fill(leg.path);
+      dressFeet(ctx, fit, look, paint);
 
-      ctx.save();
-      transform(ctx, pose.torso);
-      ctx.fill(bodyPath);
-      transform(ctx, pose.face);
-      // The face is whatever expression it's pulling (face.ts, mood.ts), blinks included.
-      drawEyes(ctx, eyes, face, animation.blink, c);
-      drawMouth(ctx, face.mouth, { path: mouthPath, center: mouthCenter, top: mouthTop, width: mouthWidth }, animation.mouth, c.mouth);
-      ctx.restore();
+      inTorso(() => {
+        ctx.fillStyle = c.body;
+        ctx.fill(bodyPath);
+        dressBody(ctx, fit, look, paint);
+        ctx.save();
+        transform(ctx, faceMatrixNow);
+        // The face is whatever expression it's pulling (face.ts, mood.ts), blinks included.
+        drawEyes(ctx, eyes, face, animation.blink, c);
+        drawMouth(ctx, face.mouth, { path: mouthPath, center: mouthCenter, top: mouthTop, width: mouthWidth }, animation.mouth, c.mouth);
+        dressFace(ctx, fit, look, paint);
+        ctx.restore();
+        dressHat(ctx, fit, look, paint);
+      });
 
       if (config.spideyDebug.showPivots) {
         ctx.fillStyle = DEBUG_COLOR;
@@ -827,7 +883,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
 const transform = (ctx: CanvasRenderingContext2D, m: DOMMatrix) => ctx.transform(m.a, m.b, m.c, m.d, m.e, m.f);
 
 /** Parses an absolute M/L/C/Z path (what scripts/build-spider.mjs writes). */
-function parse(d: string): Cmd[] {
+export function parse(d: string): Cmd[] {
   const out: Cmd[] = [];
   for (const t of d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) ?? []) {
     if (/[a-zA-Z]/.test(t)) out.push({ cmd: t, args: [] });
@@ -850,7 +906,7 @@ function mapPath(cmds: Cmd[], fn: (x: number, y: number) => Vec) {
 }
 
 /** Bounds of a path, following its curves (not just their control points). */
-function shape(cmds: Cmd[]): Shape {
+export function shape(cmds: Cmd[]): Shape {
   const pts: Vec[] = [];
   let at: Vec = [0, 0];
   for (const { cmd, args } of cmds) {

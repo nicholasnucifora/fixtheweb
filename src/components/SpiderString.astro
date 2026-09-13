@@ -14,28 +14,47 @@
  * Pass `badge` instead of `anchor` for a badge: a spider that sits in that
  * element (sized to its width) on a thread from the top of the window, with
  * all its faces but no dragging, and presses go through it to the page.
+ *
+ * Pass `stage` and `hook` for the Spider Den's spider: it hangs from the
+ * bottom-middle of `hook` down into `stage` (sized to its width, like a
+ * badge), and can be played with like the one on the logo. `tryOn` shows
+ * what's being tried on in the den rather than what's worn.
  */
-type Props =
+type Props = { tryOn?: boolean } & (
   | {
       /** CSS selector for the SVG glyph the string hangs from. */
       anchor: string;
       badge?: never;
+      stage?: never;
+      hook?: never;
     }
   | {
       /** CSS selector for the element the badge spider sits in. */
       badge: string;
       anchor?: never;
-    };
+      stage?: never;
+      hook?: never;
+    }
+  | {
+      /** CSS selectors for the element the spider rests in, and the one its thread hangs from. */
+      stage: string;
+      hook: string;
+      anchor?: never;
+      badge?: never;
+    }
+);
 
-const { anchor, badge } = Astro.props;
+const { anchor, badge, stage, hook, tryOn } = Astro.props;
 ---
 
 <div
   class="spider-string"
   data-spider-string
   data-anchor={anchor}
-  data-slot={badge}
-  data-mode={badge ? "badge" : undefined}
+  data-slot={badge ?? stage}
+  data-hook={hook}
+  data-mode={badge ? "badge" : stage ? "stage" : undefined}
+  data-look={tryOn ? "try" : undefined}
   aria-hidden="true"
 >
   <canvas class="canvas"></canvas>

@@ -42,4 +42,17 @@ A string hangs from the bottom of the logo's "b" with a draggable spider on the 
 - `spider.ts`: the spider, drawn onto the same canvas as the string so it stays crisp while it moves and turns (the SVG is only its source of shapes) — positioning and tilt, colours and outline, face and part placement (including mirrored eyes/pupils/legs), pupils following the cursor, breathing, spring-driven legs that swing and curl, and legs that react to the cursor coming near them (flinch, reach, curl, wiggle, wave or flick).
 - `render.ts`: canvas drawing of the string and dashes. `index.ts` wires it all into one loop.
 
-The root element emits `spider:grab`, `spider:release` and `spider:pluck` events and sets `data-spider` / `data-string` (`idle|hover|held`) for styling.
+The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spider:eat` events and sets `data-spider` / `data-string` (`idle|hover|held`) for styling.
+
+## Spider Den
+
+`/den` (linked under the header's logo) is where you dress the spider up: hats, eyewear, face bits, outfits, capes and wings, socks, body colours and patterns, the thread's colour and a name. Snacks (a fly, ladybird, moth or cookie) are dragged to its mouth, and the tricks and moods play its animations. Whatever it wears is saved in that browser and worn by every spider on the site: the one on the logo, the header's badge and the den's own.
+
+- `wardrobe.ts`: the catalogue: every item, the colours they come in, and what unlocks the locked ones. Add an item here and draw it in `dress.ts`; the den lists it automatically.
+- `dress.ts`: draws what it's wearing on the spider's canvas, layer by layer (behind the legs, on the legs, on the body, over the face, on top), in body units where the body is a circle of radius 1. Pieces that stick out get the spider's dark-mode outline; hats and dangly things wobble as it swings.
+- `look.ts`: what it's wearing (`worn`), what the den is trying on (`trying`), snacks eaten and unlocks, all in localStorage and kept in step across tabs.
+- `figure.ts`: the spider standing still in a look, for the den's picture tiles.
+- `src/pages/den.astro` and `src/scripts/den.ts`: the page and its controls. Its spider is a `SpiderString` with `stage` and `hook` (hanging from the web's hub down into a slot, and playable) and `tryOn`.
+- `src/layouts/Base.astro` and `src/components/Header.astro`: the page shell and header both pages share.
+
+Locked items can be tried on in the den but aren't saved until they're unlocked. Snack ones unlock by feeding it; `discord` and `newsletter` ones can't be earned yet. To unlock everything in your own browser, open any page with `?unlock-all` (`?lock-all` locks it again).

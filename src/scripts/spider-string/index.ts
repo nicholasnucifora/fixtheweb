@@ -1,4 +1,4 @@
-import { createAnchor, createSlotAnchor } from "./anchor";
+import { createAnchor, createHookAnchor, createSlotAnchor } from "./anchor";
 import { createAnimations } from "./animation";
 import { config } from "./config";
 import { createDrag } from "./drag";
@@ -10,6 +10,7 @@ import { createRenderer } from "./render";
 import { Rope } from "./rope";
 import { createSpeedLines } from "./speedlines";
 import { createSpider } from "./spider";
+import { trying, worn } from "./look";
 import { createZees } from "./zees";
 
 /** Mounts every `[data-spider-string]` rig on the page, plus the tuning panel with ?tune. */
@@ -27,19 +28,33 @@ const noDrag = { held: null as number | null, stretch: 0, tension: 0, step() {} 
  * One rig. `data-mode="badge"` is a spider kept in a slot (`data-slot`) instead of hanging from a
  * glyph: it keeps its faces and fidgets, but it can't be dragged, plucked or fed, stays put while
  * the page scrolls, and ignores the window's edges.
+ *
+ * `data-mode="stage"` hangs from an element (`data-hook`, the Spider Den's web) down to a slot,
+ * sized to it like a badge, but can be played with like the one on the logo. It's always drawn in
+ * front of the page, since its stage has a background of its own.
+ *
+ * `data-look="try"` shows what's being tried on in the Spider Den instead of what's worn.
  */
 function mount(root: HTMLElement) {
   const badge = root.dataset.mode === "badge";
-  const glyph = badge ? null : document.querySelector(root.dataset.anchor ?? "");
-  const slot = badge ? document.querySelector(root.dataset.slot ?? "") : null;
+  const stage = root.dataset.mode === "stage";
+  const glyph = badge || stage ? null : document.querySelector(root.dataset.anchor ?? "");
+  const slot = badge || stage ? document.querySelector(root.dataset.slot ?? "") : null;
+  const hook = stage ? document.querySelector(root.dataset.hook ?? "") : null;
   const canvas = root.querySelector("canvas");
   const bob = root.querySelector<HTMLElement>("[data-bob]");
-  if (!(glyph instanceof SVGGraphicsElement || slot instanceof HTMLElement) || !canvas || !bob) {
-    console.warn("[spider-string] anchor glyph or slot, canvas or bob missing", root.dataset.anchor ?? root.dataset.slot);
+  if (!(glyph instanceof SVGGraphicsElement || slot instanceof HTMLElement) || (stage && !hook) || !canvas || !bob) {
+    console.warn("[spider-string] anchor glyph, hook or slot, canvas or bob missing", root.dataset.anchor ?? root.dataset.slot);
     return;
   }
 
-  const anchor = slot instanceof HTMLElement ? createSlotAnchor(slot) : createAnchor(glyph as SVGGraphicsElement);
+  const anchor =
+    slot instanceof HTMLElement
+      ? hook
+        ? createHookAnchor(hook, slot)
+        : createSlotAnchor(slot)
+      : createAnchor(glyph as SVGGraphicsElement);
+  const look = root.dataset.look === "try" ? trying : worn;
   const rope = new Rope(config.rope.segments);
   const particles = new Particles();
   const drag = badge ? noDrag : createDrag(root, bob, rope);
@@ -53,7 +68,7 @@ function mount(root: HTMLElement) {
     () => drag.held !== null,
     () => drag.held === rope.points.length - 1,
   );
-  const spider = createSpider(bob, rope, animations.state, mood.face);
+  const spider = createSpider(bob, rope, animations.state, mood.face, look);
   // Air streaks behind it when it's moving fast; drawn behind the spider, so their own particles.
   const wind = new Particles();
   const speedLines = createSpeedLines(wind);
@@ -76,13 +91,15 @@ function mount(root: HTMLElement) {
           animations.mouthOpen(amount);
           foodNear = amount;
         },
-        () => {
+        (kind) => {
           animations.eat();
           mood.ate();
+          root.dispatchEvent(new CustomEvent("spider:eat", { bubbles: true, detail: { kind } }));
         },
       );
   document.addEventListener("spider:play", (e) => {
-    if ((e as CustomEvent).detail?.id === "feed") food?.spawn();
+    const detail = (e as CustomEvent).detail;
+    if (detail?.id === "feed") food?.spawn(detail);
   });
   document.addEventListener("spider:reset", () => food?.clear());
 
@@ -112,7 +129,7 @@ function mount(root: HTMLElement) {
     if (a) {
       unit = a.unit;
       // A badge always sits in front of the page: behind, it would be under the header it sits in.
-      if (!badge && config.rope.behind !== behind) {
+      if (!badge && !stage && config.rope.behind !== behind) {
         behind = config.rope.behind;
         root.toggleAttribute("data-behind", behind);
       }
@@ -229,6 +246,7 @@ function mount(root: HTMLElement) {
           food?.draw(ctx, a.unit);
         },
         spider.stringShift(),
+        look.thread,
       );
       // After drawing: a pluck nudges the string's step history, which would skew this frame's blend.
       pluck?.update(a, now / 1000, real, drag.held === null);
