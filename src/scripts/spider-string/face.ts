@@ -70,6 +70,13 @@ export interface Face {
   spread: number;
   /** Hangs lower on the string, as a fraction of its length. */
   sag: number;
+  /**
+   * The dizzy spirals, [left, right]: how far each has turned (radians), and which way it winds and
+   * turns (1 clockwise on screen, −1 anticlockwise; in between it's unwinding to go the other way).
+   * Kept up by whoever makes it dizzy, not eased.
+   */
+  spiralAngle: Vec;
+  spiralWind: Vec;
 }
 
 /** What an expression changes; anything left out stays neutral. `eyes` applies to both, then `left`/`right` on top. */
@@ -124,6 +131,8 @@ export const neutralFace = (): Face => ({
   tuck: 0,
   spread: 0,
   sag: 0,
+  spiralAngle: [0, 0],
+  spiralWind: [1, -1],
 });
 
 /** The face `look` would give at `amount` (0 = neutral, 1 = the full expression). */
@@ -146,7 +155,7 @@ export function faceFor(look: FaceLook | null, amount: number): Face {
   return face;
 }
 
-/** Eases `face` a fraction `k` of the way to `to`. The squash is left to its own spring, and its axis to whoever squashes it. */
+/** Eases `face` a fraction `k` of the way to `to`. The squash is left to its own spring, its axis to whoever squashes it, and the spirals' turning to whoever makes it dizzy. */
 export function easeFace(face: Face, to: Face, k: number) {
   const ease = (into: object, from: object) => {
     const a = into as Record<string, number>;
@@ -199,7 +208,7 @@ const smooth = (a: number, b: number, x: number) => {
 /**
  * Draws both eyes in passes — whites, then pupils, then lids, then stroked shapes — so an eye
  * grown big enough to overlap its neighbour doesn't paint over the other one's pupil.
- * `blink` is the Blinking animation (0–1); `time` drives the dizzy spirals.
+ * `blink` is the Blinking animation (0–1). The dizzy spirals turn by the face's own spiralAngle.
  */
 export function drawEyes(
   ctx: CanvasRenderingContext2D,
@@ -207,7 +216,6 @@ export function drawEyes(
   face: Face,
   blink: number,
   colors: FaceColors,
-  time: number,
 ) {
   const lidsBlink = config.blink.style === "lids";
   const shut = clamp01(blink);
@@ -295,6 +303,7 @@ export function drawEyes(
     const [cx, cy] = eye.center;
     const r = eye.radius;
     const inward = eye.side === "left" ? 1 : -1;
+    const side = eye.side === "left" ? 0 : 1;
     const shapes: [number, (weight: number) => void][] = [
       [
         closed,
@@ -329,10 +338,11 @@ export function drawEyes(
         f.spiral,
         () => {
           const turns = 2.4;
-          const spin = time * config.faceDizzy.spin * Math.PI * 2 * inward;
+          const wind = face.spiralWind[side];
+          const spin = face.spiralAngle[side];
           for (let i = 0; i <= 56; i++) {
             const t = i / 56;
-            const a = t * turns * Math.PI * 2 + spin;
+            const a = wind * t * turns * Math.PI * 2 + spin;
             const d = 0.8 * r * t;
             const x = cx + Math.cos(a) * d;
             const y = cy + Math.sin(a) * d;

@@ -1659,7 +1659,7 @@ export const schema = {
         label: "Spiral speed",
         info: "How fast the spirals turn, or the wonky pupils swim.",
       },
-      cursor: { value: true, label: "When you circle the cursor round it", info: "Its eyes follow the cursor round and round until they're spinning." },
+      cursor: { value: true, label: "When you circle the cursor round it", info: "Its eyes follow the cursor round and round until they're spinning, and the spirals go round the same way you did." },
       cursorTurns: {
         value: 5, min: 1, max: 30, step: 0.5, unit: "turns",
         label: "After circling",

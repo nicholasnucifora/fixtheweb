@@ -799,7 +799,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       ctx.fill(bodyPath);
       transform(ctx, pose.face);
       // The face is whatever expression it's pulling (face.ts, mood.ts), blinks included.
-      drawEyes(ctx, eyes, face, animation.blink, c, time);
+      drawEyes(ctx, eyes, face, animation.blink, c);
       drawMouth(ctx, face.mouth, { path: mouthPath, center: mouthCenter, top: mouthTop, width: mouthWidth }, animation.mouth, c.mouth);
       ctx.restore();
 

@@ -285,6 +285,8 @@ export function createMood(
   /** Turns the cursor has made around it lately (signed, so back-and-forth cancels), and where it was last. */
   let circling = 0;
   let cursorAngle: number | null = null;
+  /** Which way the spirals go: the way the cursor circled it (1 clockwise, −1 anticlockwise), or 0 for both inward. */
+  let spiralWay = 0;
 
   /** Something happened: it's awake, and if it was asleep, it's startled awake. */
   const stir = () => {
@@ -365,6 +367,7 @@ export function createMood(
     preview = expression;
     previewLeft = config.faceMotion.preview;
     started.set(expression, now);
+    if (expression === "dizzy") spiralWay = 0;
     if (expression === "impact") {
       // Played, a squash along the way it was hit alternates flat and thin so you can see both.
       const axis = config.faceImpact.axis;
@@ -505,6 +508,7 @@ export function createMood(
         if (on("dizzy") && spin > config.faceDizzy.turns) {
           trigger("dizzy", config.faceDizzy.hold);
           spin = 0;
+          spiralWay = 0;
         }
 
         // ── Fed up ──
@@ -561,6 +565,10 @@ export function createMood(
             cursorAngle = angle;
           } else {
             cursorAngle = null;
+          }
+          // Its spirals go round the way the cursor does, and turn round with it if it changes direction.
+          if (Math.abs(circling) > 0.75 && (selected === "dizzy" || Math.abs(circling) > dizzy.cursorTurns)) {
+            spiralWay = Math.sign(circling);
           }
           if (on("dizzy") && dizzy.cursor && Math.abs(circling) > dizzy.cursorTurns) {
             trigger("dizzy", dizzy.hold);
@@ -638,6 +646,16 @@ export function createMood(
       easeFace(face, target, 1 - Math.exp(-pace * dt));
       // A new squash sets which way it goes; letting go of one springs back along the same way.
       if (target.squash !== 0) face.squashAxis = target.squashAxis;
+
+      // The spirals wind and turn the way they're going. Changing direction, they slow and unwind
+      // through a straight line before winding up the other way; appearing, they just start that way.
+      const winds: Vec = spiralWay === 0 ? [1, -1] : [spiralWay, spiralWay];
+      const unwind = Math.max(face.left.spiral, face.right.spiral) < 0.01 ? 1 : 1 - Math.exp(-dt / 0.2);
+      for (const i of [0, 1]) {
+        face.spiralWind[i] += (winds[i] - face.spiralWind[i]) * unwind;
+        face.spiralAngle[i] =
+          (face.spiralAngle[i] + dt * config.faceDizzy.spin * Math.PI * 2 * face.spiralWind[i]) % (Math.PI * 2);
+      }
 
       // The squash springs, so a flattened body bounces back rather than just un-flattening.
       const motion = config.faceMotion;
