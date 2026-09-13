@@ -337,6 +337,11 @@ export const schema = {
         label: "Shudder speed",
         info: "How fast it shakes. High and small reads as a tight buzz; low and wide as a heavy wobble.",
       },
+      bodyStretch: {
+        value: 0.3, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Spider stretches",
+        info: "Holding the spider and pulling past the string's reach stretches it long along the string too, thinning out the other way (Faces → Impact → Bulge), and it springs back when you let go (Faces → Motion → Squash spring). This is how much longer it gets when fully wound. 0 = it keeps its shape.",
+      },
     },
   },
 
@@ -1653,6 +1658,22 @@ export const schema = {
         value: 1.2, min: 0, max: 5, step: 0.05, unit: "Hz",
         label: "Spiral speed",
         info: "How fast the spirals turn, or the wonky pupils swim.",
+      },
+      cursor: { value: true, label: "When you circle the cursor round it", info: "Its eyes follow the cursor round and round until they're spinning." },
+      cursorTurns: {
+        value: 5, min: 1, max: 30, step: 0.5, unit: "turns",
+        label: "After circling",
+        info: "How many times round it the cursor has to go. Only circles count: wiggling back and forth cancels itself out.",
+      },
+      cursorForget: {
+        value: 4, min: 0.5, max: 20, step: 0.1, unit: "s",
+        label: "Forgets circles over",
+        info: "How quickly circling stops counting once you stop, or slow down. Longer = lazy circles get there too.",
+      },
+      cursorRadius: {
+        value: 3, min: 0.5, max: 20, step: 0.1, unit: "b",
+        label: "Circling within",
+        info: "How close to it the cursor has to stay for the circles to count.",
       },
     },
   },

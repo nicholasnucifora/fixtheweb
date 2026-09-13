@@ -217,6 +217,8 @@ export interface MoodFrame {
   foodNear: number;
   /** A scripted animation (the drop-in) has the spider, so leave it be. */
   busy: boolean;
+  /** 0–1 through the string's wind-up while the spider itself is held past its reach (else 0). */
+  windUp: number;
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -280,6 +282,9 @@ export function createMood(
   let impactAxis: Vec = [0, 1];
   let flipAxis = false;
   let restedAt: Vec | null = null;
+  /** Turns the cursor has made around it lately (signed, so back-and-forth cancels), and where it was last. */
+  let circling = 0;
+  let cursorAngle: number | null = null;
 
   /** Something happened: it's awake, and if it was asleep, it's startled awake. */
   const stir = () => {
@@ -382,6 +387,7 @@ export function createMood(
     previewLeft = 0;
     annoyance = 0;
     spin = 0;
+    circling = 0;
     swung = 0;
     dwell = 0;
     grabs.length = 0;
@@ -538,10 +544,34 @@ export function createMood(
           const lurk = config.faceSuspicious;
           dwell = !held && gap < lurk.radius * unit && moving < lurk.slow ? dwell + dt : 0;
           if (on("suspicious") && dwell > lurk.after) trigger("suspicious", 0.4);
+
+          // Round and round: its eyes chase a cursor circling it until they're spinning.
+          const dizzy = config.faceDizzy;
+          const far = Math.hypot(pointer[0] - center[0], pointer[1] - center[1]);
+          circling *= Math.exp(-dt / Math.max(0.05, dizzy.cursorForget));
+          // Right over its middle the angle flips about wildly, so that doesn't count.
+          if (!held && far > radius * 0.3 && gap < dizzy.cursorRadius * unit) {
+            const angle = Math.atan2(pointer[1] - center[1], pointer[0] - center[0]);
+            if (cursorAngle !== null) {
+              let turn = angle - cursorAngle;
+              if (turn > Math.PI) turn -= Math.PI * 2;
+              if (turn < -Math.PI) turn += Math.PI * 2;
+              circling += turn / (Math.PI * 2);
+            }
+            cursorAngle = angle;
+          } else {
+            cursorAngle = null;
+          }
+          if (on("dizzy") && dizzy.cursor && Math.abs(circling) > dizzy.cursorTurns) {
+            trigger("dizzy", dizzy.hold);
+            // Keep going and it stays dizzy.
+            circling = Math.sign(circling) * dizzy.cursorTurns * 0.5;
+          }
         } else {
           cursorGap = Infinity;
           lastPointer = null;
           dwell = 0;
+          cursorAngle = null;
         }
 
         // ── Food ──
@@ -594,6 +624,15 @@ export function createMood(
         impactAxis,
       };
       const target = faceFor(selected ? looks[selected](context) : null, amount);
+      // Wound up past the string's reach, it's pulled long along the string, and springs back when let go.
+      const long = config.pull.bodyStretch * clamp01(frame.windUp);
+      if (long > 0 && target.squash === 0) {
+        const before = rope.points[rope.points.length - 2] ?? tail;
+        const along: Vec = [tail.x - before.x, tail.y - before.y];
+        const d = Math.hypot(along[0], along[1]);
+        target.squash = -long;
+        if (d > 0) target.squashAxis = [along[0] / d, along[1] / d];
+      }
       const snappy = selected && (SNAPPY.has(selected) || (selected === "wake" && config.faceWake.style === "startled"));
       const pace = config.faceMotion.speed * (snappy ? 3 : 1);
       easeFace(face, target, 1 - Math.exp(-pace * dt));

@@ -174,6 +174,7 @@ function mount(root: HTMLElement) {
         radius: spider.radius(),
         foodNear: food.out ? foodNear : 0,
         busy: animations.busy,
+        windUp: drag.held === rope.points.length - 1 ? drag.tension : 0,
       });
       spider.update(a, dt, steps * step, alpha, renderer.pixelRatio);
       speedLines.update(dt, spider.center(), velocity, a.unit, spider.radius());
