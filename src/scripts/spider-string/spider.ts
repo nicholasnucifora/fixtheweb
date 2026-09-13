@@ -679,11 +679,18 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
 
       const breath = reducedMotion.matches ? 1 : 1 + b.breathe * Math.sin(time * b.breatheSpeed * Math.PI * 2);
       const torsoScale: Vec = [b.scaleX * breath, b.scaleY * breath];
-      // An expression can squash it flat (Faces → Impact), about where the thread holds it so it
-      // stays on the string rather than shrinking away from it.
-      const squashed: Vec = [1 + face.squash * 0.6, Math.max(0.2, 1 - face.squash)];
+      // An expression can squash it (Faces → Impact) along the way it was hit, bulging out the other
+      // way: flat off the end of the string, thin off a wall. The hit's direction is on screen, so
+      // it's turned into the spider's own frame first. About where the thread holds it, so it stays
+      // on the string rather than shrinking away from it.
+      const hitAxis = rotate(face.squashAxis, -(tilt + animation.tilt));
+      const hitAngle = Math.atan2(hitAxis[1], hitAxis[0]) / DEG;
       const torso = new DOMMatrix()
-        .scale(squashed[0], squashed[1], 1, attach[0], attach[1])
+        .translate(attach[0], attach[1])
+        .rotate(hitAngle)
+        .scale(Math.max(0.2, 1 - face.squash), Math.max(0.2, 1 + face.squash * config.faceImpact.bulge))
+        .rotate(-hitAngle)
+        .translate(-attach[0], -attach[1])
         .scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
       const torsoPoint = (q: Vec): Vec => {
         const t = torso.transformPoint(new DOMPoint(q[0], q[1]));

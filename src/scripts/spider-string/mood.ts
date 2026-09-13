@@ -44,8 +44,8 @@ const BY_SECTION = new Map(PRIORITY.map((e) => [SECTIONS[e] as string, e]));
 
 /** Seconds after the page loads before it reacts to anything: its first drop onto the string is not something you did. */
 const SETTLE = 1.2;
-/** These arrive fast rather than easing in: they're reactions. */
-const SNAPPY = new Set<Expression>(["impact", "wake", "poked", "surprised", "grabbed", "thrown"]);
+/** These arrive fast rather than easing in: they're reactions. (Waking up only is when it's startled.) */
+const SNAPPY = new Set<Expression>(["impact", "poked", "surprised", "grabbed", "thrown"]);
 /** Played from the panel, these give the spider a shove so you see them in context. */
 const SHOVE: Partial<Record<Expression, () => number>> = {
   thrown: () => config.faceThrown.speed + 3,
@@ -55,6 +55,13 @@ const SHOVE: Partial<Record<Expression, () => number>> = {
 
 interface LookContext {
   time: number;
+  /** Seconds since this expression started, and how long it's meant to last (for the ones that play out over time). */
+  since: number;
+  hold: number;
+  /** Being played from the panel, so a slow build-up should play out over the preview instead. */
+  previewing: boolean;
+  /** Which way the last jolt went, on screen. */
+  impactAxis: Vec;
   /** Where "searching" is looking (fractions of the eye's room). */
   toward: Vec;
   /** Which eye a poke scrunches: −1 left, 1 right. */
@@ -66,15 +73,45 @@ const looks: Record<Expression, (m: LookContext) => FaceLook> = {
     eyes: { lid: 0.5, pupil: 0.45, lookY: 0.35, lookHold: 0.85 },
     mouth: { drawn: 0, curve: 0, width: 0.35, thick: 0.8 },
   }),
-  impact: () => ({
+  impact: ({ impactAxis }) => ({
     eyes: { open: 0, flat: 1 },
     mouth: { drawn: 0, curve: 0, width: 0.75 },
     squash: config.faceImpact.squash,
+    squashAxis: impactAxis,
   }),
-  wake: () => ({
-    eyes: { size: config.faceWake.eyes, pupil: 0.5 },
-    mouth: { drawn: 0, curve: 0, open: 0.5, width: 0.32 },
-  }),
+  wake: ({ since, hold }) => {
+    const w = config.faceWake;
+    const t = clamp01(since / Math.max(0.05, hold));
+    if (w.style === "startled") {
+      return { eyes: { size: w.eyes, pupil: 0.5 }, mouth: { drawn: 0, curve: 0, open: 0.5, width: 0.32 } };
+    }
+    if (w.style === "yawn") {
+      // Screws its eyes shut and stretches into a big yawn, closes its mouth, then opens its eyes.
+      const yawn = smooth(part(t, 0, 0.25)) * (1 - smooth(part(t, 0.55, 0.8)));
+      const awake = smooth(part(t, 0.8, 1));
+      return {
+        eyes: { open: awake, closed: 1 - awake, lid: 0.45 * (1 - awake) },
+        mouth: { drawn: 1 - yawn, curve: 0, open: 0.95 * yawn, roundBottom: 1.2, width: 0.3 + 0.25 * yawn },
+        squash: -w.stretch * yawn,
+        squashAxis: [0, 1],
+        spread: 0.7 * yawn,
+      };
+    }
+    // Groggy: eyes crack open under heavy lids, one slow blink, then they lift.
+    const crack = smooth(part(t, 0, 0.3));
+    const blink = Math.sin(part(t, 0.35, 0.6) * Math.PI);
+    const lift = smooth(part(t, 0.6, 1));
+    return {
+      eyes: {
+        lid: (0.95 - 0.4 * crack) * (1 - lift),
+        open: 1 - 0.95 * blink,
+        closed: 0.9 * (1 - crack),
+        lookY: 0.3 * (1 - lift),
+        lookHold: 0.6 * (1 - lift),
+      },
+      mouth: { drawnSize: 0.85 + 0.15 * lift },
+    };
+  },
   grabbed: () => ({
     eyes: { open: 0, squeeze: 1 },
     mouth: { drawn: 0, curve: 0, width: 0.75, wobble: 1, thick: 0.75 },
@@ -147,15 +184,26 @@ const looks: Record<Expression, (m: LookContext) => FaceLook> = {
     mouth: { drawn: 0, curve: 0, width: 0.38, thick: 0.8 },
   }),
   searching: ({ toward }) => ({ eyes: { lookX: toward[0], lookY: toward[1], lookHold: 1 } }),
-  asleep: () => ({
+  asleep: ({ time }) => ({
     eyes: { open: 0, closed: 1 },
-    mouth: { drawn: 0, curve: 0, open: 0.3, width: 0.22 },
+    // Breathing slowly through its little o.
+    mouth: { drawn: 0, curve: 0, open: 0.26 + 0.08 * Math.sin(time * Math.PI * 2 * 0.3), width: 0.22 },
     sag: config.faceAsleep.sag,
   }),
-  sleepy: () => ({
-    eyes: { lid: config.faceSleepy.lid, lookY: 0.25, lookHold: 0.5 },
-    mouth: { drawnSize: 0.85 },
-  }),
+  sleepy: ({ since, previewing }) => {
+    const s = config.faceSleepy;
+    // The lids keep sinking the whole time it's drowsy, so it's nearly shut by the time it sleeps.
+    const span = previewing ? config.faceMotion.preview : Math.max(1, config.faceAsleep.after - s.after);
+    const lid = s.lidFrom + (s.lidTo - s.lidFrom) * clamp01(since / span);
+    // Every so often its eyes slide shut and it catches itself.
+    const every = Math.max(0.5, s.nodEvery);
+    const phase = (since % every) / every;
+    const nod = s.nods && phase > 0.75 ? Math.sin(((phase - 0.75) / 0.25) * Math.PI) : 0;
+    return {
+      eyes: { lid: lid + (0.97 - lid) * nod, lookY: 0.25, lookHold: 0.5 },
+      mouth: { drawnSize: 0.85 },
+    };
+  },
 };
 
 export interface MoodFrame {
@@ -172,6 +220,9 @@ export interface MoodFrame {
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+const smooth = (t: number) => t * t * (3 - 2 * t);
+/** How far through the stretch of time from `a` to `b` (fractions of the whole) `t` is, 0–1. */
+const part = (t: number, a: number, b: number) => clamp01((t - a) / (b - a));
 
 export function createMood(
   root: HTMLElement,
@@ -183,7 +234,9 @@ export function createMood(
   const timers = new Map<Expression, number>();
   const strength = new Map<Expression, number>();
   const on = (e: Expression) => Boolean((config as unknown as Record<string, { enabled?: boolean }>)[SECTIONS[e]].enabled);
+  const started = new Map<Expression, number>();
   const trigger = (e: Expression, seconds: number, amount = 1) => {
+    if (!timers.has(e)) started.set(e, now);
     timers.set(e, Math.max(timers.get(e) ?? 0, seconds));
     strength.set(e, amount);
   };
@@ -223,13 +276,18 @@ export function createMood(
   let previousV: Vec = [0, 0];
   let previousSpeed = 0;
   let blinkAt = -1;
+  /** Which way the last jolt went (screen), and how far the cursor has wandered since it last counted. */
+  let impactAxis: Vec = [0, 1];
+  let flipAxis = false;
+  let wandered = 0;
 
   /** Something happened: it's awake, and if it was asleep, it's startled awake. */
   const stir = () => {
     if ((selected === "sleepy" || selected === "asleep") && preview === null) {
       if (on("wake")) {
         trigger("wake", config.faceWake.hold);
-        blinkAt = now + config.faceWake.hold;
+        // Startled awake it blinks after; groggy and yawning have their own eyes-opening.
+        if (config.faceWake.style === "startled") blinkAt = now + config.faceWake.hold;
       }
     }
     lastActive = now;
@@ -243,10 +301,16 @@ export function createMood(
     "pointermove",
     (e) => {
       const p = docPoint(e);
-      if (pointer && grabAt >= 0) grabMoved += Math.hypot(p[0] - pointer[0], p[1] - pointer[1]);
+      const step = pointer ? Math.hypot(p[0] - pointer[0], p[1] - pointer[1]) : Infinity;
+      if (pointer && grabAt >= 0) grabMoved += step;
       pointer = p;
       gone = false;
-      stir();
+      // A resting hand still twitches the cursor a pixel or two; that isn't you being around.
+      wandered += step;
+      if (wandered >= config.faceSleepy.wakeMove * unit) {
+        wandered = 0;
+        stir();
+      }
     },
     { passive: true },
   );
@@ -295,6 +359,13 @@ export function createMood(
     if (!expression) return;
     preview = expression;
     previewLeft = config.faceMotion.preview;
+    started.set(expression, now);
+    if (expression === "impact") {
+      // Played, a squash along the way it was hit alternates flat and thin so you can see both.
+      const axis = config.faceImpact.axis;
+      flipAxis = !flipAxis;
+      impactAxis = axis === "horizontal" || (axis === "hit" && !flipAxis) ? [1, 0] : [0, 1];
+    }
     wince = Math.random() < 0.5 ? -1 : 1;
     const shove = SHOVE[expression];
     if (shove && config.faceMotion.previewShove && unit) {
@@ -328,6 +399,11 @@ export function createMood(
       return selected;
     },
 
+    /** 1 while it's asleep (for the Z's), otherwise 0. */
+    get asleep() {
+      return selected === "asleep" ? 1 : 0;
+    },
+
     /** How annoyed it is (Faces → Angry), for anyone curious. */
     get annoyance() {
       return annoyance;
@@ -356,7 +432,8 @@ export function createMood(
       const rate = config.sim.rate;
       const v: Vec = [((tail.x - tail.px) * rate) / unit, ((tail.y - tail.py) * rate) / unit];
       const speed = Math.hypot(v[0], v[1]);
-      const jolt = Math.hypot(v[0] - previousV[0], v[1] - previousV[1]) / dt;
+      const change: Vec = [v[0] - previousV[0], v[1] - previousV[1]];
+      const jolt = Math.hypot(change[0], change[1]) / dt;
       previousV = v;
 
       if (speed > 1.5 || frame.busy || frame.foodNear > 0) stir();
@@ -408,6 +485,10 @@ export function createMood(
           const hit = config.faceImpact;
           if (now - releasedAt > 0.25 && previousSpeed > 2 && jolt > hit.jolt && now > impactUntil) {
             impactUntil = now + 0.35;
+            // Squashed along the way it was hit: flat off the end of the string, thin off a wall.
+            const d = Math.hypot(change[0], change[1]) || 1;
+            impactAxis =
+              hit.axis === "vertical" ? [0, 1] : hit.axis === "horizontal" ? [1, 0] : [change[0] / d, change[1] / d];
             if (on("impact")) trigger("impact", hit.hold);
             annoyance += config.faceAngry.impactCost;
           }
@@ -503,9 +584,21 @@ export function createMood(
       }
       selected = preview ?? PRIORITY.find((e) => timers.has(e)) ?? null;
       const amount = selected ? (preview ? 1 : (strength.get(selected) ?? 1)) : 0;
-      const target = faceFor(selected ? looks[selected]({ time: now, toward, wince }) : null, amount);
-      const pace = config.faceMotion.speed * (selected && SNAPPY.has(selected) ? 3 : 1);
+      const context: LookContext = {
+        time: now,
+        toward,
+        wince,
+        since: selected ? now - (started.get(selected) ?? now) : 0,
+        hold: selected === "wake" ? config.faceWake.hold : 1,
+        previewing: preview !== null,
+        impactAxis,
+      };
+      const target = faceFor(selected ? looks[selected](context) : null, amount);
+      const snappy = selected && (SNAPPY.has(selected) || (selected === "wake" && config.faceWake.style === "startled"));
+      const pace = config.faceMotion.speed * (snappy ? 3 : 1);
       easeFace(face, target, 1 - Math.exp(-pace * dt));
+      // A new squash sets which way it goes; letting go of one springs back along the same way.
+      if (target.squash !== 0) face.squashAxis = target.squashAxis;
 
       // The squash springs, so a flattened body bounces back rather than just un-flattening.
       const motion = config.faceMotion;

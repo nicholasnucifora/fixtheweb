@@ -10,6 +10,7 @@ import { createRenderer } from "./render";
 import { Rope } from "./rope";
 import { createSpeedLines } from "./speedlines";
 import { createSpider } from "./spider";
+import { createZees } from "./zees";
 
 /** Mounts every `[data-spider-string]` rig on the page, plus the tuning panel with ?tune. */
 export function mountAll() {
@@ -46,6 +47,8 @@ function mount(root: HTMLElement) {
   // Air streaks behind it when it's moving fast; drawn behind the spider, so their own particles.
   const wind = new Particles();
   const speedLines = createSpeedLines(wind);
+  // Z's floating up while it sleeps.
+  const zees = createZees();
   let foodNear = 0;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -175,6 +178,7 @@ function mount(root: HTMLElement) {
       spider.update(a, dt, steps * step, alpha, renderer.pixelRatio);
       speedLines.update(dt, spider.center(), velocity, a.unit, spider.radius());
       wind.update(dt);
+      zees.update(dt, mood.asleep, spider.center(), spider.radius(), a.unit);
       food.update(dt);
       renderer.draw(
         rope,
@@ -184,6 +188,7 @@ function mount(root: HTMLElement) {
         (ctx) => {
           wind.draw(ctx);
           spider.draw(ctx);
+          zees.draw(ctx);
           food.draw(ctx, a.unit);
         },
         spider.stringShift(),

@@ -61,8 +61,10 @@ export interface Face {
   left: EyeFace;
   right: EyeFace;
   mouth: MouthFace;
-  /** Body squashed flat (+) or stretched tall (−). */
+  /** Body squashed (+) or stretched (−) along squashAxis, and bulging out the other way. */
   squash: number;
+  /** Which way the squash goes, as a direction on screen: [0, 1] squashes it flat, [1, 0] squashes it thin. */
+  squashAxis: Vec;
   /** Legs curl in, and fan out, as fractions of Face motion's maximums. */
   tuck: number;
   spread: number;
@@ -77,6 +79,7 @@ export interface FaceLook {
   right?: Partial<EyeFace>;
   mouth?: Partial<MouthFace>;
   squash?: number;
+  squashAxis?: Vec;
   tuck?: number;
   spread?: number;
   sag?: number;
@@ -117,6 +120,7 @@ export const neutralFace = (): Face => ({
   right: neutralEye(),
   mouth: neutralMouth(),
   squash: 0,
+  squashAxis: [0, 1],
   tuck: 0,
   spread: 0,
   sag: 0,
@@ -135,13 +139,14 @@ export function faceFor(look: FaceLook | null, amount: number): Face {
   toward(face.right, [look.eyes, look.right]);
   toward(face.mouth, [look.mouth]);
   face.squash = (look.squash ?? 0) * amount;
+  if (look.squashAxis) face.squashAxis = look.squashAxis;
   face.tuck = (look.tuck ?? 0) * amount;
   face.spread = (look.spread ?? 0) * amount;
   face.sag = (look.sag ?? 0) * amount;
   return face;
 }
 
-/** Eases `face` a fraction `k` of the way to `to`. The squash is left to its own spring. */
+/** Eases `face` a fraction `k` of the way to `to`. The squash is left to its own spring, and its axis to whoever squashes it. */
 export function easeFace(face: Face, to: Face, k: number) {
   const ease = (into: object, from: object) => {
     const a = into as Record<string, number>;

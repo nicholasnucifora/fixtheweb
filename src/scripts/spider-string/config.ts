@@ -1606,7 +1606,18 @@ export const schema = {
       squash: {
         value: 0.35, min: 0, max: 0.8, step: 0.01, unit: "×",
         label: "Squash",
-        info: "",
+        info: "How much it squashes along the way it was hit.",
+      },
+      bulge: {
+        value: 0.6, min: 0, max: 1.5, step: 0.01, unit: "×",
+        label: "Bulge",
+        info: "How much it bulges out the other way while squashed, as a fraction of the squash. 0 = it just gets thinner; 1 = it keeps its size, like a squashed ball.",
+      },
+      axis: {
+        value: "hit" as "hit" | "vertical" | "horizontal",
+        options: { hit: "Along the hit", vertical: "Always flat", horizontal: "Always thin" },
+        label: "Squash direction",
+        info: "Along the hit: squashes flat when the string snaps taut, thin and tall when it hits the side of the window, and anything in between. Played from here, it takes turns so you can see both. Always flat / Always thin: one way only.",
       },
     },
   },
@@ -1726,7 +1737,7 @@ export const schema = {
   faceSleepy: {
     group: "expression",
     label: "Sleepy",
-    info: "Eyelids drooping, after a while with nothing going on.",
+    info: "Drowsy, after a while with nothing going on: its lids sink lower and lower, and now and then its eyes slide shut and it catches itself, until it falls asleep.",
     params: {
       enabled: { value: true, label: "When nothing happens for a while", info: "Off = only when played from here." },
       after: {
@@ -1734,10 +1745,26 @@ export const schema = {
         label: "Nothing happening for",
         info: "Any cursor movement, click or motion resets this.",
       },
-      lid: {
-        value: 0.55, min: 0, max: 0.9, step: 0.01, unit: "×",
-        label: "Lids droop",
-        info: "",
+      lidFrom: {
+        value: 0.35, min: 0, max: 0.95, step: 0.01, unit: "×",
+        label: "Lids at first",
+        info: "How far its lids droop when it first gets drowsy.",
+      },
+      lidTo: {
+        value: 0.85, min: 0, max: 0.97, step: 0.01, unit: "×",
+        label: "Lids just before sleep",
+        info: "How far they've sunk by the time it falls asleep (Asleep → Nothing happening for).",
+      },
+      nods: { value: true, label: "Nods off", info: "Now and then its eyes slide shut and it catches itself." },
+      nodEvery: {
+        value: 4, min: 0.5, max: 20, step: 0.1, unit: "s",
+        label: "Nods every",
+        info: "How often its eyes slide shut while it's drowsy.",
+      },
+      wakeMove: {
+        value: 0.25, min: 0, max: 3, step: 0.01, unit: "b",
+        label: "Cursor has to move",
+        info: "How far the cursor has to move to count as you being around, and to wake it. A resting hand still twitches the cursor a pixel or two, which shouldn't keep it awake. 0 = any movement at all.",
       },
     },
   },
@@ -1758,24 +1785,61 @@ export const schema = {
         label: "Hangs lower by",
         info: "As a fraction of the string's length.",
       },
+      zees: { value: true, label: "Floating Z's", info: "Little Z's drift up off its head while it sleeps." },
+      zeeEvery: {
+        value: 1.3, min: 0.2, max: 10, step: 0.1, unit: "s",
+        label: "A Z every",
+        info: "How often a new Z floats up.",
+      },
+      zeeSize: {
+        value: 0.1, min: 0.02, max: 0.5, step: 0.01, unit: "b",
+        label: "Z size",
+        info: "How big they are when they're fully grown.",
+      },
+      zeeRise: {
+        value: 0.6, min: 0, max: 3, step: 0.05, unit: "b",
+        label: "Z's float up",
+        info: "How far each Z rises before it's gone.",
+      },
+      zeeDrift: {
+        value: 0.25, min: -2, max: 2, step: 0.05, unit: "b",
+        label: "Z's drift sideways",
+        info: "Negative drifts them left.",
+      },
+      zeeLife: {
+        value: 2, min: 0.2, max: 8, step: 0.1, unit: "s",
+        label: "Z's last",
+        info: "How long each Z takes to float up and fade.",
+      },
     },
   },
 
   faceWake: {
     group: "expression",
     label: "Waking up",
-    info: "Eyes pop open enormous for a moment, then it blinks. When something wakes it from Sleepy or Asleep.",
+    info: "How it comes round when something wakes it from Sleepy or Asleep.",
     params: {
       enabled: { value: true, label: "When woken", info: "Off = only when played from here." },
+      style: {
+        value: "groggy" as "groggy" | "yawn" | "startled",
+        options: { groggy: "Groggy", yawn: "Big yawn", startled: "Startled" },
+        label: "How it wakes",
+        info: "Groggy: its eyes crack open under heavy lids, it blinks slowly, then they lift. Big yawn: it screws its eyes shut, stretches into a huge yawn, then opens them. Startled: its eyes pop open enormous, then it blinks.",
+      },
       hold: {
-        value: 0.3, min: 0.05, max: 3, step: 0.05, unit: "s",
-        label: "Lasts",
-        info: "",
+        value: 1.6, min: 0.1, max: 5, step: 0.05, unit: "s",
+        label: "Takes",
+        info: "How long waking up takes, start to finish. The yawn looks best at about 2s, Startled at about 0.3s.",
+      },
+      stretch: {
+        value: 0.1, min: 0, max: 0.4, step: 0.01, unit: "×",
+        label: "Yawn stretch",
+        info: "Big yawn only: how much it stretches taller mid-yawn.",
       },
       eyes: {
         value: 1.4, min: 1, max: 2, step: 0.01, unit: "×",
-        label: "Eye size",
-        info: "",
+        label: "Startled eye size",
+        info: "Startled only.",
       },
     },
   },
