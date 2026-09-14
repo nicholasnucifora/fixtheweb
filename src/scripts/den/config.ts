@@ -17,7 +17,7 @@ import type { Param } from "../spider-string/config";
 export const groups = {
   web: {
     label: "Webs",
-    info: "The webs filling the den, how they wobble, and how threads catch a spider you fling.",
+    info: "The webs, spun between the things in the scene, how they wobble, and how threads catch a spider you fling. Pick the scene itself (tree, window, fence) in the den.",
   },
   spiders: {
     label: "Spiders",
@@ -68,38 +68,54 @@ export const schema = {
 
   webs: {
     group: "web",
-    label: "Layout",
-    info: "Orb webs spread across the den, joined by bridge threads. Changing these rebuilds them.",
+    label: "Spinning",
+    info: "Webs are spun between the things in the scene: anchor lines out to branches, frames or posts, a frame between those, spokes, and a spiral. Changing these rebuilds them.",
     params: {
-      spacing: {
-        value: 2.8, min: 1.2, max: 8, step: 0.1, unit: "b",
-        label: "Space between webs",
-        info: "Roughly how far apart the middles of neighbouring webs are.",
+      sizeFrom: {
+        value: 0.75, min: 0.3, max: 3, step: 0.05, unit: "b",
+        label: "Web size, from",
+        info: "How far out from its middle a web tries to reach. It's smaller where things are close together.",
       },
-      radius: {
-        value: 0.46, min: 0.2, max: 0.8, step: 0.01, unit: "×",
-        label: "Web size",
-        info: "How far a web reaches, as a fraction of the space between webs.",
+      sizeTo: { value: 1.5, min: 0.3, max: 4, step: 0.05, unit: "b", label: "…to", info: "" },
+      fill: {
+        value: 0.85, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "How many",
+        info: "Chance each open spot with things around it to tie to gets a web.",
+      },
+      spacing: {
+        value: 0.3, min: 0, max: 3, step: 0.05, unit: "b",
+        label: "Space between webs",
+        info: "The least room left between one web and the next.",
       },
       ringGap: {
-        value: 0.12, min: 0.05, max: 0.5, step: 0.005, unit: "b",
-        label: "Ring spacing",
-        info: "The gap between the rings of the spiral. Closer rings catch things sooner.",
+        value: 0.085, min: 0.03, max: 0.4, step: 0.005, unit: "b",
+        label: "Spiral spacing",
+        info: "The gap between one turn of the spiral and the next. Closer turns catch things sooner.",
       },
       spokes: {
-        value: 15, min: 6, max: 30, step: 1,
+        value: 16, min: 6, max: 32, step: 1,
         label: "Spokes",
-        info: "Threads running out from each web's middle (give or take a few).",
+        info: "Threads out from a web's middle, for a web 1 b across (bigger webs have more).",
+      },
+      forks: {
+        value: 0.4, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "Forked anchors",
+        info: "Share of anchor lines that split in two as they reach what they're tied to.",
+      },
+      cobwebs: {
+        value: 0.35, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "Cobwebs",
+        info: "Share of corners (where a branch forks, or a frame turns) with a tangle of cobweb in them.",
       },
       bridges: {
-        value: 0.75, min: 0, max: 1, step: 0.05, unit: "×",
-        label: "Bridges",
-        info: "How many neighbouring webs are joined by a thread, so spiders can walk between them.",
+        value: 0.6, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Bridge lines",
+        info: "Long single threads strung across the gaps between things, for spiders to walk along.",
       },
       torn: {
-        value: 0.04, min: 0, max: 0.5, step: 0.01, unit: "×",
+        value: 0.03, min: 0, max: 0.5, step: 0.01, unit: "×",
         label: "Torn",
-        info: "Share of ring threads that are missing, so the webs look lived in.",
+        info: "Share of the spiral that's missing, so the webs look lived in.",
       },
       thickness: {
         value: 1, min: 0.5, max: 3, step: 0.1, unit: "px",
@@ -107,9 +123,14 @@ export const schema = {
         info: "",
       },
       opacity: {
-        value: 0.3, min: 0.05, max: 1, step: 0.01,
+        value: 0.42, min: 0.05, max: 1, step: 0.01,
         label: "Thread strength",
-        info: "How strongly the threads show against the page.",
+        info: "How strongly the threads show against the scene.",
+      },
+      scenery: {
+        value: 1, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "Scenery strength",
+        info: "How strongly the scene (the tree, window or fence) shows. 0 hides it, leaving just the webs.",
       },
     },
   },

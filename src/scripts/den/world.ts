@@ -17,6 +17,7 @@ import {
   hatchAllNow,
   hurry,
   layEggs,
+  mainSpider,
   members,
   nameOf,
   picked,
@@ -27,7 +28,8 @@ import {
 } from "./colony";
 import { den } from "./config";
 import { type Critter, type DenWorld, WIDTH, createCritter } from "./critter";
-import { type Spot, type Vec, Web } from "./web";
+import { SCENES, type Palette, type Scene, type SceneId, buildScene } from "./scenes";
+import { type Spot, type Vec, Web, random } from "./web";
 
 /**
  * The Spider Den's ecosystem (the den view of src/pages/den.astro): the webs, every spider you have
@@ -41,13 +43,74 @@ import { type Spot, type Vec, Web } from "./web";
  */
 
 export interface WorldHooks {
-  /** A spider was pressed. */
-  pick(id: string): void;
+  /** A spider was pressed, or (`null`) somewhere with nothing in it. */
+  pick(id: string | null): void;
   /** Something worth telling the person (HTML). */
   say(html: string): void;
 }
 
 const SEED_KEY = "den:web-seed";
+const SCENE_KEY = "den:scene";
+
+/** The scenery's colours, on a light page and a dark one: flat and quiet, so the spiders stand out. */
+const PALETTES: Record<"light" | "dark", Palette> = {
+  light: {
+    bg: "#fafaf7",
+    line: "rgba(27, 30, 41, 0.22)",
+    bark: "#d8ccbb",
+    barkShade: "#c7b8a3",
+    leaf: "#b5cfa9",
+    leafLight: "#cadfbd",
+    canopy: "#e9efe0",
+    wood: "#efe7da",
+    woodShade: "#e2d6c2",
+    sky: "#dcebf1",
+    hill: "#c3dbbd",
+    hillFar: "#d4e5cf",
+    cloud: "#f6fafb",
+    sun: "#f4e2a6",
+    glare: "rgba(255, 255, 255, 0.45)",
+    curtain: "#ecc9b7",
+    curtainShade: "#ddb29e",
+    petal: "#f1cd6c",
+    petalCore: "#b98b52",
+    pot: "#dca386",
+    sock: "#eaa090",
+  },
+  dark: {
+    bg: "#1b1e29",
+    line: "rgba(242, 242, 238, 0.14)",
+    bark: "#353544",
+    barkShade: "#2b2b38",
+    leaf: "#2d4841",
+    leafLight: "#35544b",
+    canopy: "#21272f",
+    wood: "#2f3344",
+    woodShade: "#282c3b",
+    sky: "#24304a",
+    hill: "#283b3a",
+    hillFar: "#2c3d44",
+    cloud: "#344059",
+    sun: "#e6e1c6",
+    glare: "rgba(255, 255, 255, 0.05)",
+    curtain: "#4a3945",
+    curtainShade: "#3d2f39",
+    petal: "#b39545",
+    petalCore: "#6a5236",
+    pot: "#6c4b3f",
+    sock: "#8a5b51",
+  },
+};
+
+function readScene(): SceneId {
+  try {
+    const saved = localStorage.getItem(SCENE_KEY);
+    if (saved && saved in SCENES) return saved as SceneId;
+  } catch {
+    // ignore
+  }
+  return "tree";
+}
 const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 const between = (a: number, b: number) => Math.min(a, b) + Math.random() * Math.abs(b - a);
 
@@ -96,6 +159,11 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const sacs = new Map<string, Sac>();
   let strands: Strand[] = [];
   let seed = readSeed();
+  let sceneId = readScene();
+  let scene: Scene | null = null;
+  /** The scenery, painted once per build (and theme) rather than every frame. */
+  const scenery = document.createElement("canvas");
+  let paintedKey = "";
   let builtKey = "";
   let dpr = 1;
   let active = false;
@@ -178,13 +246,15 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     world.unit = spiderWidth / WIDTH;
     const r = root.getBoundingClientRect();
     world.origin = [r.left + window.scrollX, r.top + window.scrollY];
-    const key = JSON.stringify([w, h, world.unit, den.webs, seed]);
+    const key = JSON.stringify([w, h, world.unit, den.webs, seed, sceneId]);
     if (key !== builtKey && w > 0 && h > 0) {
       const first = builtKey === "";
       const sx = web.width ? w / web.width : 1;
       const sy = web.height ? h / web.height : 1;
       builtKey = key;
-      web.build(w, h, world.unit, seed);
+      scene = buildScene(sceneId, w, h, world.unit, random(seed));
+      web.build(w, h, world.unit, seed, scene);
+      paintedKey = "";
       for (const sac of sacs.values()) sac.spot = null;
       strands = [];
       if (!first) {
@@ -258,7 +328,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       world.critters.push(critter);
       placeNew(critter);
     }
-    world.pickedId = picked().id;
+    world.pickedId = picked()?.id ?? null;
   };
   const replacements: Critter[] = [];
   document.addEventListener(COLONY_EVENT, () => (dirty = true));
@@ -284,7 +354,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       }
       sac.egg = egg;
       if (!sac.spot) {
-        const near = web.nearest(egg.x * web.width, egg.y * web.height, Math.max(web.width, web.height));
+        const near = web.nearest(egg.x * web.width, egg.y * web.height, Math.max(web.width, web.height), true);
         sac.spot = near ? { edge: near.edge, t: near.t } : null;
       }
       sac.shown += dt;
@@ -473,6 +543,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
         hooks.say("The egg sac wriggles. Not long now…");
         return;
       }
+      // Nothing there: let go of whoever was picked.
+      hooks.pick(null);
       return;
     }
     e.preventDefault();
@@ -560,7 +632,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     spawnFly: () => bugs.flyIn(),
     feedAll: () => setFullness(1),
     starveAll: () => setFullness(0),
-    layEggs: () => layFor(picked().id, true),
+    layEggs: () => layFor((picked() ?? mainSpider()).id, true),
     hatchNow: () => hatchAllNow(),
     growUp: () => growEveryoneUp(),
     rebuild: () => {
@@ -593,7 +665,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const layFor = (id: string, force = false) => {
     const critter = world.critters.find((c) => c.member.id === id && c.mode !== "ghost");
     const [cx, cy] = critter?.position ?? [web.width / 2, web.height / 3];
-    const below = web.nearest(cx + (Math.random() - 0.5) * world.unit * 0.8, cy + world.unit * 0.35, world.unit * 1.2);
+    const below = web.nearest(cx + (Math.random() - 0.5) * world.unit * 0.8, cy + world.unit * 0.35, world.unit * 1.2, true);
     const [x, y] = below ? [below.x, below.y] : [cx, cy];
     const result = layEggs(id, x / Math.max(1, web.width), y / Math.max(1, web.height), force);
     if (typeof result === "string") return result;
@@ -616,7 +688,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     if (!web.width) return;
     checkActions();
     if (dirty) sync();
-    world.pickedId = picked().id;
+    world.pickedId = picked()?.id ?? null;
 
     lifeIn -= real;
     if (lifeIn <= 0) {
@@ -667,9 +739,27 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     draw();
   };
 
+  const paintScenery = () => {
+    const key = JSON.stringify([builtKey, dark.matches, dpr, den.webs.scenery]);
+    if (key === paintedKey || !scene) return;
+    paintedKey = key;
+    scenery.width = canvas.width;
+    scenery.height = canvas.height;
+    const sctx = scenery.getContext("2d")!;
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sctx.clearRect(0, 0, web.width, web.height);
+    scene.paint(sctx, PALETTES[dark.matches ? "dark" : "light"]);
+  };
+
   const draw = () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    paintScenery();
+    if (den.webs.scenery > 0) {
+      ctx.globalAlpha = den.webs.scenery;
+      ctx.drawImage(scenery, 0, 0);
+      ctx.globalAlpha = 1;
+    }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     web.draw(ctx, colors.ink);
     drawStrands();
@@ -700,6 +790,21 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   readColors();
 
   return {
+    get scene() {
+      return sceneId;
+    },
+
+    /** Moves the den to another scene: new webs, and everyone finds their feet on them. */
+    setScene(id: SceneId) {
+      if (id === sceneId) return;
+      sceneId = id;
+      try {
+        localStorage.setItem(SCENE_KEY, id);
+      } catch {
+        // ignore
+      }
+    },
+
     /** Runs the den while it's showing, and stops when it isn't. */
     setActive(on: boolean) {
       if (on === active) return;
@@ -732,8 +837,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     /** Lays eggs for this spider if it can. Returns why not, or null. */
     layEggs: (id: string) => layFor(id),
 
-    /** A snack from the wardrobe, hovering next to spider `id`. */
-    offer(kind: Snack, id: string) {
+    /** A snack from the wardrobe, hovering next to spider `id` (or in the middle of the den). */
+    offer(kind: Snack, id: string | null) {
       const critter = world.critters.find((c) => c.member.id === id && c.mode !== "ghost");
       const [cx, cy] = critter?.center() ?? [web.width / 2, web.height / 2];
       const side = cx > web.width - world.unit * 1.2 ? -1 : 1;

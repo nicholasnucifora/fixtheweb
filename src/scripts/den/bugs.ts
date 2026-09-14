@@ -146,7 +146,7 @@ export function createBugs(den_: { web: Web; unit: number }) {
 
     /** Let go somewhere that isn't a spider's mouth: stuck on a thread if there's one right there, otherwise it flies off. */
     letGo(bug: Bug) {
-      const near = den_.web.nearest(bug.x, bug.y, den_.unit * 0.22);
+      const near = den_.web.nearest(bug.x, bug.y, den_.unit * 0.22, true);
       if (near && bug.kind !== "cookie") {
         stick(bug, near, 0, den_.unit * 1.5);
         bug.canEscape = false;
@@ -179,7 +179,7 @@ export function createBugs(den_: { web: Web; unit: number }) {
     rewoven() {
       for (const bug of list) {
         if (bug.state !== "stuck") continue;
-        const near = den_.web.nearest(bug.x, bug.y, den_.unit);
+        const near = den_.web.nearest(bug.x, bug.y, den_.unit, true);
         if (near) bug.spot = { edge: near.edge, t: near.t };
         else {
           bug.state = "flying";
@@ -218,7 +218,7 @@ export function createBugs(den_: { web: Web; unit: number }) {
           const nx = bug.x + vx * dt;
           const ny = bug.y + vy * dt;
           if (bug.slippery <= 0) {
-            for (const hit of web.crossings(bug.x, bug.y, nx, ny)) {
+            for (const hit of web.crossings(bug.x, bug.y, nx, ny, true)) {
               if (Math.random() < f.stick) {
                 stick(bug, hit, vx * 0.4, vy * 0.4);
                 break;

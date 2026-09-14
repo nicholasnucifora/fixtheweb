@@ -5,7 +5,7 @@
  * controls are src/scripts/den.ts.
  */
 
-export type Slot = "hat" | "eyes" | "face" | "outfit" | "back" | "feet";
+export type Slot = "hat" | "eyes" | "face" | "outfit" | "back" | "feet" | "costume";
 export type Tint = keyof typeof PALETTE;
 
 /** How an item is earned. Kinds marked `soon` can't be earned yet (the page for them isn't built). */
@@ -133,6 +133,17 @@ export const SLOTS: Record<Slot, { label: string; items: Item[] }> = {
       { id: "jetpack", label: "Jetpack", unlock: { kind: "discord" } },
     ],
   },
+  costume: {
+    label: "Costumes",
+    items: [
+      { id: "ghost", label: "Ghost sheet", tint: "cream" },
+      { id: "mummy", label: "Mummy", tint: "cream" },
+      { id: "pumpkin", label: "Pumpkin", tint: "coral" },
+      { id: "bee", label: "Bumblebee", tint: "sunflower" },
+      { id: "dino", label: "Dino onesie", tint: "mint" },
+      { id: "astronaut", label: "Astronaut", tint: "sky", unlock: { kind: "snacks", count: 15 } },
+    ],
+  },
   feet: {
     label: "Feet",
     items: [
@@ -160,7 +171,7 @@ export function unlockLabel(unlock: Unlock) {
 const DEFAULT_NAME = "Webby";
 
 export const blankLook = (): Look => ({
-  items: { hat: "none", eyes: "none", face: "none", outfit: "none", back: "none", feet: "none" },
+  items: { hat: "none", eyes: "none", face: "none", outfit: "none", back: "none", feet: "none", costume: "none" },
   tints: Object.fromEntries(Object.keys(SLOTS).map((slot) => [slot, "coral"])) as Record<Slot, Tint>,
   skin: "ink",
   pattern: "none",

@@ -1,6 +1,7 @@
 ---
 import SpiderString from "../components/SpiderString.astro";
 import Base from "../layouts/Base.astro";
+import { SCENES } from "../scripts/den/scenes";
 import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, unlockLabel, type Slot } from "../scripts/spider-string/wardrobe";
 
 /**
@@ -14,6 +15,7 @@ const tabs: { id: string; label: string; shelves?: Slot[] }[] = [
   { id: "hats", label: "Hats", shelves: ["hat"] },
   { id: "face", label: "Face", shelves: ["eyes", "face"] },
   { id: "clothes", label: "Clothes", shelves: ["outfit", "back", "feet"] },
+  { id: "costumes", label: "Costumes", shelves: ["costume"] },
   { id: "colours", label: "Colours" },
   { id: "snacks", label: "Snacks & tricks" },
 ];
@@ -91,6 +93,16 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
         <button type="button" data-den-show="dress" aria-pressed="true">Dress up</button>
         <button type="button" data-den-show="den" aria-pressed="false">The den</button>
       </div>
+      <button class="chip bar-button" type="button" data-den-wardrobe-toggle aria-expanded="false">Wardrobe</button>
+      <div class="view-switch scene-switch" role="group" aria-label="Scene">
+        {
+          Object.entries(SCENES).map(([id, { label }]) => (
+            <button type="button" data-den-scene={id} aria-pressed="false">
+              {label}
+            </button>
+          ))
+        }
+      </div>
       <div class="picker" role="group" aria-label="Your spiders" data-den-picker></div>
     </div>
 
@@ -129,7 +141,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       <div class="wardrobe-head">
         <label class="name-field">
           <span>Name</span>
-          <input data-den-name-input maxlength="24" value="Webby" autocomplete="off" spellcheck="false" />
+          <input data-den-name-input maxlength="24" value="Webby" placeholder="Pick a spider" autocomplete="off" spellcheck="false" />
         </label>
         <div class="head-actions">
           <button class="chip" type="button" data-den-surprise>Surprise me</button>
@@ -137,6 +149,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
           <button class="chip drawer-close" type="button" data-den-wardrobe-close aria-label="Close the wardrobe">✕</button>
         </div>
       </div>
+
+      <p class="nobody-hint">Drag anything here onto a spider to dress it up.</p>
 
       <div class="tabs" role="tablist" aria-label="Wardrobe">
         {
@@ -316,7 +330,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       <canvas></canvas>
     </div>
 
-    <aside class="den-card" data-den-card data-spider-ignore aria-label="Picked spider">
+    <aside class="den-card" data-den-card data-spider-ignore aria-label="Picked spider" hidden>
+      <button class="card-close" type="button" data-card-close aria-label="Close (let go of this spider)">✕</button>
       <canvas class="card-portrait" data-card-portrait aria-hidden="true"></canvas>
       <div class="card-body">
         <p class="card-name">
@@ -346,7 +361,6 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       </p>
     </aside>
 
-    <button class="chip wardrobe-toggle" type="button" data-den-wardrobe-toggle aria-expanded="true">Wardrobe</button>
   </main>
 
   <SpiderString stage="[data-den-slot]" hook="[data-den-hook]" tryOn />
@@ -783,9 +797,21 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
   /* ── The den ── */
   .den-world,
   .den-card,
-  .wardrobe-toggle,
+  .bar-button,
+  .scene-switch,
   .drawer-close {
     display: none;
+  }
+  .den[data-den-view="den"] .scene-switch {
+    display: flex;
+  }
+  .den[data-den-view="den"] .bar-button {
+    display: inline-flex;
+    flex: none;
+  }
+  .bar-button[aria-expanded="true"] {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
   }
   :root[data-den-view="den"] {
     overflow: hidden;
@@ -815,7 +841,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     touch-action: none;
   }
   /* Floating over the den: the views and your spiders, the picked one's card, and the wardrobe drawer. */
-  .den[data-den-view="den"] :is(.den-bar, .den-card, .wardrobe, .wardrobe-toggle) {
+  .den[data-den-view="den"] :is(.den-bar, .den-card, .wardrobe) {
     position: fixed;
     z-index: 3;
     box-shadow: 0 10px 34px rgb(0 0 0 / 0.14);
@@ -823,8 +849,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
   .den[data-den-view="den"] .den-bar {
     top: calc(var(--header-height) + 0.75rem);
     left: 0.75rem;
-    /* Leaving room for the Wardrobe button. */
-    max-width: calc(100vw - 9rem);
+    max-width: calc(100vw - 1.5rem);
+    gap: 0.5rem;
     padding: 0.3rem 0.4rem 0.3rem 0.3rem;
     box-sizing: border-box;
     background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -850,19 +876,60 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     display: inline-flex;
     padding-inline: 0.7rem;
   }
-  .den[data-den-view="den"][data-wardrobe="closed"] .wardrobe-toggle {
-    display: inline-flex;
-    top: calc(var(--header-height) + 0.75rem);
-    right: 0.75rem;
-  }
   .tile-ghost {
     position: fixed;
     top: 0;
     left: 0;
     z-index: 60;
     pointer-events: none;
-    opacity: 0.92;
-    filter: drop-shadow(0 6px 12px rgb(0 0 0 / 0.25));
+    /* A thin edge in the page's ink, so dark pieces still show on a dark page. */
+    filter: drop-shadow(0 0 1px color-mix(in srgb, var(--ink) 60%, transparent)) drop-shadow(0 6px 12px rgb(0 0 0 / 0.25));
+  }
+  /* In the den with nobody picked, the wardrobe is for dragging from. */
+  .nobody-hint {
+    display: none;
+    margin: 0;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .den[data-den-view="den"] .wardrobe[data-nobody] .nobody-hint {
+    display: block;
+  }
+  .den[data-den-view="den"] .wardrobe[data-nobody] .tile {
+    cursor: grab;
+  }
+  .den-card[hidden],
+  .den[data-den-view="den"] .den-card[hidden] {
+    display: none;
+  }
+  .card-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    font: 600 0.8125rem/1 system-ui, sans-serif;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .card-close:hover {
+    color: var(--ink);
+    background: var(--fill);
+  }
+  .name-field input:disabled,
+  .head-actions .chip:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .den[data-den-view="den"] .den-card {
@@ -1010,7 +1077,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       width: calc(100vw - 1rem);
     }
   }
-  /* A phone: your spiders get a row of their own, and the card's Dress up button opens the wardrobe. */
+  /* A phone: your spiders get a row of their own. */
   @media (max-width: 700px) {
     .den[data-den-view="den"] .den-bar,
     .den[data-den-view="den"][data-wardrobe="open"] .den-bar {
@@ -1024,8 +1091,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     .den[data-den-view="den"] .picker {
       flex-basis: 100%;
     }
-    .den[data-den-view="den"][data-wardrobe="closed"] .wardrobe-toggle {
-      display: none;
+    .den[data-den-view="den"] .view-switch button {
+      padding-inline: 0.7rem;
     }
   }
 </style>

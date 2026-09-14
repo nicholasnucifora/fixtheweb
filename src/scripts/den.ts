@@ -2,6 +2,9 @@ import {
   COLONY_EVENT,
   byId,
   canLay,
+  dressMain,
+  dressSpider,
+  dressing,
   feed,
   grownUp,
   makeMain,
@@ -14,6 +17,7 @@ import {
   type Member,
 } from "./den/colony";
 import { den, groups as denGroups, schema as denSchema } from "./den/config";
+import type { SceneId } from "./den/scenes";
 import { createWorld } from "./den/world";
 import { config } from "./spider-string/config";
 import { getFigure } from "./spider-string/figure";
@@ -36,14 +40,16 @@ import {
 /**
  * The Spider Den (src/pages/den.astro): its two views, and the wardrobe they share.
  *
- * Dress up: the picked spider hangs from a web, big, next to the wardrobe. The den: every spider you
- * have, living on webs across the whole page (den/world.ts), with a card for the picked one and the
- * wardrobe in a drawer, whose clothes can be dragged straight onto a spider.
+ * Dress up: the picked spider (or the main one) hangs from a web, big, next to the wardrobe. The den:
+ * every spider you have, living on webs across the whole page (den/world.ts), with a card for the
+ * picked one, if any, and the wardrobe in a drawer.
  *
- * Picking something dresses the picked spider in it straight away, and saves it (den/colony.ts). The
- * main spider's look is the one worn all over the site. Something locked can still be tried on: the
- * picked spider wears it, but it isn't saved until it's unlocked. Tiles are pictures of the spider in
- * its current look with that item swapped in, redrawn whenever the look changes.
+ * Clicking something in the wardrobe dresses the spider being dressed in it straight away, and saves
+ * it (den/colony.ts). In the den, anything in the wardrobe can also be dragged onto any spider, picked
+ * or not; with nobody picked, that's the only way, and the wardrobe's pictures show a plain spider.
+ * The main spider's look is the one worn all over the site. Something locked can still be tried on
+ * by the spider being dressed, but it isn't saved until it's unlocked. Tiles are pictures of the
+ * spider in its current look with that item swapped in, redrawn whenever the look changes.
  *
  * With ?tune, the den's own tuning panel (den/config.ts). The spider's own settings are tuned on the
  * home page.
@@ -60,6 +66,7 @@ const VIEWS: Record<string, View> = {
   outfit: [70, 150, 456, 350],
   back: [-140, -130, 876, 650],
   feet: [-20, 20, 636, 400],
+  costume: [-120, -130, 836, 700],
   whole: [-30, -30, 656, 470],
 };
 
@@ -115,7 +122,7 @@ export function mountDen() {
 
   const world = createWorld(document.querySelector<HTMLElement>("[data-den-world]")!, {
     pick: (id) => {
-      if (picked().id !== id) pickSpider(id);
+      if ((picked()?.id ?? null) !== id) pickSpider(id);
     },
     say,
   });
@@ -131,6 +138,8 @@ export function mountDen() {
     }
     // The big spider's rig keeps its hands off the page while the den is showing.
     stageRig?.toggleAttribute("data-inactive", to === "den");
+    // Dress up always has a spider to dress: the main one, if nobody's picked. The den can have nobody.
+    dressMain(to === "dress");
     world.setActive(to === "den");
     if (remember) {
       try {
@@ -144,6 +153,18 @@ export function mountDen() {
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-den-show]")) {
     button.addEventListener("click", () => showView(button.dataset.denShow as DenView));
   }
+
+  const sceneButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-den-scene]")];
+  const showScene = () => {
+    for (const button of sceneButtons) button.setAttribute("aria-pressed", String(button.dataset.denScene === world.scene));
+  };
+  for (const button of sceneButtons) {
+    button.addEventListener("click", () => {
+      world.setScene(button.dataset.denScene as SceneId);
+      showScene();
+    });
+  }
+  showScene();
 
   const setDrawer = (open: boolean, remember = true) => {
     main.dataset.wardrobe = open ? "open" : "closed";
@@ -243,31 +264,66 @@ export function mountDen() {
   };
 
   // ── Choosing ──────────────────────────────────────────────────────────────
-  const tryOn = (slot: Slot, id: string) => {
-    const item = itemOf(slot, id);
-    if (id !== trying.items[slot] && item?.tint) trying.tints[slot] = item.tint;
-    trying.items[slot] = id;
-    wear();
-    if (!item || isUnlocked(slot, id)) {
-      say(picked().main ? "Saved in this browser: it wears this on every page." : `Saved in this browser: ${escape(nameOfTrying())} wears this in the den.`);
-    } else {
-      const need = item.unlock!;
-      const how =
-        need.kind === "snacks"
-          ? `Feed ${escape(nameOfTrying())} ${need.count} snacks to keep it (${need.count - snacks()} to go).`
-          : `${unlockLabel(need)} to keep it. That's coming soon.`;
-      say(`<strong>Just trying on the ${escape(item.label.toLowerCase())}.</strong> ${how}`);
-    }
+  /** What a tile changes about a look. */
+  const changeFor = (tile: HTMLElement) => {
+    const { slot, item, skin, pattern, thread } = tile.dataset;
+    return (look: Look) => {
+      if (slot && item) {
+        const s = slot as Slot;
+        const tint = itemOf(s, item)?.tint;
+        if (item !== look.items[s] && tint) look.tints[s] = tint;
+        look.items[s] = item;
+      }
+      if (skin) look.skin = skin as Look["skin"];
+      if (pattern) look.pattern = pattern as Look["pattern"];
+      if (thread) look.thread = thread as Look["thread"];
+    };
   };
 
-  /** What a tile does to the picked spider. */
+  /** The item a tile puts on, if it's clothes that are still locked. */
+  const lockedItem = (tile: HTMLElement) => {
+    const { slot, item } = tile.dataset;
+    return slot && item && !isUnlocked(slot as Slot, item) ? itemOf(slot as Slot, item) : null;
+  };
+
+  /** Nobody's picked in the den, so a click has nobody to dress. */
+  const nobody = () => say("<strong>Drag it onto a spider</strong> to dress it up, or pick a spider first.");
+
+  /** A tile clicked: dresses the spider being dressed. */
   const apply = (tile: HTMLElement) => {
-    const { slot, item, skin, pattern, thread } = tile.dataset;
-    if (slot && item) return tryOn(slot as Slot, item);
-    if (skin) trying.skin = skin as Look["skin"];
-    if (pattern) trying.pattern = pattern as Look["pattern"];
-    if (thread) trying.thread = thread as Look["thread"];
+    const m = dressing();
+    if (!m) return nobody();
+    changeFor(tile)(trying);
     wear();
+    const locked = lockedItem(tile);
+    if (!locked) {
+      say(m.main ? "Saved in this browser: it wears this on every page." : `Saved in this browser: ${escape(nameOfTrying())} wears this in the den.`);
+      return;
+    }
+    const need = locked.unlock!;
+    const how =
+      need.kind === "snacks"
+        ? `Feed ${escape(nameOfTrying())} ${need.count} snacks to keep it (${need.count - snacks()} to go).`
+        : `${unlockLabel(need)} to keep it. That's coming soon.`;
+    say(`<strong>Just trying on the ${escape(locked.label.toLowerCase())}.</strong> ${how}`);
+  };
+
+  /** A tile dropped onto spider `id` in the den: it wears it, picked or not. */
+  const dropOn = (tile: HTMLElement, id: string) => {
+    const m = byId(id);
+    if (!m) return;
+    world.play(id, "faceHappy");
+    if (m.id === dressing()?.id) return apply(tile);
+    const locked = lockedItem(tile);
+    if (locked) {
+      say(`<strong>The ${escape(locked.label.toLowerCase())} is locked.</strong> ${unlockLabel(locked.unlock!)} to unlock it.`);
+      return;
+    }
+    dressSpider(id, changeFor(tile));
+    const name = escape(nameOf(m));
+    const { slot, item } = tile.dataset;
+    const label = slot && item ? itemOf(slot as Slot, item)?.label.toLowerCase() : null;
+    say(label ? `${name} is wearing the ${escape(label)}.` : item === "none" ? `${name} took it off.` : `${name} looks great.`);
   };
 
   /** A tile dragged out of the wardrobe in the den can be let go of over a spider. */
@@ -281,15 +337,79 @@ export function mountDen() {
   }
   for (const swatch of $$<HTMLButtonElement>(".swatch")) {
     swatch.addEventListener("click", () => {
+      if (!dressing()) return nobody();
       trying.tints[swatch.dataset.slot as Slot] = swatch.dataset.tint as Tint;
       wear();
     });
   }
 
+  /**
+   * A picture of just what a tile puts on (the cape, not a spider in a cape), cropped to fit, for
+   * dragging about. Sized like the clothes on a spider a bit bigger than the ones in the den.
+   */
+  const pieceImage = (tile: HTMLElement) => {
+    const ratio = window.devicePixelRatio || 1;
+    const size = 300;
+    const scratch = document.createElement("canvas");
+    scratch.width = scratch.height = Math.round(size * ratio);
+    const ctx = scratch.getContext("2d", { willReadFrequently: true })!;
+    const figure = getFigure();
+    const s = (120 / figure.width) * ratio;
+    ctx.setTransform(s, 0, 0, s, (size / 2) * ratio - (figure.width / 2) * s, (size / 2) * ratio - (figure.height / 2) * s);
+    const { slot, item, skin, pattern, thread } = tile.dataset;
+    const look = previewFor(tile);
+    if (slot && item === "none") {
+      // Taking something off: a no-entry sign.
+      ctx.strokeStyle = getComputedStyle(wardrobe).color;
+      ctx.lineWidth = 34;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(figure.width / 2, figure.height / 2, 120, 0, Math.PI * 2);
+      ctx.moveTo(figure.width / 2 - 85, figure.height / 2 + 85);
+      ctx.lineTo(figure.width / 2 + 85, figure.height / 2 - 85);
+      ctx.stroke();
+    } else if (slot && item) {
+      figure.drawPiece(ctx, look, slot as Slot);
+    } else if (skin || pattern) {
+      figure.drawBody(ctx, look);
+    } else if (thread) {
+      const line = new Path2D("M40 250C160 40 300 400 420 180S560 120 560 120");
+      const ink = getComputedStyle(wardrobe).color;
+      const rainbow = ctx.createLinearGradient(40, 0, 560, 0);
+      Object.values(PALETTE)
+        .slice(0, 5)
+        .forEach(({ color }, i) => rainbow.addColorStop(i / 4, color));
+      ctx.strokeStyle = thread === "rainbow" ? rainbow : THREADS[thread as Look["thread"]]?.color || ink;
+      ctx.lineWidth = 16;
+      ctx.lineCap = "round";
+      ctx.stroke(line);
+    }
+    // Cropped to what's actually drawn.
+    const { data, width, height } = ctx.getImageData(0, 0, scratch.width, scratch.height);
+    let [x0, y0, x1, y1] = [width, height, -1, -1];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (data[(y * width + x) * 4 + 3] < 8) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    if (x1 < 0) return null;
+    const pad = Math.round(4 * ratio);
+    const out = document.createElement("canvas");
+    out.width = x1 - x0 + 1 + pad * 2;
+    out.height = y1 - y0 + 1 + pad * 2;
+    out.getContext("2d")!.drawImage(scratch, x0 - pad, y0 - pad, out.width, out.height, 0, 0, out.width, out.height);
+    out.style.width = `${out.width / ratio}px`;
+    out.style.height = `${out.height / ratio}px`;
+    return out;
+  };
+
   const startTileDrag = (tile: HTMLElement, down: PointerEvent) => {
     if (view !== "den" || down.button !== 0) return;
     dragged = false;
-    const art = tile.querySelector<HTMLCanvasElement>("canvas");
     let ghost: HTMLCanvasElement | null = null;
     let over: string | null = null;
     // On a touchscreen the drawer scrolls, so a drag starts with a moment's hold instead.
@@ -304,15 +424,8 @@ export function mountDen() {
         if (touch && !ready && far > 8) return end(e, true);
         if (!ready || far < 6) return;
         dragged = true;
-        ghost = document.createElement("canvas");
+        ghost = pieceImage(tile) ?? document.createElement("canvas");
         ghost.className = "tile-ghost";
-        if (art) {
-          ghost.width = art.width;
-          ghost.height = art.height;
-          ghost.getContext("2d")?.drawImage(art, 0, 0);
-          ghost.style.width = `${art.clientWidth}px`;
-          ghost.style.height = `${art.clientHeight}px`;
-        }
         document.body.append(ghost);
         try {
           tile.setPointerCapture(e.pointerId);
@@ -336,12 +449,7 @@ export function mountDen() {
       document.documentElement.classList.remove("spider-held");
       world.highlight(null);
       const id = cancelled ? null : world.spiderAt(e.clientX, e.clientY);
-      if (id) {
-        const spider = byId(id);
-        if (spider && picked().id !== id) pickSpider(id);
-        apply(tile);
-        if (spider) world.play(id, "faceHappy");
-      }
+      if (id) dropOn(tile, id);
       // The click that follows a drag isn't a click.
       window.setTimeout(() => (dragged = false), 0);
     };
@@ -353,15 +461,17 @@ export function mountDen() {
   };
 
   nameInput.addEventListener("input", () => {
+    if (!dressing()) return;
     trying.name = nameInput.value.slice(0, 24);
     wear();
   });
 
   const pick = <T>(list: T[]) => list[Math.floor(Math.random() * list.length)];
   wardrobe.querySelector("[data-den-surprise]")?.addEventListener("click", () => {
+    if (!dressing()) return say("Pick a spider to surprise.");
     for (const slot of Object.keys(SLOTS) as Slot[]) {
       const open = SLOTS[slot].items.filter((item) => isUnlocked(slot, item.id));
-      const item = Math.random() < (slot === "hat" ? 0.85 : 0.5) ? pick(open) : null;
+      const item = Math.random() < (slot === "hat" ? 0.85 : slot === "costume" ? 0.15 : 0.5) ? pick(open) : null;
       trying.items[slot] = item?.id ?? "none";
       trying.tints[slot] = item?.tint ? pick(Object.keys(PALETTE) as Tint[]) : trying.tints[slot];
     }
@@ -373,6 +483,7 @@ export function mountDen() {
     playFor("faceExcited");
   });
   wardrobe.querySelector("[data-den-undress]")?.addEventListener("click", () => {
+    if (!dressing()) return say("Pick a spider to undress.");
     setLook(trying, { ...blankLook(), name: trying.name, skin: trying.skin, pattern: trying.pattern });
     wear();
     say("Back to basics.");
@@ -381,13 +492,18 @@ export function mountDen() {
 
   // ── Snacks, tricks and moods ──────────────────────────────────────────────
   /** A trick or mood: the big spider plays it, or in the den, the picked one. */
-  const playFor = (id: string) => (view === "den" ? world.play(picked().id, id) : play(id));
+  const playFor = (id: string) => {
+    if (view !== "den") return play(id);
+    const m = picked();
+    if (m) world.play(m.id, id);
+    else say("Pick a spider to play that.");
+  };
 
   for (const button of $$<HTMLButtonElement>("[data-snack]")) {
     button.addEventListener("click", () => {
       const kind = button.dataset.snack as Snack;
       if (view === "den") {
-        world.offer(kind, picked().id);
+        world.offer(kind, picked()?.id ?? null);
         say(`Drag the ${kind} to a spider's mouth.`);
         return;
       }
@@ -409,7 +525,8 @@ export function mountDen() {
   document.addEventListener("spider:eat", (e) => {
     if ((e.target as Element | null)?.closest?.('[data-mode="stage"]') === null) return;
     const unlocked = ateSnack(wear);
-    feed(picked().id);
+    const m = dressing();
+    if (m) feed(m.id);
     if (unlocked.length) {
       const names = unlocked.map(({ item }) => `the ${escape(item.label.toLowerCase())}`).join(" and ");
       say(`<strong>Yum! You unlocked ${names}.</strong> It's in the wardrobe now.`);
@@ -431,22 +548,31 @@ export function mountDen() {
   const tummy = (full: number) =>
     full >= 0.75 ? "Full" : full >= 0.45 ? "Peckish" : full >= 0.2 ? "Hungry" : full > 0 ? "Starving" : "Empty";
 
+  $card("[data-card-close]").addEventListener("click", () => pickSpider(null));
+  document.addEventListener("keydown", (e) => {
+    const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, select");
+    if (e.key === "Escape" && view === "den" && picked() && !typing) pickSpider(null);
+  });
   $card("[data-card-dress]").addEventListener("click", () => {
     setDrawer(true);
     wardrobe.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
   });
   $card("[data-card-feed]").addEventListener("click", () => {
-    world.offer("fly", picked().id);
-    say(`Drag the fly to ${escape(nameOf(picked()))}'s mouth.`);
+    const m = picked();
+    if (!m) return;
+    world.offer("fly", m.id);
+    say(`Drag the fly to ${escape(nameOf(m))}'s mouth.`);
   });
   $card("[data-card-lay]").addEventListener("click", () => {
     const m = picked();
+    if (!m) return;
     const why = world.layEggs(m.id);
     say(why ? `${escape(why)}.` : `<strong>${escape(nameOf(m))} laid a clutch of eggs!</strong> Keep an eye on the egg sac.`);
     refreshCard();
   });
   $card("[data-card-make-main]").addEventListener("click", () => {
     const m = picked();
+    if (!m) return;
     makeMain(m.id);
     say(`<strong>${escape(nameOf(m))} is your main spider now.</strong> It's the one on the logo and in the header.`);
   });
@@ -454,6 +580,8 @@ export function mountDen() {
   let portraitKey = "";
   const refreshCard = () => {
     const m = picked();
+    card.hidden = !m;
+    if (!m) return;
     $card("[data-card-name]").textContent = nameOf(m);
     $card("[data-card-main]").hidden = !m.main;
     $card("[data-card-make-main]").hidden = m.main;
@@ -484,7 +612,8 @@ export function mountDen() {
   let pickerKey = "";
   const refreshPicker = () => {
     const list = members();
-    const key = JSON.stringify([picked().id, dark.matches, list.map((m) => [m.id, m.id === picked().id ? trying : m.look, m.main, Math.round(sizeOf(m) * 20)])]);
+    const on = dressing()?.id;
+    const key = JSON.stringify([on, dark.matches, list.map((m) => [m.id, m.id === on ? trying : m.look, m.main, Math.round(sizeOf(m) * 20)])]);
     if (key === pickerKey) return;
     pickerKey = key;
     const buttons = new Map([...picker.querySelectorAll<HTMLButtonElement>("button")].map((b) => [b.dataset.id!, b]));
@@ -497,20 +626,21 @@ export function mountDen() {
         button.className = "picker-spider";
         button.dataset.id = m.id;
         button.innerHTML = `<canvas aria-hidden="true"></canvas><span class="picker-name"></span>`;
-        button.addEventListener("click", () => pickSpider(m.id));
+        // In the den, clicking the picked one again lets go of it.
+        button.addEventListener("click", () => pickSpider(view === "den" && picked()?.id === m.id ? null : m.id));
         picker.append(button);
       }
       button.querySelector(".picker-name")!.textContent = nameOf(m);
-      button.setAttribute("aria-pressed", String(m.id === picked().id));
+      button.setAttribute("aria-pressed", String(m.id === on));
       button.toggleAttribute("data-main", m.main);
       button.title = m.main ? `${nameOf(m)} (main spider)` : nameOf(m);
-      drawSpider(button.querySelector("canvas")!, m.id === picked().id ? trying : m.look, VIEWS.whole, 0.5 + 0.5 * Math.min(1, sizeOf(m)));
+      drawSpider(button.querySelector("canvas")!, m.id === on ? trying : m.look, VIEWS.whole, 0.5 + 0.5 * Math.min(1, sizeOf(m)));
     }
   };
 
   // ── Keeping it all up to date ─────────────────────────────────────────────
   const refresh = () => {
-    const m = picked();
+    const m = dressing();
     for (const tile of $$<HTMLButtonElement>(".tile[data-item]")) {
       const slot = tile.dataset.slot as Slot;
       tile.setAttribute("aria-pressed", String(trying.items[slot] === tile.dataset.item));
@@ -530,15 +660,18 @@ export function mountDen() {
     for (const chip of $$<HTMLButtonElement>("[data-thread]")) chip.setAttribute("aria-pressed", String(trying.thread === chip.dataset.thread));
 
     for (const el of document.querySelectorAll("[data-den-name]")) el.textContent = nameOfTrying();
-    if (document.activeElement !== nameInput) nameInput.value = trying.name;
+    nameInput.disabled = !m;
+    if (document.activeElement !== nameInput) nameInput.value = m ? trying.name : "";
+    for (const button of $$<HTMLButtonElement>("[data-den-surprise], [data-den-undress]")) button.disabled = !m;
+    wardrobe.toggleAttribute("data-nobody", !m);
     const lede = document.querySelector("[data-den-lede]");
-    if (lede) {
+    if (lede && m) {
       lede.textContent = m.main
         ? "Your main spider: the one on our logo, and in the header. Give it a hat, pick its colours, feed it a snack. Whatever it wears here, it wears all over the site."
         : `${nameOfTrying()} lives in the den. Dress it up however you like, or make it your main spider to wear its look all over the site.`;
     }
     // The big spider is as big as the picked one's grown.
-    slotEl?.style.setProperty("--grow", String(Math.min(1.3, 0.45 + 0.55 * sizeOf(m))));
+    slotEl?.style.setProperty("--grow", String(Math.min(1.3, 0.45 + 0.55 * (m ? sizeOf(m) : 1))));
 
     const eaten = snacks();
     wardrobe.querySelector("[data-den-snack-count]")!.textContent = String(eaten);

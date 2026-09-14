@@ -12,6 +12,9 @@ import { PALETTE, type Look, type Slot } from "./wardrobe";
  * Each layer is its own function because it's drawn in its own space and at its own depth:
  * on its back (behind the legs), feet (on the legs), body (pattern and outfit, over the body),
  * face (over the eyes and mouth) and hat (on top). spider.ts and figure.ts call them in that order.
+ *
+ * A costume (a ghost sheet, a dino onesie…) is the whole spider dressed up, so it has a piece in any
+ * of those layers it needs, and covers up whatever else is worn in the layers it hides.
  */
 
 type Vec = [number, number];
@@ -20,8 +23,10 @@ type Vec = [number, number];
 export interface Fit {
   /** The body's centre and half-size, art units: body units are scaled from these. */
   body: { cx: number; cy: number; rx: number; ry: number; path: Path2D };
-  /** Art space. `tip` is the far end of the leg. */
-  legs: { path: Path2D; tip: Vec; side: "left" | "right" }[];
+  /** Art space. `tip` is the far end of the leg, `hip` where it joins the body, `spine` a few points along it. */
+  legs: { path: Path2D; tip: Vec; side: "left" | "right"; hip: Vec; spine: Vec[] }[];
+  /** Art space → torso space (the body breathes and squashes), for pieces over the body that reach out over the legs. */
+  toTorso?: (p: Vec) => Vec;
   /** Face space (art units). `size` is how big the expression has made the eye (1 = as drawn). */
   eyes: { side: "left" | "right"; center: Vec; radius: number; size: number }[];
   /** Face space: the mouth's middle, its top edge and width, and how much of the drawn mouth shows (0–1). */
@@ -60,38 +65,48 @@ const tintOf = (look: Look, slot: Slot) => PALETTE[look.tints[slot]].color;
 
 // ── Layers ───────────────────────────────────────────────────────────────────
 
+const costumeOf = (look: Look) => COSTUMES[look.items.costume] ?? null;
+/** Is this part of the look covered up by a costume? */
+const covered = (look: Look, part: keyof Covers) => Boolean(costumeOf(look)?.covers[part]);
+
 /** Behind the legs and body. Torso space. */
 export function dressBack(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, pen: Pen) {
-  const draw = BACK[look.items.back];
+  const draw = covered(look, "back") ? null : BACK[look.items.back];
   if (draw) inBody(ctx, fit, pen, (d) => draw(d, tintOf(look, "back")));
+  const costume = costumeOf(look);
+  if (costume?.back) inBody(ctx, fit, pen, (d) => costume.back!(d, tintOf(look, "costume")));
 }
 
 /** On the legs. Art space. */
 export function dressFeet(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, pen: Pen) {
-  const draw = FEET[look.items.feet];
+  const costume = costumeOf(look);
+  const draw = costume?.legs ?? (covered(look, "feet") ? null : FEET[look.items.feet]);
   if (!draw || pen.mode === "edge") return;
+  const tint = tintOf(look, costume?.legs ? "costume" : "feet");
   fit.legs.forEach((leg, i) => {
     ctx.save();
     ctx.clip(leg.path);
-    inBody(ctx, fit, pen, (d) => draw(d, tintOf(look, "feet"), toBody(fit, leg.tip), i));
+    inBody(ctx, fit, pen, (d) => draw(d, tint, toBody(fit, leg.tip), i));
     ctx.restore();
   });
 }
 
-/** Over the body, under the face: its pattern, then its outfit. Torso space. */
+/** Over the body, under the face: its pattern, then its outfit, then a costume over the lot. Torso space. */
 export function dressBody(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, pen: Pen) {
-  const pattern = PATTERNS[look.pattern];
-  const outfit = OUTFITS[look.items.outfit];
+  const pattern = covered(look, "pattern") ? null : PATTERNS[look.pattern];
+  const outfit = covered(look, "outfit") ? null : OUTFITS[look.items.outfit];
+  const costume = costumeOf(look)?.body;
   inBody(ctx, fit, pen, (d) => {
     if (pattern) pattern(d);
     if (outfit) outfit(d, tintOf(look, "outfit"));
+    if (costume) costume(d, tintOf(look, "costume"));
   });
 }
 
 /** Over the eyes and mouth. Face space. */
 export function dressFace(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, pen: Pen) {
-  const extra = FACES[look.items.face];
-  const eyewear = EYEWEAR[look.items.eyes];
+  const extra = covered(look, "face") ? null : FACES[look.items.face];
+  const eyewear = covered(look, "eyes") ? null : EYEWEAR[look.items.eyes];
   if (pen.mode === "edge" || (!extra && !eyewear)) return;
   inBody(ctx, fit, pen, (d) => {
     const eyes = fit.eyes.map((e) => ({
@@ -109,10 +124,32 @@ export function dressFace(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, p
   });
 }
 
-/** On top of everything. Torso space. */
+/** On top of everything: a costume's top (a helmet), then a hat. Torso space. */
 export function dressHat(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, pen: Pen) {
-  const draw = HATS[look.items.hat];
+  const costume = costumeOf(look);
+  if (costume?.top) inBody(ctx, fit, pen, (d) => costume.top!(d, tintOf(look, "costume")));
+  const draw = covered(look, "hat") ? null : HATS[look.items.hat];
   if (draw) inBody(ctx, fit, pen, (d) => draw(d, tintOf(look, "hat")));
+}
+
+/**
+ * Just the piece one slot's item is, on its own with no spider in it: for dragging it out of the
+ * wardrobe. Art space, like the spider it would go on.
+ */
+export function dressPiece(ctx: CanvasRenderingContext2D, fit: Fit, look: Look, slot: Slot) {
+  const only: Look = {
+    ...look,
+    pattern: "none",
+    items: { hat: "none", eyes: "none", face: "none", outfit: "none", back: "none", feet: "none", costume: "none" },
+  };
+  only.items[slot] = look.items[slot];
+  const pen: Pen = { mode: "paint", outline: INK, width: 0 };
+  // Socks and sleeves, without legs in them, keep the shape of the legs.
+  dressFeet(ctx, fit, only, pen);
+  dressBack(ctx, fit, only, pen);
+  dressBody(ctx, fit, only, pen);
+  dressFace(ctx, fit, only, pen);
+  dressHat(ctx, fit, only, pen);
 }
 
 // ── Drawing helpers ─────────────────────────────────────────────────────────
@@ -855,6 +892,317 @@ const PATTERNS: Record<string, PatternDraw> = {
     fill(d, tufts, d.fit.skin, { edge: true, line: false });
   },
 };
+
+// ── Costumes ────────────────────────────────────────────────────────────────
+
+/** What a costume covers up: those parts of the look aren't drawn while it's on. */
+interface Covers {
+  back?: boolean;
+  feet?: boolean;
+  outfit?: boolean;
+  pattern?: boolean;
+  /** Face extras (a moustache, freckles). */
+  face?: boolean;
+  eyes?: boolean;
+  hat?: boolean;
+}
+
+interface Costume {
+  covers: Covers;
+  /** Behind everything (wings, a tail). Torso space. */
+  back?: BackDraw;
+  /** On each leg, clipped to it. Art space. */
+  legs?: FootDraw;
+  /** Over the body, and anything that spreads out over the legs too. Torso space, under the face. */
+  body?: OutfitDraw;
+  /** Over the face (a helmet). Torso space. */
+  top?: OutfitDraw;
+}
+
+const SUIT = "#eef0f2";
+const STEM = "#6f8a4b";
+
+/** Where the eyes are (body units), and how big. */
+const eyesOf = (f: Fit) => f.eyes.map((e) => ({ at: toBody(f, e.center), r: (e.radius / f.body.rx) * e.size }));
+/** The mouth's middle (body units) and width. */
+const mouthOf = (f: Fit) => ({ at: toBody(f, f.mouth.center), width: f.mouth.width / f.body.rx });
+/** Which way is down on screen, in the spider's own frame. */
+const downOf = (f: Fit): Vec => [-Math.sin(f.hang), Math.cos(f.hang)];
+
+const COSTUMES: Record<string, Costume> = {
+  /**
+   * A sheet thrown over the whole spider. It's shaped round wherever the legs actually are, so
+   * lifting a leg lifts the sheet with it, and it hangs down from them in a wavy hem.
+   */
+  ghost: {
+    covers: { back: true, feet: true, outfit: true, pattern: true, face: true },
+    body: (d, tint) => {
+      const f = d.fit;
+      const down = downOf(f);
+      // Round the head, and out over every leg.
+      const reach: Vec[] = [];
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        reach.push([Math.cos(a) * 1.08, Math.sin(a) * 1.1 - 0.03]);
+      }
+      for (const leg of f.legs) {
+        for (const p of [...leg.spine, leg.tip]) {
+          const [x, y] = toBody(f, f.toTorso ? f.toTorso(p) : p);
+          const out = Math.hypot(x, y) || 1;
+          reach.push([x + (x / out) * 0.12, y + (y / out) * 0.12]);
+        }
+      }
+      // How far it reaches out each way round, softened so it's rounded like cloth rather than a box.
+      const N = 72;
+      const out = Array.from({ length: N }, (_, k) => {
+        const a = (k / N) * Math.PI * 2;
+        const [c, s] = [Math.cos(a), Math.sin(a)];
+        return Math.max(...reach.map(([x, y]) => x * c + y * s));
+      });
+      const soft = out.map((_, k) => {
+        let sum = 0;
+        for (let j = -4; j <= 4; j++) sum += out[(k + j + N) % N] * (5 - Math.abs(j));
+        return sum / 25;
+      });
+      // It hangs: the lower it is, the further it falls, in a wavy hem that sways, and lags behind a swing.
+      const lag = clamp(-f.velocity[0] * 0.025, -0.35, 0.35);
+      const sway = f.still ? 0 : f.time * 2.2;
+      const sheet = soft.map((r, k): Vec => {
+        const a = (k / N) * Math.PI * 2;
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+        const low = clamp((x * down[0] + y * down[1] - 0.1) / 0.85, 0, 1) ** 1.5;
+        const hem = 0.5 + 0.5 * Math.cos(a * 16 + sway);
+        const drop = low * (0.3 + 0.12 * hem);
+        return [x + down[0] * drop + lag * low, y + down[1] * drop];
+      });
+      const shape = smoothLoop(sheet);
+      fill(d, shape, tint, { edge: true });
+      clipped(d, shape, () => {
+        // Folds falling from where it drapes over the legs.
+        const shade = darker(tint, 0.1);
+        for (const leg of f.legs) {
+          const [x, y] = toBody(f, f.toTorso ? f.toTorso(leg.tip) : leg.tip);
+          const fold = path(`M${x * 0.8} ${y * 0.8}Q${x * 0.9 + down[0] * 0.4} ${y + down[1] * 0.4} ${x * 0.85 + down[0] * 1.2} ${y + down[1] * 1.2}`);
+          stroke(d, fold, shade, 0.045, { alpha: 0.7 });
+        }
+        stroke(d, path("M-0.35 -0.9Q-0.6 -0.95 -0.72 -0.7"), WHITE, 0.05, { alpha: 0.45 });
+        // Holes cut for the eyes and mouth.
+        for (const e of eyesOf(f)) fill(d, ellipse(e.at[0], e.at[1], e.r * 1.28, e.r * 1.34), INK);
+        const m = mouthOf(f);
+        fill(d, ellipse(m.at[0], m.at[1] + 0.02, m.width * 0.8, 0.2), INK);
+      });
+    },
+  },
+
+  /** Bandages wound round and round the body and every leg, with gaps for the eyes and mouth, and a loose end. */
+  mummy: {
+    covers: { back: true, feet: true, outfit: true, pattern: true },
+    legs: (d, tint, tip, i) => {
+      const f = d.fit;
+      const hip = toBody(f, f.legs[i].hip);
+      fill(d, rounded(-4, -4, 8, 8, 0), tint);
+      const across = Math.atan2(tip[1] - hip[1], tip[0] - hip[0]) + Math.PI / 2 + (i % 2 ? 0.35 : -0.35);
+      turned(d.ctx, hip[0], hip[1], across, () => {
+        for (let k = -16; k <= 16; k++) {
+          const y = hip[1] + k * 0.085;
+          stroke(d, path(`M${hip[0] - 3} ${y}L${hip[0] + 3} ${y}`), darker(tint, 0.2), 0.016);
+        }
+      });
+      // Pale bandages need an edge to show on a light page (half of it's clipped away inside the leg).
+      if (light(tint)) stroke(d, legClip(d, i), INK, LINE * 2);
+    },
+    body: (d, tint) => {
+      const f = d.fit;
+      const band = darker(tint, 0.2);
+      clipped(d, bodyClip(d), () => {
+        fill(d, rounded(-1.3, -1.3, 2.6, 2.6, 0), tint);
+        for (let k = 0, y = -1.02; y < 1.1; y += 0.15, k++) {
+          const tilt = k % 2 ? 0.07 : -0.07;
+          stroke(d, path(`M-1.2 ${y + tilt}Q0 ${y - tilt * 1.5} 1.2 ${y - tilt}`), band, 0.02);
+        }
+        // Gaps in the wrapping, where the eyes and mouth peek out.
+        const eyes = eyesOf(f);
+        const ey = eyes.reduce((sum, e) => sum + e.at[1], 0) / (eyes.length || 1);
+        const er = Math.max(...eyes.map((e) => e.r), 0.2);
+        fill(d, path(`M-1.2 ${ey - er * 1.45}Q0 ${ey - er * 1.8} 1.2 ${ey - er * 1.3}L1.2 ${ey + er * 1.2}Q0 ${ey + er * 1.55} -1.2 ${ey + er * 1.3}Z`), f.skin);
+        const m = mouthOf(f);
+        fill(d, ellipse(m.at[0], m.at[1] + 0.02, m.width * 0.78, 0.18), f.skin);
+      });
+      if (light(tint)) stroke(d, bodyClip(d), INK, LINE);
+      dangling(d, 0.78, 0.5, 1, () => {
+        const tail = path("M0.72 0.5L0.86 0.5L0.9 1.05L0.84 0.98L0.78 1.06Z");
+        fill(d, tail, tint, { edge: true });
+        stroke(d, path("M0.75 0.72L0.88 0.7M0.76 0.9L0.89 0.88"), band, 0.016);
+      });
+    },
+  },
+
+  /** A round pumpkin with the spider's face poking through, legs sticking out the sides. */
+  pumpkin: {
+    covers: { back: true, outfit: true, pattern: true },
+    body: (d, tint) => {
+      const lobes = ellipse(-0.44, 0.08, 0.72, 1.0);
+      lobes.addPath(ellipse(0.44, 0.08, 0.72, 1.0));
+      lobes.addPath(ellipse(0, 0.04, 0.68, 1.08));
+      fill(d, lobes, tint, { edge: true, under: true });
+      const rib = darker(tint, 0.22);
+      for (const x of [-0.5, 0.5]) stroke(d, path(`M${x * 0.5} -0.98Q${x * 1.75} 0.06 ${x * 0.5} 1.1`), rib, 0.04);
+      stroke(d, path("M0 -1.02L0 -0.9M0 1.02L0 1.1"), rib, 0.04);
+      stroke(d, path("M-0.92 -0.35Q-1.02 0.08 -0.88 0.48"), mix(tint, WHITE, 0.3), 0.05, { alpha: 0.6 });
+      fill(d, path("M-0.09 -0.97L-0.13 -1.3Q0 -1.4 0.11 -1.32L0.09 -0.97Z"), STEM, { edge: true });
+      stroke(d, path("M0.08 -1.12C0.32 -1.34 0.56 -1.1 0.4 -1.0C0.28 -0.94 0.3 -1.12 0.44 -1.12"), STEM, 0.035, { edge: true });
+      fill(d, path("M-0.1 -1.12Q-0.45 -1.36 -0.62 -1.12Q-0.4 -0.98 -0.1 -1.12Z"), mix(STEM, WHITE, 0.15), { edge: true });
+    },
+  },
+
+  /** Stripes, a stinger, wings that buzz and antennae that boing. */
+  bee: {
+    covers: { back: true, outfit: true, pattern: true },
+    back: (d) => {
+      const f = d.fit;
+      const buzz = f.still ? 0 : Math.sin(f.time * 38) * 0.1;
+      for (const flip of [-1, 1]) {
+        turned(d.ctx, 0.35 * flip, -0.55, flip * buzz, () => {
+          const wing = ellipse(0.95 * flip, -1.0, 0.55, 0.32, -0.55 * flip);
+          fill(d, wing, WHITE, { alpha: 0.6, edge: true });
+          stroke(d, wing, INK, 0.03, { alpha: 0.5 });
+          const low = ellipse(1.05 * flip, -0.45, 0.36, 0.2, 0.25 * flip);
+          fill(d, low, WHITE, { alpha: 0.55, edge: true });
+          stroke(d, low, INK, 0.03, { alpha: 0.5 });
+        });
+      }
+    },
+    body: (d, tint) => {
+      clipped(d, bodyClip(d), () => {
+        fill(d, rounded(-1.3, -1.3, 2.6, 2.6, 0), tint);
+        fill(d, path("M-1.2 -1.2L1.2 -1.2L1.2 -0.8Q0 -0.64 -1.2 -0.8Z"), INK);
+        for (const y of [0.5, 0.84]) fill(d, path(`M-1.2 ${y}Q0 ${y + 0.16} 1.2 ${y}L1.2 ${y + 0.16}Q0 ${y + 0.32} -1.2 ${y + 0.16}Z`), INK);
+        const m = mouthOf(d.fit);
+        fill(d, ellipse(m.at[0], m.at[1] + 0.02, m.width * 0.7, 0.16), INK);
+      });
+      fill(d, poly([[-0.11, 0.95], [0.11, 0.95], [0, 1.24]]), INK, { edge: true });
+    },
+    top: (d) => {
+      const f = d.fit;
+      for (const side of [-1, 1]) {
+        const wave = f.still ? 0 : Math.sin(f.time * 3 + side) * 0.06;
+        const lean = f.swing * 2 + wave;
+        const tip: Vec = [side * 0.55 + Math.sin(lean) * 0.45, -1.48 + Math.abs(Math.sin(lean)) * 0.12];
+        stroke(d, path(`M${side * 0.3} -0.92Q${side * 0.38} -1.3 ${tip[0]} ${tip[1]}`), INK, 0.045, { edge: true });
+        fill(d, circle(tip[0], tip[1], 0.1), INK, { edge: true });
+      }
+    },
+  },
+
+  /** A green onesie: a hood with spikes and the face showing through, a paler belly, clawed feet and a tail. */
+  dino: {
+    covers: { back: true, feet: true, outfit: true, pattern: true },
+    back: (d, tint) => {
+      const f = d.fit;
+      const wag = f.still ? 0 : Math.sin(f.time * 2.4) * 0.12;
+      turned(d.ctx, -0.45, 0.75, f.hang * 0.6 + wag, () => {
+        const tail = path("M-0.2 0.45C-0.8 0.6 -1.2 0.95 -1.72 1.42Q-1.2 1.28 -0.55 1.05Z");
+        fill(d, tail, tint, { edge: true });
+        for (const [x, y] of [[-0.9, 0.84], [-1.2, 1.06], [-1.48, 1.26]] as Vec[]) {
+          fill(d, poly([[x - 0.1, y + 0.04], [x + 0.08, y - 0.06], [x - 0.08, y - 0.2]]), darker(tint, 0.18), { edge: true });
+        }
+      });
+    },
+    legs: (d, tint, [x, y], i) => {
+      const hip = toBody(d.fit, d.fit.legs[i].hip);
+      fill(d, rounded(-4, -4, 8, 8, 0), tint);
+      const out = Math.atan2(y - hip[1], x - hip[0]);
+      for (const spread of [-0.5, 0, 0.5]) {
+        const a = out + spread;
+        const at: Vec = [x - Math.cos(out) * 0.06, y - Math.sin(out) * 0.06];
+        fill(d, poly([[at[0] + Math.cos(a + 1.3) * 0.05, at[1] + Math.sin(a + 1.3) * 0.05], [at[0] + Math.cos(a) * 0.14, at[1] + Math.sin(a) * 0.14], [at[0] + Math.cos(a - 1.3) * 0.05, at[1] + Math.sin(a - 1.3) * 0.05]]), CREAM);
+      }
+    },
+    body: (d, tint) => {
+      const f = d.fit;
+      const spike = darker(tint, 0.16);
+      for (let i = 0; i < 6; i++) {
+        const a = -Math.PI * (0.83 - (i / 5) * 0.66);
+        const [c, s] = [Math.cos(a), Math.sin(a)];
+        const r = 0.94;
+        fill(d, poly([[c * r - s * 0.13, s * r + c * 0.13], [c * (r + 0.3), s * (r + 0.3)], [c * r + s * 0.13, s * r - c * 0.13]]), spike, { edge: true });
+      }
+      clipped(d, bodyClip(d), () => {
+        fill(d, rounded(-1.3, -1.3, 2.6, 2.6, 0), tint);
+        fill(d, ellipse(0, 1.08, 0.58, 0.34), mix(tint, CREAM, 0.6));
+        const eyes = eyesOf(f);
+        const m = mouthOf(f);
+        const top = Math.min(...eyes.map((e) => e.at[1] - e.r * 1.6), -0.3);
+        const bottom = Math.max(m.at[1] + 0.2, 0.3);
+        const opening = ellipse(0, (top + bottom) / 2, 0.8, (bottom - top) / 2);
+        fill(d, opening, f.skin);
+        stroke(d, opening, darker(tint, 0.22), 0.06);
+      });
+    },
+  },
+
+  /** A white spacesuit, gloves and boots in the costume's colour, and a glass helmet over the face. */
+  astronaut: {
+    covers: { back: true, feet: true, outfit: true, pattern: true, hat: true },
+    back: (d) => {
+      fill(d, rounded(-0.82, -0.5, 1.64, 1.3, 0.22), STEEL, { edge: true });
+      fill(d, rounded(-0.72, -0.4, 1.44, 0.1, 0.05), darker(STEEL, 0.15));
+    },
+    legs: (d, tint, [x, y], i) => {
+      const hip = toBody(d.fit, d.fit.legs[i].hip);
+      fill(d, rounded(-4, -4, 8, 8, 0), SUIT);
+      const mid: Vec = [(x + hip[0]) / 2, (y + hip[1]) / 2];
+      fill(d, circle(mid[0], mid[1], 0.1), mix(SUIT, STEEL, 0.5));
+      fill(d, circle(x, y, 0.2), tint);
+      stroke(d, legClip(d, i), INK, LINE * 2);
+    },
+    body: (d, tint) => {
+      // The suit's only below the neck: the head's in the helmet, so the face shows through the glass.
+      const suit = path("M-1.3 0.66Q0 0.86 1.3 0.66L1.3 1.3L-1.3 1.3Z");
+      clipped(d, bodyClip(d), () => {
+        fill(d, suit, SUIT);
+        stroke(d, suit, INK, LINE);
+      });
+      fill(d, rounded(-0.26, 0.82, 0.52, 0.14, 0.04), tint);
+      for (const [x, color] of [[-0.14, PALETTE.coral.color], [0, PALETTE.sunflower.color], [0.14, PALETTE.mint.color]] as const) {
+        fill(d, circle(x, 0.89, 0.035), color);
+      }
+    },
+    top: (d, tint) => {
+      const helmet = circle(0, -0.06, 1.2);
+      fill(d, helmet, "#bfe2f0", { alpha: 0.12, edge: true });
+      stroke(d, helmet, STEEL, 0.1, { edge: true });
+      stroke(d, path("M-0.78 -0.62Q-0.66 -0.9 -0.36 -1.02"), WHITE, 0.08, { alpha: 0.7 });
+      stroke(d, path("M-0.9 -0.22Q-0.92 -0.36 -0.86 -0.46"), WHITE, 0.06, { alpha: 0.6 });
+      fill(d, rounded(-0.2, -1.36, 0.4, 0.14, 0.05), tint, { edge: true });
+    },
+  },
+};
+
+// ── Shapes ──────────────────────────────────────────────────────────────────
+
+/** A smooth closed curve through the middles of a loop's sides, bending at its points. */
+function smoothLoop(loop: Vec[]) {
+  const p = new Path2D();
+  const mid = (i: number): Vec => {
+    const a = loop[i % loop.length];
+    const b = loop[(i + 1) % loop.length];
+    return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  };
+  p.moveTo(...mid(0));
+  for (let i = 1; i <= loop.length; i++) p.quadraticCurveTo(...loop[i % loop.length], ...mid(i));
+  p.closePath();
+  return p;
+}
+
+/** Leg `i`'s outline, in body units (like bodyClip). */
+function legClip(d: Draw, i: number) {
+  const { cx, cy, rx, ry } = d.fit.body;
+  const p = new Path2D();
+  p.addPath(d.fit.legs[i].path, new DOMMatrix().scale(1 / rx, 1 / ry).translate(-cx, -cy));
+  return p;
+}
 
 /** The body's own outline, in body units (the clip is set before the body-unit scale, so it's rebuilt here). */
 function bodyClip(d: Draw) {

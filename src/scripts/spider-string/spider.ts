@@ -602,7 +602,7 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   /** Where everything is this frame, for the clothes (dress.ts). */
   const fitNow = (skin: string, mouthColor: string): Fit => ({
     body: { cx: bodyCenter[0], cy: bodyCenter[1], rx: bodyShape.size[0] / 2, ry: bodyShape.size[1] / 2, path: bodyPath },
-    legs: legs.map((leg) => ({ path: leg.path, tip: leg.tip, side: leg.side })),
+    legs: legs.map((leg) => ({ path: leg.path, tip: leg.tip, side: leg.side, hip: leg.hip, spine: leg.sampled })),
     eyes: eyes.map((eye) => ({ side: eye.side, center: eye.center, radius: eye.radius, size: face[eye.side].size })),
     mouth: { center: mouthCenter, top: mouthTop, width: mouthWidth, drawn: face.mouth.drawn },
     time,
@@ -823,6 +823,8 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
       ctx.lineJoin = "round";
       const fit = fitNow(c.body, c.mouth);
       const { torso: torsoMatrix, face: faceMatrixNow, outline } = pose;
+      const back = torsoMatrix.inverse();
+      fit.toTorso = ([x, y]) => [back.a * x + back.c * y + back.e, back.b * x + back.d * y + back.f];
       const inTorso = (fn: () => void) => {
         ctx.save();
         transform(ctx, torsoMatrix);

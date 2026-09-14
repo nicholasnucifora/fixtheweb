@@ -10,7 +10,11 @@ import { den } from "./config";
  * den. Each has its own look, how old it is, how full, how grown up, and how plump from eating.
  *
  * Hunger, growing up and slimming down are worked out from timestamps, so they carry on while
- * you're away. Also here: egg sacs waiting to hatch, and which spider is picked (being dressed).
+ * you're away. Also here: egg sacs waiting to hatch, and which spider is picked, if any.
+ *
+ * The wardrobe dresses the picked spider. With none picked, the Dress up view dresses the main
+ * spider (`dressMain`), and the den's wardrobe dresses nobody: its pictures show a plain spider, and
+ * clothes are dragged onto whoever should wear them (`dressSpider`).
  */
 
 const COLONY_KEY = "spider:colony";
@@ -56,7 +60,7 @@ export interface Egg {
 interface Saved {
   members: Member[];
   eggs: Egg[];
-  picked: string;
+  picked: string | null;
 }
 
 const NAMES = [
@@ -134,7 +138,7 @@ function fresh(now: number): Saved {
     members: [main],
     // Off to one side of the middle, where the main spider starts.
     eggs: [{ id: newId(), parent: main.id, x: 0.36, y: 0.3, hatch: now + 6000, count: 3 }],
-    picked: main.id,
+    picked: null,
   };
 }
 
@@ -154,12 +158,13 @@ function load(now = Date.now()): Saved {
   for (const m of members) m.main = m === main;
   setLook(main.look, worn);
   const eggs = (Array.isArray(raw?.eggs) ? raw.eggs : []).map((e) => parseEgg(e, now)).filter((e): e is Egg => e !== null);
-  const picked = members.some((m) => m.id === raw?.picked) ? raw!.picked! : main.id;
-  return { members, eggs, picked };
+  // Nobody's picked when the page opens: picking is just for this visit.
+  return { members, eggs, picked: null };
 }
 
 const state = load();
-setLook(trying, state.members.find((m) => m.id === state.picked)!.look);
+/** Whether the wardrobe dresses the main spider when nobody's picked (the Dress up view). */
+let dressesMain = true;
 
 const announce = () => document.dispatchEvent(new CustomEvent(COLONY_EVENT));
 let savedAt = 0;
@@ -174,7 +179,15 @@ export const members = () => state.members;
 export const eggs = () => state.eggs;
 export const byId = (id: string | null | undefined) => state.members.find((m) => m.id === id) ?? null;
 export const mainSpider = () => state.members.find((m) => m.main) ?? state.members[0];
-export const picked = () => byId(state.picked) ?? mainSpider();
+export const picked = () => byId(state.picked);
+/** The spider the wardrobe is dressing: the picked one, or in Dress up with nobody picked, the main one. */
+export const dressing = () => picked() ?? (dressesMain ? mainSpider() : null);
+
+/** What the wardrobe shows: the look of the spider it's dressing, or a plain spider. */
+function showDressing() {
+  setLook(trying, dressing()?.look ?? blankLook());
+}
+showDressing();
 
 export const nameOf = (m: Member) => m.look.name.trim() || blankLook().name;
 export const grownUp = (m: Member) => m.growth >= 1;
@@ -229,7 +242,7 @@ export function tick(now = Date.now()) {
   const starved = state.members.filter((m) => age(m, now));
   if (starved.length) {
     state.members = state.members.filter((m) => !starved.includes(m));
-    if (!byId(state.picked)) pickSpider(mainSpider().id, false);
+    if (state.picked && !byId(state.picked)) pickSpider(null, false);
     save();
     announce();
   } else if (now - savedAt > 15_000) save();
@@ -238,30 +251,58 @@ export function tick(now = Date.now()) {
 
 // ── Changing things ──────────────────────────────────────────────────────────
 
-/** Picks a spider to dress: the den's wardrobe shows its look. */
-export function pickSpider(id: string, tell = true) {
+const tellLook = () => document.dispatchEvent(new CustomEvent(LOOK_EVENT));
+
+/** Picks a spider to dress (the wardrobe shows its look), or with `null`, nobody. */
+export function pickSpider(id: string | null, tell = true) {
   const m = byId(id);
-  if (!m) return;
-  state.picked = m.id;
-  setLook(trying, m.look);
-  save();
+  state.picked = m?.id ?? null;
+  showDressing();
   if (tell) {
     announce();
-    document.dispatchEvent(new CustomEvent(LOOK_EVENT));
+    tellLook();
   }
 }
 
+/** In Dress up (`true`), the wardrobe dresses the main spider when nobody's picked. */
+export function dressMain(on: boolean) {
+  if (on === dressesMain) return;
+  dressesMain = on;
+  showDressing();
+  tellLook();
+}
+
 /**
- * Saves what the picked spider is trying on as its look (anything still locked stays as it was).
- * For the main spider, that's the look worn everywhere too.
+ * Saves what's being tried on as the look of the spider being dressed (anything still locked stays
+ * as it was). For the main spider, that's the look worn everywhere too. False if nobody's being dressed.
  */
 export function wear() {
-  const m = picked();
+  const m = dressing();
+  if (!m) return false;
   const next = keepUnlocked(trying, m.look);
   setLook(m.look, next);
   save();
   if (m.main) putOn(next);
-  else document.dispatchEvent(new CustomEvent(LOOK_EVENT));
+  else tellLook();
+  return true;
+}
+
+/**
+ * Changes one spider's look, picked or not (clothes dragged onto it). Something still locked can't
+ * be put on this way: returns false, and nothing changes.
+ */
+export function dressSpider(id: string, change: (look: Look) => void) {
+  const m = byId(id);
+  if (!m) return false;
+  const next = parseLook(JSON.stringify(m.look));
+  change(next);
+  if (JSON.stringify(keepUnlocked(next, m.look)) !== JSON.stringify(next)) return false;
+  setLook(m.look, next);
+  if (m.id === dressing()?.id) setLook(trying, next);
+  save();
+  if (m.main) putOn(next);
+  else tellLook();
+  return true;
 }
 
 /** Makes this the main spider, worn all over the site. */
@@ -396,9 +437,8 @@ export function startOver() {
   const next = fresh(now);
   next.members = [{ ...main, fullness: 0.9, emptySince: 0, at: now, laid: now }];
   next.eggs[0].parent = main.id;
-  next.picked = main.id;
   Object.assign(state, next);
-  setLook(trying, main.look);
+  showDressing();
   save();
   announce();
   document.dispatchEvent(new CustomEvent(LOOK_EVENT));
@@ -408,8 +448,10 @@ export function startOver() {
 window.addEventListener("storage", (e) => {
   if (e.key !== COLONY_KEY) return;
   const next = load();
+  const was = state.picked;
   Object.assign(state, next);
-  setLook(trying, picked().look);
+  state.picked = byId(was)?.id ?? null;
+  showDressing();
   announce();
   document.dispatchEvent(new CustomEvent(LOOK_EVENT));
 });

@@ -46,10 +46,10 @@ The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spid
 
 ## Spider Den
 
-`/den` (linked under the header's logo) has two views: **Dress up**, where you dress a spider up, and **The den**, where all your spiders live (below). Dress up has hats, eyewear, face bits, outfits, capes and wings, socks, body colours and patterns, the thread's colour and a name. Snacks (a fly, ladybird, moth or cookie) are dragged to its mouth, and the tricks and moods play its animations. Whatever the main spider wears is saved in that browser and worn by every spider on the site: the one on the logo, the header's badge and the den's own.
+`/den` (linked under the header's logo) has two views: **Dress up**, where you dress a spider up, and **The den**, where all your spiders live (below). Dress up has hats, eyewear, face bits, outfits, capes and wings, socks, full-body costumes, body colours and patterns, the thread's colour and a name. Snacks (a fly, ladybird, moth or cookie) are dragged to its mouth, and the tricks and moods play its animations. Whatever the main spider wears is saved in that browser and worn by every spider on the site: the one on the logo, the header's badge and the den's own.
 
 - `wardrobe.ts`: the catalogue: every item, the colours they come in, and what unlocks the locked ones. Add an item here and draw it in `dress.ts`; the den lists it automatically.
-- `dress.ts`: draws what it's wearing on the spider's canvas, layer by layer (behind the legs, on the legs, on the body, over the face, on top), in body units where the body is a circle of radius 1. Pieces that stick out get the spider's dark-mode outline; hats and dangly things wobble as it swings.
+- `dress.ts`: draws what it's wearing on the spider's canvas, layer by layer (behind the legs, on the legs, on the body, over the face, on top), in body units where the body is a circle of radius 1. Pieces that stick out get the spider's dark-mode outline; hats and dangly things wobble as it swings. A costume (ghost sheet, mummy, pumpkin, bumblebee, dino onesie, astronaut) has a piece in whichever layers it needs and covers up what's worn in the layers it hides; the ghost sheet is shaped round wherever the legs are, so it moves with them. `dressPiece` draws one item on its own, for dragging it out of the wardrobe.
 - `look.ts`: what it's wearing (`worn`), what the den is trying on (`trying`), snacks eaten and unlocks, all in localStorage and kept in step across tabs.
 - `figure.ts`: the spider standing still in a look, for the den's picture tiles.
 - `src/pages/den.astro` and `src/scripts/den.ts`: the page, its two views, the spider picker, the picked spider's card and the wardrobe. The Dress up spider is a `SpiderString` with `stage` and `hook` (hanging from the web's hub down into a slot, and playable) and `tryOn`.
@@ -59,9 +59,10 @@ Locked items can be tried on in the den but aren't saved until they're unlocked.
 
 ### The den
 
-All your spiders, living on webs that fill the page. Pick one (press it, or use the picker at the top) to dress it; drag clothes out of the wardrobe drawer straight onto any of them. The **main spider** is the one worn all over the site: it glows, and has a star over it and in the picker. Any spider can be made the main one from its card.
+All your spiders, living on webs spun in a scene: a **tree**, an open **window** or a garden **fence** (switched at the top, and remembered). Nobody's picked to begin with. The **Wardrobe** button opens the wardrobe, and anything in it can be dragged onto any spider; you carry just the item, and with nobody picked its pictures show a plain spider. Press a spider (or use the picker) to pick it: its card shows how it's doing, and clicking in the wardrobe dresses it. Close the card, press Escape or press somewhere empty to let go. The **main spider** is the one worn all over the site: it glows, and has a star over it and in the picker. Any spider can be made the main one from its card.
 
-- Spiders walk the threads, sit, nap, hunt down flies stuck in the webs, let themselves down on strings and climb back up, and jump between webs.
+- Webs are spun like real ones: anchor lines out to branches, the window frame or fence posts (some forking as they reach them), a frame between those, spokes, and a spiral following the frame's shape. Corners get cobwebs, and long bridge lines cross the gaps.
+- Spiders walk the threads and the scenery itself, sit, nap, hunt down flies stuck in the webs, let themselves down on strings and climb back up, and jump between webs. A flung spider that hits a branch clings on if it's slow, and bounces off if it isn't.
 - Grab one and fling it. Threads within a free zone of where you let go don't touch it; past that, every thread it crosses slows it, and once it's slow enough it's caught. Off the bottom or either side, it comes back round the other side.
 - Pull a dangling spider past its string's reach and let go: the string snaps and it goes flying.
 - Flies drift in and get stuck; drag one to a spider's mouth to feed it yourself (that counts toward unlocks).
@@ -70,8 +71,9 @@ All your spiders, living on webs that fill the page. Pick one (press it, or use 
 The spiders are the site's own (`spider.ts`, `mood.ts`, `animation.ts`), so anything tuned on the home page with `?tune` applies to them too. What's only in the den is `src/scripts/den/`:
 
 - `config.ts`: every den-only setting (webs, catching, habits, strings snapping, jumping, hunger, growing up, babies, dying, flies), tuned live at `/den?tune`. That panel also has buttons to send in a fly, feed or starve everyone, lay or hatch eggs, grow the babies up, rebuild the webs and start the den over, and a life speed for watching hours pass in seconds. Tweaks saved on the home page's panel apply at `/den?tune` too.
-- `colony.ts`: every spider (look, age, growth, hunger, plumpness), egg sacs and which spider is picked, in localStorage. The main spider's look is `look.ts`'s `worn`.
-- `web.ts`: the webs as a graph of threads: building them, the springy wobble, nearest thread, crossings and paths.
+- `colony.ts`: every spider (look, age, growth, hunger, plumpness) and egg sacs, in localStorage, and which spider is picked (if any) and being dressed. The main spider's look is `look.ts`'s `worn`.
+- `scenes.ts`: the tree, window and fence: their scenery, and the things in them webs are tied to and spiders walk along.
+- `web.ts`: the webs as a graph of threads (and the scenery, as threads that aren't drawn): spinning them between the scene's things, the springy wobble, nearest thread, crossings and paths.
 - `critter.ts`: one spider on the webs, and everything it does.
 - `bugs.ts`: flies, moths and ladybirds, and snacks offered from the wardrobe.
 - `world.ts`: the canvas, the loop, egg sacs, snapped strings, and grabbing things.

@@ -271,14 +271,19 @@ export function createCritter(member: Member, world: DenWorld) {
   const wander = () => {
     const web = world.web;
     const far = den.habits.wanderFar * world.unit;
-    const node = web.nodeNear(x, y, Math.min(far * 0.3, world.unit * 0.3), far);
+    // Anywhere: along a thread, or off along a branch.
+    const node = web.nodeNear(x, y, Math.min(far * 0.3, world.unit * 0.3), far, undefined, true);
     if (node < 0 || !goTo({ node })) return false;
     task = "walk";
     return true;
   };
 
   const goHub = () => {
-    const hub = world.web.hubs[myWeb()]?.node ?? -1;
+    const web = world.web;
+    // Its own web's middle, or off a branch, the nearest web's.
+    const nearest = () =>
+      web.hubs.reduce((best, h) => (!best || Math.hypot(web.x(h.node) - x, web.y(h.node) - y) < Math.hypot(web.x(best.node) - x, web.y(best.node) - y) ? h : best), web.hubs[0]);
+    const hub = (web.hubs[myWeb()] ?? nearest())?.node ?? -1;
     if (hub < 0 || Math.hypot(world.web.x(hub) - x, world.web.y(hub) - y) < world.unit * 0.2) return false;
     if (!goTo({ node: hub })) return false;
     task = "walk";
@@ -336,12 +341,14 @@ export function createCritter(member: Member, world: DenWorld) {
     const web = world.web;
     const j = den.jumping;
     const home = myWeb();
+    // Onto another web, or a branch.
     const node = web.nodeNear(
       x,
       y,
       Math.min(j.rangeFrom, j.rangeTo) * world.unit,
       Math.max(j.rangeFrom, j.rangeTo) * world.unit,
-      (n) => web.webOf(n) >= 0 && web.webOf(n) !== home && web.linksOf(n).length > 0,
+      (n) => home < 0 || web.webOf(n) !== home,
+      true,
     );
     if (node < 0) return false;
     const e = web.linksOf(node)[0];
@@ -642,6 +649,46 @@ export function createCritter(member: Member, world: DenWorld) {
     return true;
   };
 
+  /**
+   * It's hit a branch, a frame or a post. Slow enough, it clings on; otherwise it bounces off. True
+   * if it's done moving this step.
+   */
+  const hitSupport = (hit: { edge: number; t: number; x: number; y: number }) => {
+    const web = world.web;
+    const [nx, ny] = web.normal(hit.edge);
+    const into = vx * nx + vy * ny;
+    const speed = Math.hypot(vx, vy);
+    if (speed < den.catching.catchSpeed * world.unit * 2.2) {
+      settle({ edge: hit.edge, t: hit.t }, between(0.8, 1.8));
+      seenV = [0, 0];
+      return true;
+    }
+    const tx = vx - into * nx;
+    const ty = vy - into * ny;
+    vx = tx * 0.7 - into * nx * 0.35;
+    vy = ty * 0.7 - into * ny * 0.35;
+    const back = Math.sign(into) || 1;
+    x = hit.x - nx * back * 1.5;
+    y = hit.y - ny * back * 1.5;
+    for (let i = 0; i < 3; i++) {
+      const spread = (Math.random() - 0.5) * 1.6;
+      const kick = world.unit * (0.8 + Math.random());
+      world.particles.spawn({
+        x: hit.x,
+        y: hit.y,
+        vx: (-nx * back * Math.cos(spread) - ny * Math.sin(spread)) * kick,
+        vy: (-ny * back * Math.cos(spread) + nx * Math.sin(spread)) * kick,
+        length: world.unit * 0.05,
+        width: 1.5,
+        life: 0.22,
+        drag: 8,
+        gravity: 0,
+        shrink: 0.6,
+      });
+    }
+    return true;
+  };
+
   const thinkAir = (dt: number) => {
     const web = world.web;
     const g = config.rope.gravity * world.unit;
@@ -675,12 +722,20 @@ export function createCritter(member: Member, world: DenWorld) {
       vy *= keep;
       const nx = x + vx * h;
       const ny = y + vy * h;
+      let stopped = false;
       for (const hit of web.crossings(x, y, nx, ny)) {
         if ((recent.get(hit.edge) ?? -1) > airTime - 0.15) continue;
         if (launch && Math.hypot(hit.x - launch[0], hit.y - launch[1]) < grace) continue;
         recent.set(hit.edge, airTime);
+        if (web.isSupport(hit.edge)) {
+          hitSupport(hit);
+          if (mode !== "air") return;
+          stopped = true;
+          break;
+        }
         if (crossThread(hit)) return;
       }
+      if (stopped) continue;
       x = nx;
       y = ny;
       const m = radius();

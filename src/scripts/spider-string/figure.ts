@@ -1,8 +1,8 @@
 import spiderSource from "../../assets/spider/spider.svg?raw";
 import { config } from "./config";
-import { type Fit, type Pen, dressBack, dressBody, dressFace, dressFeet, dressHat } from "./dress";
+import { type Fit, type Pen, dressBack, dressBody, dressFace, dressFeet, dressHat, dressPiece } from "./dress";
 import { parse, shape } from "./spider";
-import { SKINS, type Look } from "./wardrobe";
+import { SKINS, blankLook, type Look, type Slot } from "./wardrobe";
 
 /**
  * The spider standing still, as drawn, wearing a look: for pictures like the Spider Den's
@@ -18,6 +18,10 @@ export interface Figure {
   height: number;
   /** Draws it at the context's current transform, in art units. `outline` draws the dark-mode edge. */
   draw(ctx: CanvasRenderingContext2D, look: Look, outline: boolean): void;
+  /** Just the item `look` has in `slot`, with no spider: where it would sit on one drawn here. */
+  drawPiece(ctx: CanvasRenderingContext2D, look: Look, slot: Slot): void;
+  /** Just the body, in the look's colour and pattern: no legs, face or clothes. */
+  drawBody(ctx: CanvasRenderingContext2D, look: Look): void;
 }
 
 let figure: Figure | null = null;
@@ -39,7 +43,13 @@ export function getFigure(): Figure {
     const tip = points.reduce((far, p) =>
       Math.hypot(p[0] - pivot[0], p[1] - pivot[1]) > Math.hypot(far[0] - pivot[0], far[1] - pivot[1]) ? p : far,
     );
-    return { path: new Path2D(dOf(el)), tip, side: (el.getAttribute("data-leg")?.[0] === "R" ? "right" : "left") as Fit["legs"][number]["side"] };
+    return {
+      path: new Path2D(dOf(el)),
+      tip,
+      hip: pivot,
+      spine: points,
+      side: (el.getAttribute("data-leg")?.[0] === "R" ? "right" : "left") as Fit["legs"][number]["side"],
+    };
   });
 
   const eyes = (["left", "right"] as const).map((side) => {
@@ -117,6 +127,24 @@ export function getFigure(): Figure {
       ctx.fill(mouthPath);
       dressFace(ctx, fit, look, paint);
       dressHat(ctx, fit, look, paint);
+      ctx.restore();
+    },
+
+    drawPiece(ctx, look, slot) {
+      ctx.save();
+      ctx.lineJoin = "round";
+      dressPiece(ctx, fitFor(SKINS[look.skin].color || config.colors.body), look, slot);
+      ctx.restore();
+    },
+
+    drawBody(ctx, look) {
+      const skin = SKINS[look.skin].color || config.colors.body;
+      const bare: Look = { ...blankLook(), skin: look.skin, pattern: look.pattern };
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.fillStyle = skin;
+      ctx.fill(bodyPath);
+      dressBody(ctx, fitFor(skin), bare, { mode: "paint", outline: config.colors.outline, width: 0 });
       ctx.restore();
     },
   };
