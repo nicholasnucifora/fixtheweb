@@ -23,6 +23,7 @@ import {
 } from "./den/colony";
 import { den, groups as denGroups, schema as denSchema } from "./den/config";
 import { DEATHS_EVENT, causeText, clearLog, deaths, markSeen, unseen, type Death } from "./den/deaths";
+import { REPLAYS_EVENT, hasReplay, loadReplay } from "./den/replays";
 import { FEELINGS, LIMITS, TRAITS, patternRarity, skinRarity, traitWords, type Feeling, type Trait } from "./den/genes";
 import type { SceneId } from "./den/scenes";
 import { AMOUNTS, SETTINGS_EVENT, change, settings, type Amount, type DenSettings } from "./den/settings";
@@ -60,7 +61,7 @@ import {
  * spider in its current look with that item swapped in, redrawn whenever the look changes.
  *
  * The den also has its settings (time speed, flies, predators, fights) behind the ⚙ in its bar, a log
- * of deaths at the top right, and a box for codes. A spider's colours are in its genes: den-born
+ * of deaths at the top right (with a replay of each death the den saw), and a box for codes. A spider's colours are in its genes: den-born
  * spiders can't change them in the wardrobe (the first spider can).
  *
  * With ?tune, the den's own tuning panel (den/config.ts), a cut tool in the bar, and a genes editor on
@@ -902,8 +903,18 @@ export function mountDen() {
         const li = document.createElement("li");
         li.className = "death";
         li.dataset.cause = d.cause;
+        li.dataset.id = d.id;
         li.toggleAttribute("data-unseen", i < fresh);
         li.innerHTML = `<canvas aria-hidden="true"></canvas><div><p class="death-name"><strong></strong><span class="death-when"></span></p><p class="death-cause"></p><p class="death-detail"></p></div>`;
+        if (hasReplay(d.id)) {
+          const watch = document.createElement("button");
+          watch.type = "button";
+          watch.className = "chip death-replay";
+          watch.setAttribute("aria-expanded", String(player?.id === d.id));
+          watch.innerHTML = `<span aria-hidden="true">▶</span> Replay`;
+          watch.addEventListener("click", () => openReplay(li, d, watch));
+          li.querySelector("div")!.append(watch);
+        }
         li.querySelector("strong")!.textContent = d.main ? `${d.name} ★` : d.name;
         const when = li.querySelector<HTMLElement>(".death-when")!;
         when.textContent = ago(d.at);
@@ -913,8 +924,126 @@ export function mountDen() {
         return li;
       }),
     );
-    deathsList.querySelectorAll("canvas").forEach((canvas, i) => drawSpider(canvas, list[i].look, VIEWS.whole, 0.8));
+    deathsList.querySelectorAll<HTMLCanvasElement>(".death > canvas").forEach((canvas, i) => drawSpider(canvas, list[i].look, VIEWS.whole, 0.8));
+    // A replay that's playing carries on in the new list.
+    if (player) {
+      const row = [...deathsList.querySelectorAll<HTMLElement>(".death")].find((li) => li.dataset.id === player!.id);
+      if (row) row.append(player.el);
+      else closeReplay();
+    }
   };
+
+  // ── Replays ───────────────────────────────────────────────────────────────
+  let player: { id: string; el: HTMLElement; button: HTMLButtonElement; stop: () => void } | null = null;
+  const closeReplay = () => {
+    if (!player) return;
+    player.stop();
+    player.el.remove();
+    player.button.setAttribute("aria-expanded", "false");
+    player = null;
+  };
+  /** Plays the replay of `d`'s death under its row (or closes it, if it's already playing). */
+  const openReplay = async (li: HTMLElement, d: Death, button: HTMLButtonElement) => {
+    const again = player?.id === d.id;
+    closeReplay();
+    if (again) return;
+    const el = document.createElement("div");
+    el.className = "replay";
+    el.innerHTML = `<canvas role="img"></canvas><div class="replay-bar"><button type="button" class="replay-play" aria-label="Pause">❚❚</button><span class="replay-track" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="replay-done"></span><span class="replay-mark" title="The moment it died"></span></span></div>`;
+    el.querySelector("canvas")!.setAttribute("aria-label", `Replay: ${d.name}, ${causeText(d).toLowerCase()}`);
+    li.append(el);
+    button.setAttribute("aria-expanded", "true");
+    let stopped = false;
+    let raf = 0;
+    let pictures: ImageBitmap[] = [];
+    player = {
+      id: d.id,
+      el,
+      button,
+      stop: () => {
+        stopped = true;
+        cancelAnimationFrame(raf);
+        for (const p of pictures) p.close();
+      },
+    };
+    const replay = await loadReplay(d.id);
+    if (stopped) return;
+    try {
+      if (!replay) throw new Error("gone");
+      pictures = await Promise.all(replay.frames.map((blob) => createImageBitmap(blob)));
+    } catch {
+      el.textContent = "This replay can't be played any more.";
+      return;
+    }
+    if (stopped || !replay) {
+      for (const p of pictures) p.close();
+      return;
+    }
+    const canvas = el.querySelector("canvas")!;
+    canvas.width = replay.width;
+    canvas.height = replay.height;
+    const ctx = canvas.getContext("2d")!;
+    const play = el.querySelector<HTMLButtonElement>(".replay-play")!;
+    const track = el.querySelector<HTMLElement>(".replay-track")!;
+    const done = el.querySelector<HTMLElement>(".replay-done")!;
+    const count = pictures.length;
+    el.querySelector<HTMLElement>(".replay-mark")!.style.left = `${(replay.diedAt / Math.max(1, count - 1)) * 100}%`;
+    // It holds on the last picture a moment before it starts over.
+    const hold = Math.round(replay.fps * 1.2);
+    let at = 0;
+    let playing = true;
+    let last = performance.now();
+    let owed = 0;
+    const show = () => {
+      const i = Math.min(count - 1, at);
+      ctx.drawImage(pictures[i], 0, 0);
+      const share = (i / Math.max(1, count - 1)) * 100;
+      done.style.width = `${share}%`;
+      track.setAttribute("aria-valuenow", String(Math.round(share)));
+    };
+    const tick = (now: number) => {
+      if (stopped) return;
+      raf = requestAnimationFrame(tick);
+      if (playing) {
+        owed += now - last;
+        const step = 1000 / replay.fps;
+        while (owed >= step) {
+          owed -= step;
+          at = (at + 1) % (count + hold);
+        }
+        show();
+      }
+      last = now;
+    };
+    const setPlaying = (on: boolean) => {
+      playing = on;
+      play.textContent = on ? "❚❚" : "▶";
+      play.setAttribute("aria-label", on ? "Pause" : "Play");
+    };
+    play.addEventListener("click", () => setPlaying(!playing));
+    const seek = (share: number) => {
+      at = Math.round(Math.max(0, Math.min(1, share)) * (count - 1));
+      owed = 0;
+      show();
+    };
+    track.addEventListener("pointerdown", (e) => {
+      const box = track.getBoundingClientRect();
+      seek((e.clientX - box.left) / box.width);
+    });
+    track.addEventListener("keydown", (e) => {
+      const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!by) return;
+      e.preventDefault();
+      setPlaying(false);
+      at = Math.max(0, Math.min(count - 1, Math.min(count - 1, at) + by));
+      show();
+    });
+    show();
+    raf = requestAnimationFrame(tick);
+  };
+  document.addEventListener(REPLAYS_EVENT, () => {
+    if (!deathsPanel.hidden) renderDeaths();
+  });
   const refreshBadge = () => {
     const n = deathsPanel.hidden ? unseen() : 0;
     deathsBadge.hidden = !n;
@@ -931,6 +1060,7 @@ export function mountDen() {
   const showDeaths = (open: boolean) => {
     if (open === !deathsPanel.hidden) return;
     deathsPanel.hidden = !open;
+    if (!open) closeReplay();
     deathsToggle.setAttribute("aria-expanded", String(open));
     if (open) {
       showSettings(false);

@@ -43,6 +43,8 @@ export interface Hunter {
   hit(x: number, y: number): boolean;
   /** Pressed: it may leave. True if it does. */
   shoo(): boolean;
+  /** The spider it's holding was snatched back: it's lost its catch. */
+  drop(): void;
 }
 
 const between = (a: number, b: number) => a + Math.random() * (b - a);
@@ -176,8 +178,8 @@ export function createBird(world: HuntWorld): Hunter {
           }
         }
       } else {
-        // Out of here, up and away (with its catch).
-        steer(x + facing * size() * 6, -size() * 6, speed * 1.2, 1.5, dt);
+        // Out of here, up and away (with its catch, labouring a little: there's time to grab it back).
+        steer(x + facing * size() * 6, -size() * 6, speed * (carrying ? den.bird.carrySpeed : 1.2), 1.5, dt);
       }
     },
 
@@ -251,6 +253,14 @@ export function createBird(world: HuntWorld): Hunter {
       state = "out";
       vy = -den.bird.speed * u();
       return true;
+    },
+
+    drop() {
+      carrying = null;
+      target = null;
+      // Startled: off it goes.
+      state = "out";
+      vy = -den.bird.speed * u();
     },
   };
   return me;
@@ -410,7 +420,7 @@ export function createFrog(world: HuntWorld): Hunter {
           t = 0;
         }
       } else if (state === "gulp") {
-        if (t > 0.5) {
+        if (t > den.frog.gulp) {
           carrying = null;
           state = tries >= f.tries || Math.random() < f.full ? "out" : "wait";
           from = [x, y];
@@ -505,6 +515,15 @@ export function createFrog(world: HuntWorld): Hunter {
       from = [x, y];
       t = 0;
       return true;
+    },
+
+    drop() {
+      carrying = null;
+      target = null;
+      tongue = 0;
+      state = tries >= den.frog.tries ? "out" : "wait";
+      from = [x, y];
+      t = 0;
     },
   };
   return me;

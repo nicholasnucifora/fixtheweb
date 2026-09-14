@@ -6,6 +6,7 @@ import { drawString, threadStyle } from "../spider-string/render";
 import { Rope } from "../spider-string/rope";
 import { blankLook, type Look } from "../spider-string/wardrobe";
 import { type Bug, createBugs } from "./bugs";
+import { createReplays } from "./replays";
 import {
   COLONY_EVENT,
   DIED_EVENT,
@@ -23,6 +24,7 @@ import {
   hurry,
   kill,
   layEggs,
+  lifespan,
   mainSpider,
   makeOld,
   members,
@@ -215,7 +217,9 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   let webSavedAt = 0;
   let cutting = false;
   const skipped = new Map<Critter, number>();
-  const colors = { ink: "#1b1e29", accent: "#2b8666", surface: "#ffffff" };
+  const colors = { ink: "#1b1e29", accent: "#2b8666", surface: "#ffffff", bg: "#f7f5ef" };
+  /** Films of spiders in danger, kept if they die (for the deaths log). */
+  const replays = createReplays();
 
   const world: DenWorld = {
     web,
@@ -363,6 +367,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     colors.ink = hex("--ink", dark.matches ? "#f2f2ee" : "#1b1e29");
     colors.accent = hex("--accent", dark.matches ? "#6ac7a7" : "#2b8666");
     colors.surface = hex("--surface", dark.matches ? "#222633" : "#ffffff");
+    colors.bg = hex("--bg", dark.matches ? "#1b1e29" : "#f7f5ef");
   };
   dark.addEventListener("change", readColors);
 
@@ -497,6 +502,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     const { id, cause } = (e as CustomEvent).detail as { id: string; cause: "starved" | "old" };
     const critter = world.critters.find((c) => c.member.id === id && c.alive);
     if (critter && active) critter.die(cause);
+    replays.died(id, den.replays.after + 1);
     const m = critter?.member ?? byId(id);
     if (!m) return;
     const name = escape(nameOf(m));
@@ -507,6 +513,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const died = (victim: Critter, cause: "eaten" | "bird" | "frog" | "pirate", killer?: string) => {
     if (victim.pirate) return;
     const name = escape(nameOf(victim.member));
+    // Carried off, the bird's already off the edge: no need to film the empty sky for long.
+    replays.died(victim.member.id, cause === "bird" ? 0.3 : cause === "frog" ? 1 : den.replays.after);
     kill(victim.member.id, cause, { killer });
     const how = {
       eaten: `was eaten by ${escape(killer ?? "another spider")}`,
@@ -729,9 +737,56 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     caught(target, kind, hold) {
       const hunter = hunters.find((h) => h.target === target) ?? hunters[hunters.length - 1];
       target.carry(hold);
-      if (hunter) carried.set(target, hunter);
-      died(target, kind);
+      if (!hunter) return died(target, kind);
+      // It's not gone until it's carried off (or swallowed): there's a moment to grab it back.
+      carried.set(target, hunter);
+      const name = escape(nameOf(target.member));
+      hooks.say(kind === "bird" ? `<strong>A bird's got ${name}!</strong> Grab it back!` : `<strong>The frog's got ${name}!</strong> Quick, grab it!`);
     },
+  };
+
+  /** Keeps a camera on every spider in danger, so if it dies there's a replay. */
+  const filmDanger = () => {
+    if (!den.replays.enabled) return;
+    const film = (c: Critter | null | undefined) => {
+      if (c && !c.pirate && mortal(c.member)) replays.watch(c.member.id);
+    };
+    for (const h of hunters) {
+      // Only once it's close to going for someone: a bird circling, a frog with someone in reach.
+      if (h.hunting || h.holding) film(h.holding ?? h.target);
+    }
+    for (const c of carried.keys()) {
+      film(c);
+      replays.hold(c.member.id);
+    }
+    for (const f of fights) {
+      film(f.a);
+      film(f.b);
+    }
+    const lifeRate = Math.max(1e-6, den.pace.speed * settings.speed);
+    for (const c of world.critters) {
+      if (c.quarry) {
+        film(c.quarry);
+        film(c);
+      }
+      if (!c.alive || c.pirate || !mortal(c.member)) continue;
+      // About to starve, or die of old age.
+      const m = c.member;
+      const hours = Math.min(den.dying.enabled && m.fullness <= 0 ? den.dying.after - m.starving : Infinity, den.aging.enabled ? lifespan(m) - m.age : Infinity);
+      if ((hours * 3600) / lifeRate < den.replays.before + 1) film(c);
+    }
+  };
+  /** Where a filmed spider is, den px (or null, once it's gone). */
+  const filmSubject = (id: string): Vec | null => {
+    const c = world.critters.find((k) => k.member.id === id);
+    return c ? c.center() : null;
+  };
+
+  /** A bird flew off with it, or a frog swallowed it: it's gone. */
+  const carriedOff = (c: Critter, h: Hunter) => {
+    carried.delete(c);
+    died(c, h.kind);
+    c.vanish();
   };
 
   const spawnHunter = (kind: "bird" | "frog" | "pirate") => {
@@ -807,10 +862,10 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       }
     }
     for (const [c, h] of carried) {
-      if (h.done || h.holding !== c) {
-        c.vanish();
-        carried.delete(c);
-      }
+      // Gone once it's out of sight, or swallowed.
+      const [cx, cy] = c.center();
+      const away = cy < -world.unit * 0.3 || cx < -world.unit * 0.5 || cx > web.width + world.unit * 0.5;
+      if (h.done || h.holding !== c || away) carriedOff(c, h);
     }
     hunters = hunters.filter((h) => !h.done);
 
@@ -949,6 +1004,12 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
 
   const cutMode = () => cutting || den.tools.cut;
 
+  /** A carried spider at (x, y), with a little leeway: it's on the move. */
+  const snatchable = (x: number, y: number) => {
+    for (const c of carried.keys()) if (c.distance(x, y) <= world.unit * 0.15) return c;
+    return null;
+  };
+
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || holding || !active) return;
     const [x, y] = local(e);
@@ -962,6 +1023,26 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       } catch {
         // window listeners still see the moves
       }
+      return;
+    }
+    // A spider in a bird's feet or a frog's mouth can be snatched back.
+    const snatched = snatchable(x, y);
+    if (snatched) {
+      carried.get(snatched)?.drop();
+      carried.delete(snatched);
+      e.preventDefault();
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // window listeners still see the moves
+      }
+      trail.length = 0;
+      trail.push({ x, y, t: e.timeStamp });
+      html.classList.add("spider-held");
+      holding = { critter: snatched, pointerId: e.pointerId, offset: [0, 0] };
+      snatched.grab(x, y);
+      hooks.pick(snatched.member.id);
+      hooks.say(`<strong>Saved!</strong> You got ${escape(nameOf(snatched.member))} back.`);
       return;
     }
     const hunter = hunters.find((h) => h.hit(x, y));
@@ -1188,11 +1269,9 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
         const [ax, ay] = idle[i].position;
         const [bx, by] = idle[j].position;
         if (Math.hypot(ax - bx, ay - by) > near || Math.random() > 0.25) continue;
-        const kin = family(idle[i].member, idle[j].member);
-        for (const c of [idle[i], idle[j]]) {
-          const grumpy = c.member.personality.temper > 0.7;
-          c.emote(kin ? "heart" : grumpy ? "dots" : "note");
-        }
+        // Family don't mind. Grumpy ones would rather you didn't.
+        if (family(idle[i].member, idle[j].member)) return;
+        for (const c of [idle[i], idle[j]]) if (c.member.personality.temper > 0.7) c.emote("dots");
         return;
       }
     }
@@ -1217,6 +1296,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     for (const c of world.critters) c.think(dt);
     updateFights(dt);
     updateDanger(dt);
+    filmDanger();
     greetIn -= dt;
     if (greetIn <= 0) {
       greetIn = 1.5;
@@ -1261,6 +1341,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     dust.update(dt);
     updateStrands(dt);
 
+    web.stepBreaks(dt);
     for (const b of web.takeBreaks()) {
       debris.add(b);
       claims.delete(b.edge);
@@ -1273,12 +1354,13 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       ? "crosshair"
       : holding
         ? "grabbing"
-        : hovered || (world.pointer && (bugs.at(...world.pointer) || hunters.some((h) => h.hit(...world.pointer!))))
+        : hovered || (world.pointer && (bugs.at(...world.pointer) || snatchable(...world.pointer) || hunters.some((h) => h.hit(...world.pointer!))))
           ? "grab"
           : "";
 
     if (Date.now() - webSavedAt > 15_000) saveWeb();
     draw();
+    replays.capture(canvas, dpr, world.unit, filmSubject, colors.bg);
     frameMs += (performance.now() - began - frameMs) * 0.05;
   };
 
@@ -1402,6 +1484,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       } else {
         cancelAnimationFrame(raf);
         raf = 0;
+        for (const [c, h] of carried) carriedOff(c, h);
+        replays.stop();
         if (holding?.critter) holding.critter.release(null);
         holding = null;
         html.classList.remove("spider-held");

@@ -240,6 +240,18 @@ export const schema = {
     info: "A thread that breaks splits in two, and each half dangles from where it was tied before fading away. A piece of web cut loose from everything it hangs from falls.",
     params: {
       collapse: { value: true, label: "Pieces cut loose fall", info: "" },
+      cascade: {
+        value: 0.7, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Breaks set off others",
+        info: "How likely a snapping thread is to snap the threads tied to it too. Worn threads, and the ones holding the web up, go most easily: an old web can come down in a chain. 0 = never.",
+      },
+      cascadeFade: {
+        value: 0.72, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Each knock-on is weaker, by",
+        info: "How hard the jolt from a knocked-on break is, next to the one before.",
+      },
+      cascadeFrom: { value: 0.03, min: 0, max: 1, step: 0.01, unit: "s", label: "Knock-on breaks follow after, from", info: "" },
+      cascadeTo: { value: 0.14, min: 0, max: 2, step: 0.01, unit: "s", label: "…to", info: "" },
       fade: {
         value: 3.5, min: 0.2, max: 20, step: 0.1, unit: "s",
         label: "Broken ends fade over",
@@ -261,7 +273,7 @@ export const schema = {
   repair: {
     group: "web",
     label: "Mending",
-    info: "Spiders look after their webs: they mend frayed threads (working silk into them, and the thread shows stronger again), and re-spin broken ones, trailing a new thread from one end to the other. Tidy spiders do it more.",
+    info: "Spiders look after their webs: they mend frayed threads (working silk into them, and the thread shows stronger again), and re-spin broken ones. They rebuild the way an orb weaver builds: a line floated across the gap first, then the anchors and frame, the spokes, and the spiral from the outside in. Short threads they walk across laying; to somewhere below, they drop on a dragline; across a long gap to something they can catch on, they float a line over. Tidy spiders do it more.",
     params: {
       enabled: { value: true, label: "Spiders mend webs", info: "" },
       mend: {
@@ -299,10 +311,41 @@ export const schema = {
         label: "A new thread starts at",
         info: "",
       },
+      dropSpeed: {
+        value: 2.2, min: 0.1, max: 10, step: 0.1, unit: "b/s",
+        label: "Dropping down on a line",
+        info: "A thread to somewhere below: it lets itself down on its dragline to lay it.",
+      },
+      shootFrom: {
+        value: 1, min: 0.2, max: 20, step: 0.1, unit: "b",
+        label: "Floats a line across gaps over",
+        info: "A long thread with something to catch on at the far end: instead of crossing, it rears up and lets a line drift across on the breeze until it snags, then walks out along it to make it strong.",
+      },
+      aim: { value: 0.5, min: 0, max: 3, step: 0.05, unit: "s", label: "Gets ready to float a line for", info: "" },
+      shootSpeed: {
+        value: 3.2, min: 0.2, max: 20, step: 0.1, unit: "b/s",
+        label: "A floated line drifts at",
+        info: "",
+      },
+      shootHealth: {
+        value: 0.45, min: 0.05, max: 1, step: 0.01, unit: "×",
+        label: "A floated line starts at",
+        info: "It's thin at first: the spider strengthens it straight after.",
+      },
       streak: {
         value: 10, min: 1, max: 60, step: 1,
         label: "Threads in a row",
         info: "After spinning one, it carries on with the next broken thread along, up to this many.",
+      },
+      rebuild: {
+        value: 3, min: 0, max: 20, step: 0.5, unit: "×",
+        label: "Rebuilding a wrecked web",
+        info: "How much keener spiders are to re-spin a web that's mostly gone (up to this many times as keen, for a web with nothing left). They'll come from further away to do it, and spin more threads in a row.",
+      },
+      rebuildRange: {
+        value: 14, min: 1, max: 60, step: 0.5, unit: "b",
+        label: "Comes to rebuild from up to",
+        info: "",
       },
     },
   },
@@ -397,6 +440,11 @@ export const schema = {
       dangle: { value: 1.5, min: 0, max: 10, step: 0.5, label: "Dangle", info: "Let itself down on a string for a while." },
       jump: { value: 1.2, min: 0, max: 10, step: 0.5, label: "Jump", info: "Leap across to another web." },
       nap: { value: 0.6, min: 0, max: 10, step: 0.5, label: "Nap", info: "Nod off where it is." },
+      space: {
+        value: 0.9, min: 0, max: 2, step: 0.05, unit: "×",
+        label: "Personal space",
+        info: "How far apart spiders like to sit, next to their size. One sitting too close to another shuffles off a little. 0 = they don't mind piling up.",
+      },
       family: {
         value: 3, min: 0, max: 10, step: 0.5,
         label: "Babies stay close",
@@ -500,12 +548,12 @@ export const schema = {
   emotes: {
     group: "spiders",
     label: "Emotes",
-    info: "Little symbols that pop up over a spider as it feels things: a heart, an angry mark, a !, a sweat drop. What sets them off depends on its personality.",
+    info: "Little symbols that pop up over a spider as it feels things: an angry mark, a !, a ?, a sweat drop, a trail of dots, and hearts when spiders court and lay eggs. What sets them off depends on its personality.",
     params: {
       enabled: { value: true, label: "Show emotes", info: "" },
       size: { value: 0.2, min: 0.05, max: 0.6, step: 0.01, unit: "b", label: "Size", info: "" },
       chance: {
-        value: 0.85, min: 0, max: 1, step: 0.05, unit: "×",
+        value: 0.6, min: 0, max: 1, step: 0.05, unit: "×",
         label: "How chatty",
         info: "Chance a feeling shows as an emote.",
       },
@@ -613,12 +661,12 @@ export const schema = {
         info: "Next to a grown-up.",
       },
       growUpAfter: {
-        value: 20, min: 0.1, max: 480, step: 0.5, unit: "h",
+        value: 2, min: 0.05, max: 480, step: 0.05, unit: "h",
         label: "Grows up over",
         info: "Time spent not hungry that it takes a newborn to grow up.",
       },
       mealGrowth: {
-        value: 0.08, min: 0, max: 1, step: 0.01, unit: "×",
+        value: 0.12, min: 0, max: 1, step: 0.01, unit: "×",
         label: "Growing per meal",
         info: "Each meal also gets a baby this much of the way to grown up.",
       },
@@ -658,9 +706,14 @@ export const schema = {
         info: "No more eggs once the den (counting eggs still to hatch) has this many. Every spider is a whole animated spider, so a lot of them takes a lot of work: see Tools → Detail.",
       },
       nest: {
-        value: 0.8, min: 0, max: 10, step: 0.1,
+        value: 1.4, min: 0, max: 10, step: 0.1,
         label: "Lays eggs by itself, how often",
-        info: "Next to its other habits, for a grown-up that's able to. Fertile spiders more.",
+        info: "Next to its other habits, for a grown-up that's able to, while you're watching. Fertile spiders more.",
+      },
+      awayLay: {
+        value: 1.5, min: 0, max: 20, step: 0.1, unit: "/h",
+        label: "Lays eggs while you're not watching",
+        info: "Clutches an hour, for each grown-up that's able to, while the den's not on screen (or you're away). Still has to wait between clutches.",
       },
       mateRange: {
         value: 5, min: 0, max: 30, step: 0.5, unit: "b",
@@ -713,6 +766,22 @@ export const schema = {
         info: "Then the main spider passes to its oldest child (or the oldest spider left).",
       },
       logMost: { value: 40, min: 5, max: 200, step: 5, label: "Deaths remembered", info: "" },
+    },
+  },
+
+  replays: {
+    group: "life",
+    label: "Death replays",
+    info: "The den films spiders in danger (hunted, in a fight, about to starve or die of old age) and, if one dies, keeps the film for the deaths log. Films are small pictures, saved in this browser.",
+    params: {
+      enabled: { value: true, label: "Film deaths", info: "" },
+      before: { value: 5, min: 1, max: 20, step: 0.5, unit: "s", label: "Keeps the last", info: "How much of what happened before it died." },
+      after: { value: 2.2, min: 0, max: 10, step: 0.1, unit: "s", label: "Carries on after for", info: "" },
+      fps: { value: 12, min: 2, max: 30, step: 1, label: "Pictures a second", info: "" },
+      width: { value: 3.4, min: 1, max: 12, step: 0.1, unit: "b", label: "Shows this much of the den", info: "Across." },
+      pixels: { value: 280, min: 80, max: 800, step: 10, unit: "px", label: "Picture size", info: "Across. Bigger is sharper, and takes more room." },
+      keep: { value: 20, min: 1, max: 100, step: 1, label: "Replays kept", info: "The oldest go first." },
+      most: { value: 4, min: 1, max: 20, step: 1, label: "Films at once, at most", info: "" },
     },
   },
 
@@ -842,6 +911,11 @@ export const schema = {
       dive: { value: 6.5, min: 2, max: 30, step: 0.25, unit: "b/s", label: "Swooping speed", info: "" },
       circle: { value: 1.6, min: 0, max: 8, step: 0.1, unit: "s", label: "Circles for", info: "Before it swoops: time for spiders to notice." },
       tries: { value: 2, min: 1, max: 6, step: 1, label: "Tries", info: "Swoops before it gives up." },
+      carrySpeed: {
+        value: 0.6, min: 0.1, max: 2, step: 0.05, unit: "×",
+        label: "Flying off with a spider",
+        info: "Its speed with a spider in its feet, next to flying. Slower gives you longer to grab the spider back.",
+      },
     },
   },
 
@@ -855,6 +929,11 @@ export const schema = {
       aim: { value: 0.9, min: 0, max: 5, step: 0.05, unit: "s", label: "Takes aim for", info: "" },
       wait: { value: 3, min: 0, max: 20, step: 0.5, unit: "s", label: "Waits between tries", info: "" },
       tries: { value: 3, min: 1, max: 10, step: 1, label: "Tries", info: "" },
+      gulp: {
+        value: 0.9, min: 0, max: 5, step: 0.05, unit: "s",
+        label: "Holds its catch before swallowing",
+        info: "Time to grab the spider back out of its mouth.",
+      },
       full: { value: 0.75, min: 0, max: 1, step: 0.05, unit: "×", label: "Leaves once it has eaten", info: "Chance it hops off after catching one." },
       stay: { value: 25, min: 3, max: 180, step: 1, unit: "s", label: "Stays for", info: "If nothing comes in reach." },
     },

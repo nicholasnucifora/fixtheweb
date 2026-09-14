@@ -389,6 +389,22 @@ function pass(seconds: number, away: boolean) {
   if (away || !watching) for (const egg of state.eggs.filter((e) => e.hatchIn <= 0)) hatch(egg.id);
   for (const [m, cause] of dead) kill(m.id, cause, { away });
   if (away) awayHunts(hours);
+  // On screen, spiders court and lay by themselves (critter.ts); otherwise it happens here.
+  if (away || !watching) layUnseen(hours);
+}
+
+/** Grown-ups that are able to lay eggs, now and then, while nobody's watching the den. */
+function layUnseen(hours: number) {
+  const rate = den.babies.awayLay;
+  if (rate <= 0) return;
+  const able = state.members.filter((m) => canLay(m).ok);
+  for (const m of able) {
+    if (!canLay(m).ok || Math.random() >= 1 - Math.exp(-rate * effect(m.genes, "fertility") * hours)) continue;
+    // Usually with a mate, if there's another grown-up that could.
+    const mates = able.filter((o) => o !== m && canLay(o).ok && !(den.fights.family && family(m, o)));
+    const mate = mates.length && Math.random() > den.babies.solo * 0.5 ? pick(mates) : undefined;
+    layEggs(m.id, 0.15 + Math.random() * 0.7, 0.15 + Math.random() * 0.5, false, mate?.id);
+  }
 }
 
 /** While you were away, predators may have been: each hour, a chance one took a spider. */

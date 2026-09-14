@@ -237,6 +237,19 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
   let work = -1;
   let spinFrom = -1;
   let spinT = 0;
+  /** How it's laying the line it's spinning: walking across, dropping down it, or floating it over. */
+  let spinHow: "walk" | "drop" | "shoot" = "walk";
+  /**
+   * The broken line it's laying (a web's lines are chains of short threads): the threads in order
+   * from where it starts, the nodes along it, how far along it each node is (px), and its length.
+   */
+  let line: { edges: number[]; nodes: number[]; at: number[]; length: number } | null = null;
+  /** Threads of the line laid so far. */
+  let laid = 0;
+  /** Broken threads it couldn't find a way to lately (so it doesn't keep trying), and until when (its time). */
+  const cantReach = new Map<number, number>();
+  /** Getting ready to float a line, seconds so far. */
+  let aiming = 0;
   let streak = 0;
 
   // ── Other spiders, and danger ─────────────────────────────────────────────
@@ -247,6 +260,8 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
   let brawl: Fight | null = null;
   let threat: Vec | null = null;
   let calmIn = 0;
+  /** Seconds until it next checks whether it's sitting on top of someone. */
+  let spaceIn = Math.random() * 1.5;
   let carriedBy: (() => Vec) | null = null;
   let eater: Critter | null = null;
   let eaten = 0;
@@ -411,6 +426,8 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
 
   const letGoOfWork = () => {
     if (work >= 0) world.unclaim(work, me);
+    if (line) for (const e of line.edges) world.unclaim(e, me);
+    line = null;
     work = -1;
     spinFrom = -1;
   };
@@ -433,11 +450,45 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     return Math.max(world.web.webOf(a), world.web.webOf(b));
   };
 
+  /** Another spider sitting (or standing) at (px, py), too close for comfort, if there is one. */
+  const crowdAt = (px: number, py: number) => {
+    const space = den.habits.space;
+    if (space <= 0) return null;
+    for (const c of world.critters) {
+      if (c === me || c.mode !== "web" || (!c.alive && !c.pirate)) continue;
+      const [cx, cy] = c.position;
+      if (Math.hypot(cx - px, cy - py) < (radius() + c.radius()) * space) return c;
+    }
+    return null;
+  };
+  const roomy = (n: number) => !crowdAt(world.web.x(n), world.web.y(n));
+
+  /** Someone's right on top of it: it shuffles off a little way, away from them. */
+  const budge = (from: Critter) => {
+    const web = world.web;
+    const [fx, fy] = from.position;
+    const d = Math.hypot(x - fx, y - fy);
+    // Straight on top: any way will do.
+    const [ux, uy] = d > 1 ? [(x - fx) / d, (y - fy) / d] : [Math.cos(time * 7), Math.sin(time * 7)];
+    const node = web.nodeNear(
+      x + ux * world.unit * 0.6,
+      y + uy * world.unit * 0.6,
+      0,
+      world.unit * 0.9,
+      (n) => roomy(n) && (web.x(n) - x) * ux + (web.y(n) - y) * uy > 0,
+      true,
+    );
+    if (node < 0 || !goTo({ node })) return false;
+    task = "walk";
+    hurry = 0.8;
+    return true;
+  };
+
   const wander = () => {
     const web = world.web;
     const far = den.habits.wanderFar * world.unit;
-    // Anywhere: along a thread, or off along a branch.
-    const node = web.nodeNear(x, y, Math.min(far * 0.3, world.unit * 0.3), far, undefined, true);
+    // Anywhere: along a thread, or off along a branch, that nobody's already sitting on.
+    const node = web.nodeNear(x, y, Math.min(far * 0.3, world.unit * 0.3), far, roomy, true);
     if (node < 0 || !goTo({ node })) return false;
     task = "walk";
     return true;
@@ -448,9 +499,11 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     // Its own web's middle, or off a branch, the nearest web's.
     const nearest = () =>
       web.hubs.reduce((best, h) => (!best || Math.hypot(web.x(h.node) - x, web.y(h.node) - y) < Math.hypot(web.x(best.node) - x, web.y(best.node) - y) ? h : best), web.hubs[0]);
-    const hub = (web.hubs[myWeb()] ?? nearest())?.node ?? -1;
+    let hub = (web.hubs[myWeb()] ?? nearest())?.node ?? -1;
     if (hub < 0 || !web.held(hub) || Math.hypot(web.x(hub) - x, web.y(hub) - y) < world.unit * 0.2) return false;
-    if (!goTo({ node: hub })) return false;
+    // Someone's already sitting in the middle: somewhere just off it.
+    if (!roomy(hub)) hub = web.nodeNear(web.x(hub), web.y(hub), world.unit * 0.25, world.unit * 0.8, roomy);
+    if (hub < 0 || !goTo({ node: hub })) return false;
     task = "walk";
     return true;
   };
@@ -460,7 +513,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     if (!parent || parent.mode !== "web") return false;
     const [px, py] = parent.position;
     if (Math.hypot(px - x, py - y) < world.unit * 0.8) return false;
-    const node = world.web.nodeNear(px, py, 0, world.unit * 0.9);
+    const node = world.web.nodeNear(px, py, world.unit * 0.3, world.unit * 0.9, roomy);
     if (node < 0 || !goTo({ node })) return false;
     task = "walk";
     return true;
@@ -479,6 +532,8 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
   };
 
   const startNap = () => {
+    // Not in a pile.
+    if (crowdAt(x, y)) return false;
     task = "nap";
     timer = between(den.habits.napFrom, den.habits.napTo) * (1 + elder());
     toward = -1;
@@ -577,23 +632,114 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     const r = den.repair;
     if (pirate || !r.enabled || !den.health.enabled) return false;
     const web = world.web;
-    const free = (edge: number) => world.claim(edge, me) && (world.unclaim(edge, me), true);
-    const e = near ?? web.brokenNear(x, y, r.range * world.unit, free);
+    const free = (edge: number) => (cantReach.get(edge) ?? 0) < time && world.claim(edge, me) && (world.unclaim(edge, me), true);
+    // Nothing broken nearby: a web that's been wrecked, further off, is worth the walk.
+    const e = near ?? (() => {
+      const close = web.brokenNear(x, y, r.range * world.unit, free);
+      if (close >= 0 || r.rebuild <= 0) return close;
+      const far = web.brokenNear(x, y, r.rebuildRange * world.unit, free);
+      if (far < 0) return -1;
+      const [a, b] = web.ends(far);
+      return web.brokenShare(Math.max(web.webOf(a), web.webOf(b))) > 0.35 ? far : -1;
+    })();
     if (e < 0 || !world.claim(e, me)) return false;
     const [a, b] = web.ends(e);
     const ends = [a, b].filter((n) => web.held(n)).sort((p, q) => Math.hypot(web.x(p) - x, web.y(p) - y) - Math.hypot(web.x(q) - x, web.y(q) - y));
     for (const from of ends) {
-      if (nodeHere() === from || goTo({ node: from })) {
+      const here = nodeHere() === from;
+      if (here || goTo({ node: from })) {
         work = e;
         spinFrom = from;
-        spinT = 0;
         task = "spin";
-        phase = nodeHere() === from ? "do" : "go";
+        if (here) startLine();
+        else phase = "go";
         return true;
       }
     }
+    cantReach.set(e, time + 25);
     world.unclaim(e, me);
     return false;
+  };
+
+  /**
+   * The broken line that starts with thread `e` from node `from`: on through nodes nothing else holds
+   * up, along threads of the same kind going (near enough) the same way, to where it ties on to
+   * something, or runs out. It claims the threads as it goes.
+   */
+  const brokenLine = (from: number, e: number) => {
+    const web = world.web;
+    const kind = web.kindOf(e);
+    const edges = [e];
+    const nodes = [from, web.other(e, from)];
+    while (edges.length < 32) {
+      const here = nodes[nodes.length - 1];
+      if (web.held(here)) break;
+      const prev = nodes[nodes.length - 2];
+      const dx = web.x(here) - web.x(prev);
+      const dy = web.y(here) - web.y(prev);
+      const dl = Math.hypot(dx, dy) || 1;
+      let best = -1;
+      let straightest = Math.cos(40 * DEG);
+      for (const next of web.linksOf(here)) {
+        if (web.isAlive(next) || !web.isSilk(next) || web.kindOf(next) !== kind || edges.includes(next)) continue;
+        const other = web.other(next, here);
+        const ox = web.x(other) - web.x(here);
+        const oy = web.y(other) - web.y(here);
+        const dot = (ox * dx + oy * dy) / ((Math.hypot(ox, oy) || 1) * dl);
+        if (dot > straightest) {
+          best = next;
+          straightest = dot;
+        }
+      }
+      if (best < 0 || !world.claim(best, me)) break;
+      edges.push(best);
+      nodes.push(web.other(best, here));
+    }
+    const at = [0];
+    for (const edge of edges) at.push(at[at.length - 1] + web.length(edge));
+    return { edges, nodes, at, length: at[at.length - 1] };
+  };
+
+  /** How to lay the line: float it across a long gap to something it'll catch on, drop down it to somewhere below, or walk it across. */
+  const howToSpin = (): typeof spinHow => {
+    if (!line) return "walk";
+    const web = world.web;
+    const from = line.nodes[0];
+    const end = line.nodes[line.nodes.length - 1];
+    if (web.held(end) && line.length >= den.repair.shootFrom * world.unit) return "shoot";
+    if (web.y(end) - web.y(from) > line.length * 0.6 && line.length >= world.unit * 0.5) return "drop";
+    return "walk";
+  };
+
+  /** It's where the broken thread it's re-spinning starts: works out the line to lay, and how. */
+  const startLine = () => {
+    if (line) for (const e of line.edges) if (e !== work) world.unclaim(e, me);
+    line = brokenLine(spinFrom, work);
+    laid = 0;
+    spinT = 0;
+    aiming = 0;
+    phase = "do";
+    spinHow = howToSpin();
+  };
+
+  /** A puff of silk, all at once (a floated line catching). */
+  const silkBurst = (at: Vec, count = 8) => {
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+      const speed = world.unit * (0.5 + Math.random() * 0.7);
+      world.particles.spawn({
+        x: at[0],
+        y: at[1],
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: world.unit * 0.05,
+        width: 1.2,
+        life: 0.45,
+        drag: 5,
+        gravity: world.unit * 0.2,
+        shrink: 0.5,
+      });
+    }
   };
 
   /** Silk dust off its spinnerets while it works. */
@@ -664,9 +810,23 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     }
     if (Math.random() > den.babies.solo) return false;
     world.layEggs(me, null);
-    emote("sparkle");
+    emote("heart", true);
     mood.feel("content", 2);
     return true;
+  };
+
+  /** How wrecked its own web (or the nearest one) is, 0 to 1: the more it is, the keener it is to rebuild. */
+  const wreckNear = () => {
+    const web = world.web;
+    let w = myWeb();
+    if (w < 0) {
+      const hub = web.hubs.reduce<{ node: number; d: number } | null>((best, h, i) => {
+        const d = Math.hypot(web.x(h.node) - x, web.y(h.node) - y);
+        return !best || d < best.d ? { node: i, d } : best;
+      }, null);
+      w = hub?.node ?? -1;
+    }
+    return w >= 0 ? web.brokenShare(w) : 0;
   };
 
   /** What next? Hunt if it's hungry and something's stuck nearby, otherwise one of its habits. */
@@ -690,7 +850,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
       [h.nap * (1.6 - 1.2 * energy) * (1 + elder()), startNap],
       [baby ? h.family : 0, goFamily],
       [grownUp(member) ? r.mend * (0.2 + 1.6 * tidy) : 0, startMend],
-      [grownUp(member) ? r.spin * (0.2 + 1.6 * tidy) : 0, startSpin],
+      [grownUp(member) ? r.spin * (0.2 + 1.6 * tidy) * (1 + r.rebuild * wreckNear()) : 0, startSpin],
       [grownUp(member) ? den.babies.nest * effect(member.genes, "fertility") * (0.5 + energy) : 0, tryNest],
     ];
     let roll = Math.random() * choices.reduce((sum, [w]) => sum + Math.max(0, w), 0);
@@ -801,7 +961,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
           web.mend(work, den.repair.rate * silkStrength() * quickness() * dt, silkStrength());
           silkDust(web.point(spot));
           if (web.healthOf(work) >= 0.99) {
-            emote("sparkle");
             const next = web.frayedNear(x, y, world.unit * 1.2, den.repair.below, (e) => e !== work && world.claim(e, me) && (world.unclaim(e, me), true));
             if (next >= 0 && ++streak < den.repair.streak) {
               letGoOfWork();
@@ -817,7 +976,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
         }
         break;
       case "spin":
-        if (web.isAlive(work)) {
+        if (web.isAlive(work) && (phase === "go" || laid === 0)) {
           // Someone else got there first.
           if (phase === "do") settle({ edge: work, t: web.ends(work)[0] === spinFrom ? 1 : 0 });
           else rest(0.5);
@@ -825,37 +984,102 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
         }
         if (phase === "go") {
           if (walk(speed * dt)) {
-            if (nodeHere() === spinFrom) {
-              phase = "do";
-              spinT = 0;
-            } else rest(0.5);
+            if (nodeHere() === spinFrom) startLine();
+            else rest(0.5);
           }
           break;
         }
         {
-          if (!web.held(spinFrom)) return fall();
-          const len = Math.max(1, web.length(work));
-          spinT = Math.min(1, spinT + (den.repair.spinSpeed * world.unit * quickness() * dt) / len);
-          const to = web.other(work, spinFrom);
-          x = web.x(spinFrom) + (web.x(to) - web.x(spinFrom)) * spinT;
-          y = web.y(spinFrom) + (web.y(to) - web.y(spinFrom)) * spinT;
+          if (!web.held(spinFrom) || !line) return fall();
+          const r = den.repair;
+          const last = line.nodes[line.nodes.length - 1];
+          const total = Math.max(1, line.length);
+          const [fx, fy] = [web.x(spinFrom), web.y(spinFrom)];
+          const [ex, ey] = [web.x(last), web.y(last)];
+          if (spinHow === "shoot") {
+            // It stays put, rears up, and lets a line drift across on the breeze until it snags.
+            x = fx;
+            y = fy;
+            walking = 0;
+            vx = vy = 0;
+            if (!web.held(last)) {
+              // Nothing to catch on over there any more.
+              lean = 0;
+              rest(0.5);
+              break;
+            }
+            const side = ex >= fx ? 1 : -1;
+            if (aiming < r.aim) {
+              aiming += dt;
+              lean = -side * 14 * DEG * Math.min(1, aiming / 0.25);
+              if (Math.random() < dt * 10) silkDust([fx, fy]);
+              return;
+            }
+            // It slows as it drifts, like something carried on the air.
+            spinT = Math.min(1, spinT + ((r.shootSpeed * world.unit * dt) / total) * (0.45 + 1.1 * (1 - spinT)));
+            lean += (side * 6 * DEG - lean) * Math.min(1, dt * 10);
+            if (spinT < 1) return;
+            // Caught: a twang, and it's a line (a thin one). Now to walk out along it and make it strong.
+            const first = line.edges[0];
+            for (const e of line.edges) {
+              web.restore(e, r.shootHealth, silkStrength());
+              world.unclaim(e, me);
+            }
+            const [nx, ny] = [-(ey - fy) / total, (ex - fx) / total];
+            web.push(ex, ey, nx * world.unit * 3, ny * world.unit * 3);
+            web.push((fx + ex) / 2, (fy + ey) / 2, -nx * world.unit * 4, -ny * world.unit * 4, total * 0.6);
+            silkBurst([ex, ey]);
+            lean = 0;
+            line = null;
+            work = -1;
+            spot = { edge: first, t: web.ends(first)[0] === spinFrom ? 0 : 1 };
+            if (world.claim(first, me) && goTo({ goal: { edge: first, t: 0.5 } })) {
+              work = first;
+              task = "mend";
+              phase = "go";
+            } else rest(between(0.5, 1));
+            return;
+          }
+          // Walking it across, or dropping down it, laying the line as it goes.
+          const dropping = spinHow === "drop";
+          spinT = Math.min(1, spinT + ((dropping ? r.dropSpeed : r.spinSpeed) * world.unit * quickness() * dt) / total);
+          // Dropping, it eases off and brakes at the bottom.
+          const along = (dropping ? spinT * spinT * (3 - 2 * spinT) : spinT) * total;
+          let i = 0;
+          while (i < line.edges.length - 1 && line.at[i + 1] <= along) i++;
+          // Each thread behind it is laid as it passes the end of it.
+          for (; laid < i; laid++) {
+            web.restore(line.edges[laid], r.spinHealth, silkStrength());
+            world.unclaim(line.edges[laid], me);
+          }
+          const [a, b] = [line.nodes[i], line.nodes[i + 1]];
+          const k = clamp((along - line.at[i]) / Math.max(1e-6, line.at[i + 1] - line.at[i]), 0, 1);
+          // Crossing in the air, it sags a little on its own line.
+          const sag = dropping ? 0 : Math.sin(Math.PI * spinT) * Math.min(total * 0.12, world.unit * 0.3);
+          x = web.x(a) + (web.x(b) - web.x(a)) * k;
+          y = web.y(a) + (web.y(b) - web.y(a)) * k + sag;
           silkDust([x, y]);
           if (spinT >= 1) {
-            const done = work;
-            web.restore(done, den.repair.spinHealth, silkStrength());
-            world.unclaim(done, me);
+            for (; laid < line.edges.length; laid++) {
+              web.restore(line.edges[laid], r.spinHealth, silkStrength());
+              world.unclaim(line.edges[laid], me);
+            }
+            const done = line.edges[line.edges.length - 1];
+            line = null;
             work = -1;
-            spot = { edge: done, t: web.ends(done)[0] === to ? 0 : 1 };
+            spot = { edge: done, t: web.ends(done)[0] === last ? 0 : 1 };
             web.push(x, y, 0, world.unit * 1.5);
-            // Carry on with the next broken thread from here, if there is one.
-            const next = web.brokenAt(to).find((e) => world.claim(e, me) && (world.unclaim(e, me), true));
-            if (next !== undefined && ++streak < den.repair.streak && startSpin(next)) break;
-            if (streak > 2) emote("sparkle");
+            // Carry on with the next broken thread from about here, if there is one.
+            const next = web.brokenNear(x, y, world.unit * 1.5, (e) => world.claim(e, me) && (world.unclaim(e, me), true));
+            // Rebuilding a wreck, it keeps going for longer.
+            const wrecked = web.brokenShare(Math.max(web.webOf(spinFrom), web.webOf(last)));
+            const most = den.repair.streak * (1 + den.repair.rebuild * wrecked);
+            if (next >= 0 && ++streak < most && startSpin(next)) break;
             streak = 0;
             rest(between(0.6, 1.6));
           }
-          walkPhase += dt * 12;
-          walking = 1;
+          walkPhase += dropping ? 0 : dt * 12;
+          walking = dropping ? 0 : 1;
           if (dt > 0) {
             vx = 0;
             vy = 0;
@@ -950,6 +1174,13 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
           checkIn = 1.2;
           if (tryHunt()) return;
           if (tryStalk()) return;
+        }
+        // Sitting right on top of someone? After a moment, it shuffles along.
+        spaceIn -= dt;
+        if (spaceIn <= 0 && task === "rest") {
+          spaceIn = between(0.8, 1.8);
+          const other = crowdAt(x, y);
+          if (other && other.task !== "court" && !other.fighting && budge(other)) break;
         }
         if (timer <= 0) decide();
       }
@@ -1306,7 +1537,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     if (now === lastFace) return;
     lastFace = now;
     const temper = trait("temper");
-    const thrill = trait("thrill");
     switch (now) {
       case "angry":
         emote("anger");
@@ -1323,13 +1553,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
         if (temper > 0.65) emote("anger");
         else emote("sweat");
         break;
-      case "excited":
-        emote(thrill > 0.6 ? "heart" : "note");
-        break;
-      case "happy":
-      case "content":
-        emote(Math.random() < 0.5 ? "note" : "heart");
-        break;
       case "dizzy":
         emote("question");
         break;
@@ -1343,6 +1566,50 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
         if (Math.random() < 0.4) emote("dots");
         break;
     }
+  };
+
+  /**
+   * A line it's floating across a gap, drifting out from it to where it'll catch: bowed up on the
+   * breeze, fluttering most at its loose end, with a little tuft of silk on the end.
+   */
+  const drawFloatingLine = (ctx: CanvasRenderingContext2D, ink: string) => {
+    const web = world.web;
+    if (!line) return;
+    const to = line.nodes[line.nodes.length - 1];
+    const [fx, fy] = toDoc([web.x(spinFrom), web.y(spinFrom)]);
+    const [tx, ty] = toDoc([web.x(to), web.y(to)]);
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const len = Math.hypot(dx, dy) || 1;
+    // The side of the line that's up (or, for a line straight down, one side).
+    let [nx, ny] = [-dy / len, dx / len];
+    if (ny > 0 || (Math.abs(ny) < 0.2 && nx < 0)) [nx, ny] = [-nx, -ny];
+    const bow = Math.min(len * 0.2, world.unit * 0.9);
+    const flutter = world.unit * 0.05;
+    const pts: { x: number; y: number }[] = [];
+    const steps = Math.max(6, Math.round(len / 10));
+    for (let i = 0; i <= steps; i++) {
+      const u = (i / steps) * spinT;
+      const lift = Math.sin(Math.PI * u) * bow + Math.sin(time * 15 - u * 22) * flutter * (u / Math.max(0.05, spinT));
+      pts.push({ x: fx + dx * u + nx * lift, y: fy + dy * u + ny * lift });
+    }
+    ctx.save();
+    ctx.strokeStyle = threadStyle(ctx, shown.thread, pts, ink);
+    ctx.globalAlpha = Math.min(1, den.webs.opacity * 1.6);
+    ctx.lineWidth = den.webs.thickness;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+    const tip = pts[pts.length - 1];
+    ctx.fillStyle = ink;
+    ctx.globalAlpha *= 0.7;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(tip.x + Math.cos(time * 9 + i * 2.1) * world.unit * 0.02, tip.y + Math.sin(time * 9 + i * 2.1) * world.unit * 0.02, world.unit * 0.018, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   };
 
   // ── Keeping its drawing and mood up to date ───────────────────────────────
@@ -1486,6 +1753,12 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
 
     grab(px: number, py: number) {
       held = true;
+      if (mode === "carried") {
+        // Snatched back from a bird or a frog.
+        carriedBy = null;
+        mood.feel("panicked", 1.5);
+        emote("sweat", true);
+      }
       hand.x = px;
       hand.y = py;
       if (task === "nap") wake();
@@ -1608,7 +1881,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
       chew = 1.6;
       animations.mouthOpen(1);
       mood.feel("content", 3);
-      emote(pirate ? "skull" : "heart");
+      if (pirate) emote("skull");
     },
 
     /** A trick or mood from the wardrobe. Abseiling in is dangling here. */
@@ -1624,7 +1897,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     /** Lay eggs: a proud moment. */
     proud() {
       mood.feel("excited", 1.5);
-      emote("sparkle", true);
+      emote("heart", true);
     },
 
     // ── Other spiders and danger (called by world.ts) ──
@@ -1953,9 +2226,12 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
         drawString(ctx, pts, 1.25);
         ctx.restore();
       }
-      if (task === "spin" && phase === "do" && spinFrom >= 0) {
+      if (task === "spin" && phase === "do" && line && spinHow === "shoot") {
+        if (aiming >= den.repair.aim) drawFloatingLine(ctx, ink);
+      } else if (task === "spin" && phase === "do" && line) {
         const web = world.web;
-        const [fx, fy] = toDoc([web.x(spinFrom), web.y(spinFrom)]);
+        const from = line.nodes[Math.min(laid, line.nodes.length - 1)];
+        const [fx, fy] = toDoc([web.x(from), web.y(from)]);
         const [tx, ty] = toDoc([x, y]);
         ctx.save();
         const pts = [
@@ -2067,7 +2343,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
       if (den.tools.stats && !pirate) {
         const g = member.genes;
         const lines = [
-          `${task}${phase === "do" ? "·" : ""} food ${Math.round(member.fullness * 100)}% life ${Math.round(lifeDone(member) * 100)}%`,
+          `${task}${task === "spin" ? ` (${spinHow})` : ""}${phase === "do" ? "·" : ""} food ${Math.round(member.fullness * 100)}% life ${Math.round(lifeDone(member) * 100)}%`,
           `spd ${g.speed.toFixed(2)} eat ${g.appetite.toFixed(2)} silk ${g.silk.toFixed(2)} str ${g.strength.toFixed(2)}`,
           `tmp ${member.personality.temper.toFixed(2)} thr ${member.personality.thrill.toFixed(2)} nrv ${member.personality.nerve.toFixed(2)} agg ${member.personality.aggression.toFixed(2)}`,
         ];

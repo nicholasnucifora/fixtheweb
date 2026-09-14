@@ -44,6 +44,16 @@ export interface Break {
 }
 
 /** A place on a thread: `t` is how far along edge `edge`, from its first node to its second. */
+/**
+ * When each kind of thread is spun, rebuilding a web, by Kind: the way an orb weaver builds one. First
+ * the bridge line it floats across a gap, then the anchors tying the web to things, the frame between
+ * them, the spokes out from the hub, the spiral (from the outside in), and cobwebs last.
+ */
+const STAGE = [3, 4, 2, 1, 0, 5, 9];
+
+/** How much each kind of thread holds the web up (so how easily a break next to it takes it too), by Kind. */
+const LOAD = [0.8, 0.35, 1, 1, 0.9, 0.5, 0];
+
 export interface Spot {
   edge: number;
   t: number;
@@ -117,6 +127,8 @@ export class Web {
   private tough = new Float32Array(0);
   private alive = new Uint8Array(0);
   private breaks: Break[] = [];
+  /** Threads jolted by a break next to them, about to go too: how long until they do, and how hard the jolt was. */
+  private shaken: { edge: number; in: number; strength: number }[] = [];
   /** Something broke since the last check for pieces left hanging from nothing. */
   private loose = false;
 
@@ -739,14 +751,46 @@ export class Web {
     }
   }
 
-  /** Breaks a silk thread at `t` along it. */
-  cut(e: number, t = 0.5) {
+  /** Breaks a silk thread at `t` along it. `strength`: how hard the jolt it gives the threads tied to it is (1 for a break of its own). */
+  cut(e: number, t = 0.5, strength = 1) {
     if (!this.isSilk(e) || !this.alive[e]) return;
     this.alive[e] = 0;
     this.health[e] = 0;
     const [a, b] = [this.ea[e], this.eb[e]];
     this.breaks.push({ edge: e, a: [this.x(a), this.y(a)], b: [this.x(b), this.y(b)], t, heldA: this.held(a) ? a : -1, heldB: this.held(b) ? b : -1, falls: false });
     this.loose = true;
+    this.jolt(e, strength);
+  }
+
+  /**
+   * A thread's just snapped: the threads tied where it was take the jolt, and may snap a moment later
+   * too, each giving a weaker jolt of its own. Worn threads and the ones holding the web up (anchors,
+   * the frame, spokes) go most easily, so an old web can come down in a chain; a healthy one mostly holds.
+   */
+  private jolt(e: number, strength: number) {
+    const b = den.breaking;
+    if (b.cascade <= 0 || strength < 0.05) return;
+    for (const n of [this.ea[e], this.eb[e]]) {
+      // The scenery takes a jolt without passing it on.
+      if (this.pinned[n]) continue;
+      for (const other of this.links[n]) {
+        if (other === e || !this.alive[other] || this.kind[other] === Kind.Support) continue;
+        if (this.shaken.some((s) => s.edge === other)) continue;
+        const worn = 1 - Math.max(0, Math.min(1, this.health[other]));
+        const odds = (b.cascade * strength * LOAD[this.kind[other]] * (0.12 + 0.88 * worn * worn)) / Math.max(0.3, this.tough[other]);
+        if (Math.random() >= odds) continue;
+        this.shaken.push({ edge: other, in: b.cascadeFrom + Math.random() * Math.max(0, b.cascadeTo - b.cascadeFrom), strength: strength * b.cascadeFade });
+      }
+    }
+  }
+
+  /** Snaps the threads a break jolted, once their moment comes. */
+  stepBreaks(dt: number) {
+    if (!this.shaken.length) return;
+    const due: typeof this.shaken = [];
+    for (const s of this.shaken) if ((s.in -= dt) <= 0) due.push(s);
+    this.shaken = this.shaken.filter((s) => s.in > 0);
+    for (const s of due) this.cut(s.edge, 0.2 + Math.random() * 0.6, s.strength);
   }
 
   /** Mends a thread by `amount` of health, working in silk as tough as `silk`. */
@@ -781,6 +825,18 @@ export class Web {
     const out = this.breaks;
     this.breaks = [];
     return out;
+  }
+
+  /** How broken web `w` is: the share of its threads that are gone. */
+  brokenShare(w: number) {
+    let all = 0;
+    let dead = 0;
+    for (let e = 0; e < this.ea.length; e++) {
+      if (this.kind[e] === Kind.Support || (this.nodeWeb[this.ea[e]] !== w && this.nodeWeb[this.eb[e]] !== w)) continue;
+      all++;
+      if (!this.alive[e]) dead++;
+    }
+    return all ? dead / all : 0;
   }
 
   /** Breaks every thread no longer joined, through unbroken threads, to anything that holds the web up. */
@@ -835,31 +891,41 @@ export class Web {
   }
 
   /**
-   * A broken thread within `range` px of (x, y) with an end still held (so it can be spun from
-   * there) that passes `ok`: the nearest, or −1. Anchors and frames come first, the way a web's built.
+   * The next broken thread to spin within `range` px of (x, y) that passes `ok`, or −1. It needs an
+   * end still held, to be spun from. Threads go in the order a web's built (see STAGE): nothing from a
+   * later stage while an earlier one's still to do in the same web, the spiral from the outside in,
+   * and otherwise the nearest (a thread that already has both ends to tie to, a little sooner).
    */
   brokenNear(x: number, y: number, range: number, ok: (e: number) => boolean) {
-    let best = -1;
-    let bestScore = Infinity;
-    const order = [3, 0, 2, 4, 1, 5];
+    const found: { e: number; w: number; stage: number; score: number }[] = [];
     this.edgesNear(x, y, x, y, range, (e) => {
       if (this.alive[e] || this.kind[e] === Kind.Support || !ok(e)) return;
-      if (!this.held(this.ea[e]) && !this.held(this.eb[e])) return;
+      const [a, b] = [this.ea[e], this.eb[e]];
+      const heldA = this.held(a);
+      const heldB = this.held(b);
+      if (!heldA && !heldB) return;
       const [mx, my] = this.point({ edge: e, t: 0.5 });
       const d = Math.hypot(mx - x, my - y);
       if (d > range) return;
-      const score = d + order.indexOf(this.kind[e]) * this.unit * 0.4;
-      if (score < bestScore) {
-        best = e;
-        bestScore = score;
+      const w = Math.max(this.nodeWeb[a], this.nodeWeb[b]);
+      let score = d - (heldA && heldB ? this.unit * 0.3 : 0);
+      const hub = this.hubs[w];
+      if (this.kind[e] === Kind.Spiral && hub) {
+        const out = Math.hypot(mx - this.bx[hub.node], my - this.by[hub.node]) / Math.max(1, hub.radius);
+        score -= out * this.unit * 1.2;
       }
+      found.push({ e, w, stage: STAGE[this.kind[e]], score });
     });
+    const first = new Map<number, number>();
+    for (const f of found) first.set(f.w, Math.min(first.get(f.w) ?? Infinity, f.stage));
+    let best = -1;
+    let bestScore = Infinity;
+    for (const f of found) {
+      if (f.stage > first.get(f.w)! || f.score >= bestScore) continue;
+      best = f.e;
+      bestScore = f.score;
+    }
     return best;
-  }
-
-  /** The broken threads at node `n` (for carrying on spinning from where the last one ended). */
-  brokenAt(n: number) {
-    return this.links[n].filter((e) => !this.alive[e] && this.kind[e] !== Kind.Support);
   }
 
   /** How much of the web is broken, and how frayed it is on average (for the numbers overlay). */

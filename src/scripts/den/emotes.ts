@@ -1,12 +1,12 @@
 import { den } from "./config";
 
 /**
- * Little symbols that pop up over a Spider Den spider as it feels something: a heart, an angry
- * mark, a !, a ?, a sweat drop, a musical note, a sparkle, a tear, or a trail of dots. Each pops in,
- * drifts up and fades. Drawn flat, in the site's colours, like everything else on the canvas.
+ * Little symbols that pop up over a Spider Den spider as it feels something: a heart (courting and
+ * laying eggs), an angry mark, a !, a ?, a sweat drop, a tear, a trail of dots, or a skull (a pirate
+ * spider). Each pops in, drifts up and fades. Drawn flat, in the site's colours, like everything else on the canvas.
  */
 
-export type Emote = "heart" | "anger" | "alarm" | "question" | "sweat" | "note" | "sparkle" | "tear" | "dots" | "skull";
+export type Emote = "heart" | "anger" | "alarm" | "question" | "sweat" | "tear" | "dots" | "skull";
 
 interface Shown {
   kind: Emote;
@@ -74,7 +74,6 @@ export function createEmotes() {
 
 const CORAL = "#e8705a";
 const RED = "#d9473f";
-const GOLD = "#f0b43c";
 const BLUE = "#5b9bd5";
 
 /** One emote, centred on 0, 0, about `size` tall. */
@@ -135,9 +134,6 @@ function drawEmote(ctx: CanvasRenderingContext2D, kind: Emote, size: number, age
     case "question":
       glyph("?", colors.ink);
       break;
-    case "note":
-      glyph("♪", colors.accent, 1.4);
-      break;
     case "dots": {
       const n = 1 + Math.floor((age * 3) % 3);
       for (let i = 0; i < n; i++) {
@@ -156,19 +152,6 @@ function drawEmote(ctx: CanvasRenderingContext2D, kind: Emote, size: number, age
       p.bezierCurveTo(-s * 0.7, 0, -s * 0.2, -s * 0.4, 0, -s);
       if (kind === "tear") ctx.translate(0, age * s * 0.8);
       outline(p, BLUE);
-      break;
-    }
-    case "sparkle": {
-      const p = new Path2D();
-      for (let i = 0; i < 8; i++) {
-        const a = (i * Math.PI) / 4 - Math.PI / 2;
-        const d = i % 2 ? s * 0.28 : s;
-        if (i) p.lineTo(Math.cos(a) * d, Math.sin(a) * d);
-        else p.moveTo(Math.cos(a) * d, Math.sin(a) * d);
-      }
-      p.closePath();
-      ctx.rotate(age * 2);
-      outline(p, GOLD);
       break;
     }
     case "skull": {

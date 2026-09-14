@@ -1,6 +1,7 @@
 import { parseLook } from "../spider-string/look";
 import type { Look } from "../spider-string/wardrobe";
 import { den } from "./config";
+import { forgetReplays } from "./replays";
 
 /**
  * The Spider Den's log of spiders that have died, newest first, saved in this browser so that if the
@@ -76,6 +77,7 @@ export const unseen = () => log.filter((d) => d.at > seen).length;
 export function remember(death: Death) {
   log = [death, ...log].slice(0, Math.max(1, Math.round(den.dying.logMost)));
   store(KEY, JSON.stringify(log));
+  forgetReplays(new Set(log.map((d) => d.id)));
   document.dispatchEvent(new CustomEvent(DEATHS_EVENT));
 }
 
@@ -88,6 +90,7 @@ export function markSeen() {
 export function clearLog() {
   log = [];
   store(KEY, "[]");
+  forgetReplays();
   document.dispatchEvent(new CustomEvent(DEATHS_EVENT));
 }
 
