@@ -412,9 +412,9 @@ const styles = `
   .title { font-size: 13px; }
   .status { color: var(--muted); }
   .actions { display: flex; gap: 6px; margin-top: 8px; }
-  .tabs { display: flex; margin: 8px -12px -11px; }
+  .tabs { display: flex; flex-wrap: wrap; margin: 8px -12px -11px; }
   .tab {
-    flex: 1; font: 600 12px/1 system-ui, sans-serif; color: var(--muted); background: none;
+    flex: 1 0 auto; font: 600 12px/1 system-ui, sans-serif; color: var(--muted); background: none;
     border: none; border-bottom: 2px solid transparent; padding: 9px 4px; cursor: pointer;
   }
   .tab:hover { color: var(--fg); }

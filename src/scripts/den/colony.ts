@@ -1,59 +1,89 @@
 import { LOOK_EVENT, keepUnlocked, parseLook, putOn, setLook, trying, worn } from "../spider-string/look";
-import { PATTERNS, SKINS, blankLook, type Look } from "../spider-string/wardrobe";
+import { blankLook, type Look } from "../spider-string/wardrobe";
 import { den } from "./config";
+import { type Cause, type Death, remember } from "./deaths";
+import {
+  type Genes,
+  type Personality,
+  effect,
+  hungerRate,
+  inherit,
+  parseGenes,
+  parsePersonality,
+  randomGenes,
+  randomPersonality,
+} from "./genes";
+import { predatorsAmount, settings } from "./settings";
 
 /**
  * The Spider Den's spiders: every one you have, saved in this browser.
  *
  * One of them is the main spider: the one worn all over the site. Its look is look.ts's `worn`, so
  * the logo's spider, the header's and the den's all stay the same spider. The rest live only in the
- * den. Each has its own look, how old it is, how full, how grown up, and how plump from eating.
+ * den. Each has its own look, genes and personality (genes.ts), how old it is, how full, how grown
+ * up, and how plump from eating.
  *
- * Hunger, growing up and slimming down are worked out from timestamps, so they carry on while
- * you're away. Also here: egg sacs waiting to hatch, and which spider is picked, if any.
+ * Time in the den runs on its own clock: real time, sped up by the den's life speed (tuning) and
+ * time speed (its settings). It keeps going while the page is open, and when you come back after
+ * being away, the time you missed is caught up on at ordinary speed (up to a limit): spiders get
+ * hungry, grow up, grow old, starve or die of old age, eggs hatch, and now and then a predator
+ * has been. Deaths go in the log (deaths.ts).
  *
- * The wardrobe dresses the picked spider. With none picked, the Dress up view dresses the main
- * spider (`dressMain`), and the den's wardrobe dresses nobody: its pictures show a plain spider, and
- * clothes are dragged onto whoever should wear them (`dressSpider`).
+ * Also here: egg sacs waiting to hatch, and which spider is picked, if any. The wardrobe dresses the
+ * picked spider. With none picked, the Dress up view dresses the main spider (`dressMain`), and the
+ * den's wardrobe dresses nobody: clothes are dragged onto whoever should wear them (`dressSpider`).
  */
 
 const COLONY_KEY = "spider:colony";
 /** Announced on the document when spiders arrive, leave, change or are picked (here or in another tab). */
 export const COLONY_EVENT = "den:colony";
+/** Announced when a spider dies of hunger or old age (detail: { id, cause }), before it's gone. */
+export const DIED_EVENT = "den:died";
 
-const HOUR = 3600_000;
+const HOUR = 3600;
 
 export interface Member {
   id: string;
   look: Look;
-  /** When it hatched, ms. */
+  genes: Genes;
+  personality: Personality;
+  /** When it hatched (real time, ms), for showing. */
   born: number;
+  /** How long it's lived, den hours. */
+  age: number;
+  /** Where in the lifespan range it falls, 0–1, fixed for life. */
+  lifeRoll: number;
   /** 0 newborn → 1 grown up. */
   growth: number;
   /** 0 empty → 1 full. */
   fullness: number;
   /** Extra size from eating, as a fraction (grown-ups only). */
   plump: number;
-  /** When it last ran out of food, ms, or 0 while it has some. */
-  emptySince: number;
-  /** When the numbers above were last brought up to date, ms. */
-  at: number;
+  /** How long it's been empty, den hours. */
+  starving: number;
+  /** Den hours before it can lay eggs again. */
+  cooldown: number;
   main: boolean;
-  /** Whoever laid it. */
+  /** Whoever laid it, and the other parent. */
   parent?: string;
-  /** When it last laid eggs, ms. */
-  laid: number;
+  mate?: string;
+  generation: number;
   meals: number;
+  /** Spiders it's eaten. */
+  kills: number;
 }
 
 export interface Egg {
   id: string;
   parent: string;
+  mate?: string;
+  /** What the parents were like when it was laid, so the babies take after them even if they've gone. */
+  parents: { genes: Genes; personality: Personality; generation: number; look: Look }[];
   /** Where it hangs, as fractions of the den's width and height, so it survives a resize. */
   x: number;
   y: number;
-  /** When it hatches, ms (life speed already counted), and how many are in it. */
-  hatch: number;
+  /** Den seconds until it hatches, and how many are in it. */
+  hatchIn: number;
   count: number;
 }
 
@@ -61,12 +91,17 @@ interface Saved {
   members: Member[];
   eggs: Egg[];
   picked: string | null;
+  /** Real time the den was last brought up to date, ms. */
+  savedAt: number;
 }
 
 const NAMES = [
   "Itsy", "Bitsy", "Pip", "Dot", "Nibbles", "Twig", "Fuzz", "Silky", "Loop", "Knot", "Bean", "Pebble",
   "Wisp", "Noodle", "Crumb", "Button", "Sprout", "Tangle", "Doodle", "Mote", "Sesame", "Jitter",
   "Scoot", "Tuft", "Biscuit", "Hopper", "Lint", "Pickle", "Waffle", "Zigzag", "Poppy", "Speck",
+  "Clover", "Marble", "Juniper", "Fig", "Olive", "Pepper", "Nutmeg", "Bramble", "Thistle", "Moss",
+  "Ember", "Quill", "Rune", "Sable", "Tansy", "Wren", "Acorn", "Basil", "Cinder", "Dusk", "Echo",
+  "Fennel", "Gizmo", "Hazel", "Inky", "Jinx", "Kiwi", "Lolly", "Mochi", "Nimbus", "Orbit", "Pixel",
 ];
 
 function read(key: string) {
@@ -89,82 +124,125 @@ const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.i
 const newId = () => Math.random().toString(36).slice(2, 10);
 const pick = <T>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
 
-function parseMember(raw: Partial<Member>, now: number): Member | null {
+/** A spider from the save, with anything missing filled in (older saves had timestamps, not den hours). */
+function parseMember(raw: Record<string, unknown>, now: number): Member | null {
   if (!raw || typeof raw.id !== "string") return null;
+  const look = parseLook(JSON.stringify(raw.look ?? {}));
+  const at = num(raw.at, now);
+  const born = num(raw.born, now);
+  const emptySince = num(raw.emptySince, 0);
   return {
     id: raw.id,
-    look: parseLook(JSON.stringify(raw.look ?? {})),
-    born: num(raw.born, now),
+    look,
+    genes: parseGenes(raw.genes, look),
+    personality: parsePersonality(raw.personality),
+    born,
+    age: num(raw.age, Math.max(0, (at - born) / 3600_000)),
+    lifeRoll: clamp01(num(raw.lifeRoll, Math.random())),
     growth: clamp01(num(raw.growth, 1)),
     fullness: clamp01(num(raw.fullness, 0.7)),
     plump: Math.max(0, num(raw.plump, 0)),
-    emptySince: num(raw.emptySince, 0),
-    at: num(raw.at, now),
+    starving: Math.max(0, num(raw.starving, emptySince ? (at - emptySince) / 3600_000 : 0)),
+    cooldown: Math.max(0, num(raw.cooldown, 0)),
     main: raw.main === true,
     parent: typeof raw.parent === "string" ? raw.parent : undefined,
-    laid: num(raw.laid, 0),
+    mate: typeof raw.mate === "string" ? raw.mate : undefined,
+    generation: Math.max(0, Math.round(num(raw.generation, raw.parent ? 1 : 0))),
     meals: Math.max(0, Math.round(num(raw.meals, 0))),
+    kills: Math.max(0, Math.round(num(raw.kills, 0))),
   };
 }
 
-function parseEgg(raw: Partial<Egg>, now: number): Egg | null {
+function snapshot(m: Member) {
+  return { genes: { ...m.genes }, personality: { ...m.personality }, generation: m.generation, look: parseLook(JSON.stringify(m.look)) };
+}
+
+function parseEgg(raw: Record<string, unknown>, now: number, members: Member[]): Egg | null {
   if (!raw || typeof raw.id !== "string" || typeof raw.parent !== "string") return null;
+  const parentsRaw = Array.isArray(raw.parents) ? raw.parents : [];
+  const parents = parentsRaw
+    .filter((p) => p && typeof p === "object")
+    .map((p) => {
+      const look = parseLook(JSON.stringify(p.look ?? {}));
+      return { genes: parseGenes(p.genes, look), personality: parsePersonality(p.personality), generation: num(p.generation, 0), look };
+    });
+  if (!parents.length) {
+    const parent = members.find((m) => m.id === raw.parent) ?? members[0];
+    if (parent) parents.push(snapshot(parent));
+  }
   return {
     id: raw.id,
     parent: raw.parent,
+    mate: typeof raw.mate === "string" ? raw.mate : undefined,
+    parents,
     x: clamp01(num(raw.x, 0.5)),
     y: clamp01(num(raw.y, 0.4)),
-    hatch: num(raw.hatch, now),
+    hatchIn: Math.max(0, num(raw.hatchIn, (num(raw.hatch, now) - now) / 1000)),
     count: Math.max(1, Math.min(12, Math.round(num(raw.count, 3)))),
+  };
+}
+
+function newMember(look: Look, main: boolean): Member {
+  const genes = randomGenes(look);
+  return {
+    id: newId(),
+    look,
+    genes,
+    personality: randomPersonality(),
+    born: Date.now(),
+    age: 0,
+    lifeRoll: Math.random(),
+    growth: 1,
+    fullness: 0.9,
+    plump: 0,
+    starving: 0,
+    cooldown: 0.15,
+    main,
+    generation: 0,
+    meals: 0,
+    kills: 0,
   };
 }
 
 /** A den with just the main spider (wearing what it wears everywhere) and a clutch of eggs about to hatch, so there's life from the start. */
 function fresh(now: number): Saved {
-  const main: Member = {
-    id: newId(),
-    look: parseLook(JSON.stringify(worn)),
-    born: now,
-    growth: 1,
-    fullness: 0.9,
-    plump: 0,
-    emptySince: 0,
-    at: now,
-    main: true,
-    laid: now,
-    meals: 0,
-  };
+  const main = newMember(parseLook(JSON.stringify(worn)), true);
   return {
     members: [main],
     // Off to one side of the middle, where the main spider starts.
-    eggs: [{ id: newId(), parent: main.id, x: 0.36, y: 0.3, hatch: now + 6000, count: 3 }],
+    eggs: [{ id: newId(), parent: main.id, parents: [snapshot(main)], x: 0.36, y: 0.3, hatchIn: 6, count: 3 }],
     picked: null,
+    savedAt: now,
   };
 }
 
 function load(now = Date.now()): Saved {
-  let raw: Partial<Saved> | null = null;
+  let raw: Record<string, unknown> | null = null;
   try {
     raw = JSON.parse(read(COLONY_KEY) ?? "null");
   } catch {
     raw = null;
   }
-  const members = (Array.isArray(raw?.members) ? raw.members : [])
-    .map((m) => parseMember(m, now))
-    .filter((m): m is Member => m !== null);
+  const rawMembers = Array.isArray(raw?.members) ? (raw!.members as Record<string, unknown>[]) : [];
+  const members = rawMembers.map((m) => parseMember(m, now)).filter((m): m is Member => m !== null);
   if (!members.length) return fresh(now);
   // Exactly one main spider, and it's the one worn everywhere (another page may have changed it).
   const main = members.find((m) => m.main) ?? members[0];
   for (const m of members) m.main = m === main;
   setLook(main.look, worn);
-  const eggs = (Array.isArray(raw?.eggs) ? raw.eggs : []).map((e) => parseEgg(e, now)).filter((e): e is Egg => e !== null);
+  const rawEggs = Array.isArray(raw?.eggs) ? (raw!.eggs as Record<string, unknown>[]) : [];
+  const eggs = rawEggs.map((e) => parseEgg(e, now, members)).filter((e): e is Egg => e !== null);
+  // Older saves brought each spider up to date separately: the oldest of those is when it was last seen.
+  const savedAt = num(raw?.savedAt, Math.min(now, ...rawMembers.map((m) => num(m.at, now))));
   // Nobody's picked when the page opens: picking is just for this visit.
-  return { members, eggs, picked: null };
+  return { members, eggs, picked: null, savedAt };
 }
 
 const state = load();
 /** Whether the wardrobe dresses the main spider when nobody's picked (the Dress up view). */
 let dressesMain = true;
+/** Whether the den is on screen (world.ts shows hatching and deaths itself then). */
+let watching = false;
 
 const announce = () => document.dispatchEvent(new CustomEvent(COLONY_EVENT));
 let savedAt = 0;
@@ -192,62 +270,175 @@ showDressing();
 export const nameOf = (m: Member) => m.look.name.trim() || blankLook().name;
 export const grownUp = (m: Member) => m.growth >= 1;
 
-/** How big it's drawn, next to a grown-up. */
+/** How long it'll live, den hours. */
+export function lifespan(m: Member) {
+  const a = den.aging;
+  const days = Math.min(a.lifespanFrom, a.lifespanTo) + Math.abs(a.lifespanTo - a.lifespanFrom) * m.lifeRoll;
+  return days * 24 * effect(m.genes, "lifespan");
+}
+/** How far through its life it is, 0–1. */
+export const lifeDone = (m: Member) => Math.min(1, m.age / Math.max(0.01, lifespan(m)));
+/** How old it's got: 0 until it's old (Growing old → Old from), then up to 1 at the end. */
+export function elderness(m: Member) {
+  if (!den.aging.enabled) return 0;
+  const from = den.aging.elderAt;
+  return clamp01((lifeDone(m) - from) / Math.max(0.01, 1 - from));
+}
+
+/** How big it's drawn, next to an average grown-up. */
 export function sizeOf(m: Member) {
   const small = den.growing.babySize;
   const grown = 1 - (1 - m.growth) ** 2;
-  return (small + (1 - small) * grown) * (1 + m.plump);
+  return (small + (1 - small) * grown) * (1 + m.plump) * effect(m.genes, "size");
 }
 
+/** Can it die (the main spider only can if that's switched on)? */
+export const mortal = (m: Member) => !m.main || den.dying.main;
+
 /** Whether it can lay eggs right now, or why not. */
-export function canLay(m: Member, now = Date.now()): { ok: true } | { ok: false; why: string } {
+export function canLay(m: Member): { ok: true } | { ok: false; why: string } {
   const b = den.babies;
   if (!grownUp(m)) return { ok: false, why: `${nameOf(m)} is too young` };
+  if (elderness(m) > 0.6) return { ok: false, why: `${nameOf(m)} is too old` };
   const coming = state.eggs.reduce((sum, e) => sum + e.count, 0);
   if (state.members.length + coming >= b.max) return { ok: false, why: "The den is full" };
   if (m.fullness < b.fullEnough) return { ok: false, why: `${nameOf(m)} is too hungry` };
-  const wait = m.laid + (b.cooldown * 60_000) / Math.max(1, den.pace.speed) - now;
-  if (wait > 0) {
-    const minutes = Math.ceil(wait / 60_000);
+  if (m.cooldown > 0) {
+    const minutes = Math.ceil((m.cooldown * 60) / Math.max(0.01, den.pace.speed * settings.speed));
     return { ok: false, why: minutes > 1 ? `Ready again in ${minutes} minutes` : "Ready again in a minute" };
   }
   return { ok: true };
 }
 
-// ── Time passing ─────────────────────────────────────────────────────────────
+// ── Dying ────────────────────────────────────────────────────────────────────
 
 /**
- * Brings a spider's hunger, growth and plumpness up to `now`. Returns true if it's starved.
- * Growing only happens while it has food in it.
+ * A spider dies: it leaves the den and goes in the log. If it was the main spider, that passes to
+ * its oldest child, or the oldest spider left (or, with nobody left, a new spider).
  */
-function age(m: Member, now: number) {
-  const hours = (Math.max(0, now - m.at) / HOUR) * Math.max(1, den.pace.speed);
-  m.at = now;
-  if (hours <= 0) return false;
-  const h = den.hunger;
-  const fedHours = Math.min(hours, m.fullness * h.emptyAfter);
-  const was = m.fullness;
-  m.fullness = clamp01(m.fullness - hours / Math.max(0.01, h.emptyAfter));
-  if (m.growth < 1) m.growth = clamp01(m.growth + fedHours / Math.max(0.01, den.growing.growUpAfter));
-  m.plump = Math.max(0, m.plump - (hours / Math.max(0.01, h.slimAfter)) * h.plumpMax);
-  if (m.fullness <= 0) {
-    if (was > 0 || !m.emptySince) m.emptySince = now - ((hours - fedHours) * HOUR) / Math.max(1, den.pace.speed);
-  } else m.emptySince = 0;
-  const starvedFor = m.emptySince ? ((now - m.emptySince) / HOUR) * Math.max(1, den.pace.speed) : 0;
-  return den.dying.enabled && !m.main && m.fullness <= 0 && starvedFor >= den.dying.after;
+export function kill(id: string, cause: Cause, { killer, away = false }: { killer?: string; away?: boolean } = {}): Death | null {
+  const m = byId(id);
+  if (!m) return null;
+  if (cause === "starved" || cause === "old") document.dispatchEvent(new CustomEvent(DIED_EVENT, { detail: { id, cause } }));
+  const death: Death = {
+    id: m.id,
+    name: nameOf(m),
+    look: parseLook(JSON.stringify(m.look)),
+    cause,
+    killer,
+    at: Date.now(),
+    age: m.age,
+    life: lifeDone(m),
+    fullness: m.fullness,
+    starving: m.starving,
+    main: m.main,
+    away,
+  };
+  state.members = state.members.filter((other) => other !== m);
+  if (state.picked === m.id) pickSpider(null, false);
+  if (m.main) {
+    const heir =
+      state.members.filter((o) => o.parent === m.id).sort((a, b) => b.age - a.age)[0] ??
+      [...state.members].sort((a, b) => b.age - a.age)[0] ??
+      null;
+    if (heir) {
+      heir.main = true;
+      putOn(heir.look);
+    } else {
+      const next = newMember(parseLook(JSON.stringify(worn)), true);
+      state.members.push(next);
+    }
+  }
+  remember(death);
+  save();
+  announce();
+  return death;
 }
 
-/** Brings everyone up to date. Returns the spiders that have starved (already gone from the den). */
-export function tick(now = Date.now()) {
-  const starved = state.members.filter((m) => age(m, now));
-  if (starved.length) {
-    state.members = state.members.filter((m) => !starved.includes(m));
-    if (state.picked && !byId(state.picked)) pickSpider(null, false);
-    save();
-    announce();
-  } else if (now - savedAt > 15_000) save();
-  return starved;
+// ── Time passing ─────────────────────────────────────────────────────────────
+
+let clock = state.savedAt;
+
+/**
+ * Moves the den's time on by `seconds` of den time. Babies grow while they're fed; everyone gets
+ * hungry, older, and (if it's been empty or old too long) dies. Eggs count down, and hatch here too
+ * unless the den is on screen to show it (`away` hatches them regardless).
+ */
+function pass(seconds: number, away: boolean) {
+  const hours = seconds / HOUR;
+  if (hours <= 0) return;
+  const h = den.hunger;
+  const dead: [Member, Cause][] = [];
+  for (const m of state.members) {
+    const rate = hungerRate(m.genes) / Math.max(0.01, h.emptyAfter);
+    const fedHours = Math.min(hours, m.fullness / Math.max(1e-9, rate));
+    m.fullness = clamp01(m.fullness - hours * rate);
+    if (m.growth < 1) m.growth = clamp01(m.growth + fedHours / Math.max(0.01, den.growing.growUpAfter));
+    m.plump = Math.max(0, m.plump - (hours / Math.max(0.01, h.slimAfter)) * h.plumpMax);
+    m.starving = m.fullness <= 0 ? m.starving + (hours - fedHours) : 0;
+    m.cooldown = Math.max(0, m.cooldown - hours);
+    m.age += hours;
+    if (!mortal(m)) {
+      m.age = Math.min(m.age, lifespan(m) * 0.995);
+      continue;
+    }
+    if (den.dying.enabled && m.fullness <= 0 && m.starving >= den.dying.after) dead.push([m, "starved"]);
+    else if (den.aging.enabled && m.age >= lifespan(m)) dead.push([m, "old"]);
+  }
+  for (const egg of state.eggs) egg.hatchIn -= seconds;
+  if (away || !watching) for (const egg of state.eggs.filter((e) => e.hatchIn <= 0)) hatch(egg.id);
+  for (const [m, cause] of dead) kill(m.id, cause, { away });
+  if (away) awayHunts(hours);
 }
+
+/** While you were away, predators may have been: each hour, a chance one took a spider. */
+function awayHunts(hours: number) {
+  const p = den.predators;
+  if (!p.enabled) return;
+  const chance = den.time.awayHunt * predatorsAmount();
+  for (let i = 0; i < Math.floor(hours); i++) {
+    if (Math.random() >= chance) continue;
+    const prey = state.members.filter(mortal);
+    if (state.members.length < p.atLeast || !prey.length) return;
+    // The small, slow and old are easiest.
+    const weight = (m: Member) => (1.4 - Math.min(1, sizeOf(m))) * (2 - Math.min(1.6, effect(m.genes, "speed"))) * (1 + elderness(m));
+    let roll = Math.random() * prey.reduce((sum, m) => sum + weight(m), 0);
+    const victim = prey.find((m) => (roll -= weight(m)) <= 0) ?? prey[0];
+    const kinds: [Cause, number][] = [["bird", p.bird], ["frog", p.frog], ["pirate", p.pirate]];
+    let k = Math.random() * kinds.reduce((sum, [, w]) => sum + w, 0);
+    const cause = kinds.find(([, w]) => (k -= w) <= 0)?.[0] ?? "bird";
+    kill(victim.id, cause, { away: true });
+  }
+}
+
+/**
+ * Brings the den up to now: called every second or so. The time since last time runs at the den's
+ * speed; a long gap (the page was closed, or in the background) counts as time away, at ordinary
+ * speed and up to a limit.
+ */
+export function catchUp(now = Date.now()) {
+  const gap = Math.max(0, (now - clock) / 1000);
+  clock = now;
+  if (gap <= 0) return;
+  const rate = Math.max(0, den.pace.speed);
+  if (gap > 20) pass(Math.min(gap, den.time.awayMost * HOUR) * rate, true);
+  else pass(gap * rate * settings.speed, false);
+  state.savedAt = now;
+  if (now - savedAt > 10_000) save();
+}
+
+/** The den is (or isn't) on screen, showing hatching and deaths as they happen. */
+export function watch(on: boolean) {
+  watching = on;
+}
+
+catchUp();
+save();
+window.setInterval(() => catchUp(), 1000);
+window.addEventListener("pagehide", () => {
+  state.savedAt = Date.now();
+  save();
+});
 
 // ── Changing things ──────────────────────────────────────────────────────────
 
@@ -272,6 +463,13 @@ export function dressMain(on: boolean) {
   tellLook();
 }
 
+/** A look change that touches colours changes the genes to match (for testing: the wardrobe only allows it with ?tune). */
+function colourGenes(m: Member) {
+  m.genes.skin = m.look.skin;
+  m.genes.pattern = m.look.pattern;
+  m.genes.thread = m.look.thread;
+}
+
 /**
  * Saves what's being tried on as the look of the spider being dressed (anything still locked stays
  * as it was). For the main spider, that's the look worn everywhere too. False if nobody's being dressed.
@@ -281,6 +479,7 @@ export function wear() {
   if (!m) return false;
   const next = keepUnlocked(trying, m.look);
   setLook(m.look, next);
+  colourGenes(m);
   save();
   if (m.main) putOn(next);
   else tellLook();
@@ -298,11 +497,36 @@ export function dressSpider(id: string, change: (look: Look) => void) {
   change(next);
   if (JSON.stringify(keepUnlocked(next, m.look)) !== JSON.stringify(next)) return false;
   setLook(m.look, next);
+  colourGenes(m);
   if (m.id === dressing()?.id) setLook(trying, next);
   save();
   if (m.main) putOn(next);
   else tellLook();
   return true;
+}
+
+/** Changes a spider's genes or personality (the tuning card). Colour genes show straight away. */
+export function setGenes(id: string, genes: Partial<Genes>, personality: Partial<Personality> = {}) {
+  const m = byId(id);
+  if (!m) return;
+  Object.assign(m.genes, genes);
+  Object.assign(m.personality, personality);
+  m.look.skin = m.genes.skin;
+  m.look.pattern = m.genes.pattern;
+  m.look.thread = m.genes.thread;
+  if (m.id === dressing()?.id) setLook(trying, m.look);
+  save();
+  if (m.main) putOn(m.look);
+  else tellLook();
+  announce();
+}
+
+/** New genes (and colours), for tuning. */
+export function reroll(id: string, coloursOnly = false) {
+  const m = byId(id);
+  if (!m) return;
+  const genes = randomGenes();
+  setGenes(id, coloursOnly ? { skin: genes.skin, pattern: genes.pattern, thread: genes.thread } : genes, coloursOnly ? {} : randomPersonality());
 }
 
 /** Makes this the main spider, worn all over the site. */
@@ -315,14 +539,12 @@ export function makeMain(id: string) {
   announce();
 }
 
-/** It ate something: fuller, and a baby grows or a grown-up plumps up a little. */
+/** It ate something (`amount` meals): fuller, and a baby grows or a grown-up plumps up a little. */
 export function feed(id: string, amount = 1) {
   const m = byId(id);
   if (!m) return;
-  const now = Date.now();
-  age(m, now);
   m.fullness = clamp01(m.fullness + den.hunger.meal * amount);
-  m.emptySince = 0;
+  m.starving = 0;
   m.meals++;
   if (m.growth < 1) m.growth = clamp01(m.growth + den.growing.mealGrowth * amount);
   else m.plump = Math.min(den.hunger.plumpMax, m.plump + den.hunger.plump * amount);
@@ -330,14 +552,41 @@ export function feed(id: string, amount = 1) {
   announce();
 }
 
+/** Counts a spider it's eaten. */
+export function countKill(id: string) {
+  const m = byId(id);
+  if (!m) return;
+  m.kills++;
+  save();
+}
+
 /** Fills everyone up (`to` 1) or empties them (`to` 0), for tuning. */
 export function setFullness(to: number) {
-  const now = Date.now();
   for (const m of state.members) {
-    age(m, now);
     m.fullness = clamp01(to);
-    m.emptySince = to <= 0 ? now : 0;
+    m.starving = 0;
   }
+  save();
+  announce();
+}
+
+/** For tuning: empties a spider, as if it's been empty long enough to starve (it dies at the next tick). */
+export function starve(id: string) {
+  const m = byId(id);
+  if (!m) return;
+  m.fullness = 0;
+  m.starving = den.dying.after;
+  save();
+  announce();
+}
+
+/** For tuning: a spider gets old (just past Old from). */
+export function makeOld(id: string) {
+  const m = byId(id);
+  if (!m) return;
+  m.growth = 1;
+  const a = den.aging;
+  m.age = lifespan(m) * Math.min(0.99, a.elderAt + (1 - a.elderAt) * 0.6);
   save();
   announce();
 }
@@ -349,29 +598,34 @@ export function growEveryoneUp() {
   announce();
 }
 
-/** Lays a clutch of eggs at (x, y), fractions of the den. Returns the egg sac, or why not. */
-export function layEggs(id: string, x: number, y: number, force = false): Egg | string {
+/** Lays a clutch of eggs at (x, y), fractions of the den, with `mateId` as the other parent if given. Returns the egg sac, or why not. */
+export function layEggs(id: string, x: number, y: number, force = false, mateId?: string): Egg | string {
   const m = byId(id);
   if (!m) return "No spider";
-  const now = Date.now();
-  age(m, now);
-  const can = canLay(m, now);
+  const can = canLay(m);
   if (!can.ok && !force) return can.why;
+  const mate = byId(mateId);
   const b = den.babies;
+  const fertility = mate ? (effect(m.genes, "fertility") + effect(mate.genes, "fertility")) / 2 : effect(m.genes, "fertility");
   const from = Math.min(b.clutchFrom, b.clutchTo);
   const to = Math.max(b.clutchFrom, b.clutchTo);
   const room = Math.max(1, b.max - state.members.length - state.eggs.reduce((sum, e) => sum + e.count, 0));
+  const count = Math.round((from + Math.random() * (to - from)) * fertility);
   const egg: Egg = {
     id: newId(),
     parent: m.id,
+    mate: mate?.id,
+    parents: mate ? [snapshot(m), snapshot(mate)] : [snapshot(m)],
     x: clamp01(x),
     y: clamp01(y),
-    hatch: now + (b.hatch * 1000) / Math.max(1, den.pace.speed),
-    count: Math.min(room, from + Math.floor(Math.random() * (to - from + 1))),
+    hatchIn: b.hatch,
+    count: Math.max(1, Math.min(room, count)),
   };
   state.eggs.push(egg);
-  m.laid = now;
+  const wait = b.cooldown / 60 / Math.max(0.1, effect(m.genes, "fertility"));
+  m.cooldown = wait;
   m.fullness = clamp01(m.fullness - b.layCost);
+  if (mate) mate.cooldown = Math.max(mate.cooldown, wait * 0.5);
   save();
   announce();
   return egg;
@@ -381,47 +635,60 @@ export function layEggs(id: string, x: number, y: number, force = false): Egg | 
 export function hurry(eggId: string, seconds: number) {
   const egg = state.eggs.find((e) => e.id === eggId);
   if (!egg) return;
-  egg.hatch -= seconds * 1000;
+  egg.hatchIn -= seconds;
   save();
 }
 
 export function hatchAllNow() {
-  const now = Date.now();
-  for (const egg of state.eggs) egg.hatch = Math.min(egg.hatch, now);
+  for (const egg of state.eggs) egg.hatchIn = Math.min(egg.hatchIn, 0);
   save();
 }
 
-/** Hatches an egg sac: its babies join the den. Returns them. */
+/** Hatches an egg sac: its babies join the den, taking after their parents. Returns them. */
 export function hatch(eggId: string): Member[] {
   const egg = state.eggs.find((e) => e.id === eggId);
   if (!egg) return [];
   state.eggs = state.eggs.filter((e) => e !== egg);
-  const parent = byId(egg.parent) ?? mainSpider();
-  const now = Date.now();
   const taken = new Set(state.members.map(nameOf));
   const babies: Member[] = [];
-  for (let i = 0; i < egg.count; i++) {
+  const room = Math.max(0, den.babies.max - state.members.length);
+  for (let i = 0; i < Math.min(egg.count, room); i++) {
     const look = blankLook();
     const free = NAMES.filter((n) => !taken.has(n));
     look.name = free.length ? pick(free) : `${pick(NAMES)} ${state.members.length + babies.length + 1}`;
     taken.add(look.name);
-    const takesAfter = Math.random() < den.babies.inherit;
-    look.skin = takesAfter ? parent.look.skin : pick(Object.keys(SKINS) as Look["skin"][]);
-    look.pattern = takesAfter ? parent.look.pattern : Math.random() < 0.6 ? "none" : pick(Object.keys(PATTERNS) as Look["pattern"][]);
-    look.thread = parent.look.thread;
+    const { genes, personality } = inherit(egg.parents);
+    if (den.genetics.enabled) {
+      look.skin = genes.skin;
+      look.pattern = genes.pattern;
+      look.thread = genes.thread;
+    } else {
+      // Colours aren't genetic: they wear whatever a parent wore.
+      const parent = pick(egg.parents).look;
+      look.skin = parent.skin;
+      look.pattern = parent.pattern;
+      look.thread = parent.thread;
+      Object.assign(genes, { skin: look.skin, pattern: look.pattern, thread: look.thread });
+    }
     babies.push({
       id: newId(),
       look,
-      born: now,
+      genes,
+      personality,
+      born: Date.now(),
+      age: 0,
+      lifeRoll: Math.random(),
       growth: 0,
       fullness: 0.6,
       plump: 0,
-      emptySince: 0,
-      at: now,
+      starving: 0,
+      cooldown: 0,
       main: false,
-      parent: parent.id,
-      laid: now,
+      parent: egg.parent,
+      mate: egg.mate,
+      generation: Math.max(...egg.parents.map((p) => p.generation)) + 1,
       meals: 0,
+      kills: 0,
     });
   }
   state.members.push(...babies);
@@ -435,9 +702,11 @@ export function startOver() {
   const main = mainSpider();
   const now = Date.now();
   const next = fresh(now);
-  next.members = [{ ...main, fullness: 0.9, emptySince: 0, at: now, laid: now }];
+  next.members = [{ ...main, fullness: 0.9, starving: 0, cooldown: 0.15 }];
   next.eggs[0].parent = main.id;
+  next.eggs[0].parents = [snapshot(main)];
   Object.assign(state, next);
+  clock = now;
   showDressing();
   save();
   announce();
@@ -459,5 +728,14 @@ window.addEventListener("storage", (e) => {
 // The main spider's look changed somewhere else (another tab): it's the same spider.
 document.addEventListener(LOOK_EVENT, () => {
   const main = mainSpider();
-  if (JSON.stringify(main.look) !== JSON.stringify(worn)) setLook(main.look, worn);
+  if (main && JSON.stringify(main.look) !== JSON.stringify(worn)) setLook(main.look, worn);
 });
+
+export { family };
+
+/** Are these two spiders family: parent and child, or born of the same parent? */
+function family(a: Member, b: Member) {
+  if (a.parent && (a.parent === b.id || a.mate === b.id)) return true;
+  if (b.parent && (b.parent === a.id || b.mate === a.id)) return true;
+  return Boolean(a.parent && a.parent === b.parent);
+}

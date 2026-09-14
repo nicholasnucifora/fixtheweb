@@ -2,6 +2,7 @@
 import SpiderString from "../components/SpiderString.astro";
 import Base from "../layouts/Base.astro";
 import { SCENES } from "../scripts/den/scenes";
+import { AMOUNTS, SPEEDS } from "../scripts/den/settings";
 import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, unlockLabel, type Slot } from "../scripts/spider-string/wardrobe";
 
 /**
@@ -83,6 +84,12 @@ const web = (() => {
   return { radials, rings };
 })();
 
+const speedLabel = (speed: number) => ({ 0.25: "¼×", 0.5: "½×" })[speed as 0.25 | 0.5] ?? `${speed}×`;
+const amounts = Object.entries(AMOUNTS) as [keyof typeof AMOUNTS, { label: string }][];
+
+const gear = `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8.6 1.5h2.8l.4 2.2c.5.2 1 .5 1.4.8l2.1-.8 1.4 2.4-1.7 1.4a5.6 5.6 0 0 1 0 1.6l1.7 1.4-1.4 2.4-2.1-.8c-.4.3-.9.6-1.4.8l-.4 2.2H8.6l-.4-2.2c-.5-.2-1-.5-1.4-.8l-2.1.8-1.4-2.4L5 10.8a5.6 5.6 0 0 1 0-1.6L3.3 7.8l1.4-2.4 2.1.8c.4-.3.9-.6 1.4-.8l.4-2.2ZM10 12.6a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z"/></svg>`;
+const ghost = `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10 1.5c-3.6 0-6 2.7-6 6.2v10.1l2-1.4 2 1.4 2-1.4 2 1.4 2-1.4 2 1.4V7.7c0-3.5-2.4-6.2-6-6.2ZM7.6 9.3a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4Zm4.8 0a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4Z"/></svg>`;
+
 const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M4.5 7V5a3.5 3.5 0 1 1 7 0v2h.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h.5Zm1.75 0h3.5V5a1.75 1.75 0 1 0-3.5 0v2Z"/></svg>`;
 ---
 
@@ -103,6 +110,21 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
           ))
         }
       </div>
+      <button
+        class="chip bar-button bar-icon"
+        type="button"
+        data-den-settings-toggle
+        aria-expanded="false"
+        aria-controls="den-settings"
+        title="Den settings"
+      >
+        <Fragment set:html={gear} />
+        <span class="visually-hidden">Den settings</span>
+      </button>
+      <button class="chip bar-button bar-icon" type="button" data-den-cut aria-pressed="false" title="Cut threads: drag across the den" hidden>
+        <span aria-hidden="true">✂</span>
+        <span class="visually-hidden">Cut threads</span>
+      </button>
       <div class="picker" role="group" aria-label="Your spiders" data-den-picker></div>
     </div>
 
@@ -223,6 +245,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       }
 
       <div class="panel" role="tabpanel" id="den-panel-colours" aria-labelledby="den-tab-colours" hidden>
+        <p class="colour-lock" data-colour-lock hidden></p>
         <section class="shelf">
           <h2>Body</h2>
           <div class="tiles">
@@ -320,6 +343,14 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
             }
           </div>
         </section>
+        <form class="code-form wardrobe-code" data-den-code>
+        <label for="den-code-wardrobe">Have a code?</label>
+        <div class="code-row">
+          <input id="den-code-wardrobe" name="code" maxlength="32" placeholder="Enter a code" autocomplete="off" spellcheck="false" />
+          <button class="chip" type="submit">Redeem</button>
+        </div>
+        <p class="code-note" data-code-note aria-live="polite"></p>
+        </form>
       </div>
 
       <p class="notice" data-den-notice aria-live="polite">Saved in this browser: it wears this on every page.</p>
@@ -339,6 +370,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
           <span class="card-main" data-card-main title="The one on the logo and in the header">★ Main spider</span>
         </p>
         <p class="card-age" data-card-age>Grown up</p>
+        <p class="card-family" data-card-family hidden></p>
         <div class="meter" data-card-growth>
           <span class="meter-label">Growing</span>
           <span class="meter-bar" aria-hidden="true"><span></span></span>
@@ -350,6 +382,17 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
           <span class="meter-value"></span>
         </div>
       </div>
+      <ul class="card-traits" data-card-traits aria-label="What it's like"></ul>
+      <details class="card-genes" data-card-genes hidden>
+        <summary>Genes and personality <span>testing</span></summary>
+        <div class="genes-grid" data-genes-grid></div>
+        <div class="genes-actions">
+          <button class="chip" type="button" data-genes-reroll>Re-roll everything</button>
+          <button class="chip" type="button" data-genes-colours>Re-roll colours</button>
+          <button class="chip" type="button" data-genes-old>Make old</button>
+          <button class="chip" type="button" data-genes-starve>Starve</button>
+        </div>
+      </details>
       <div class="card-actions">
         <button class="chip" type="button" data-card-dress>Dress up</button>
         <button class="chip" type="button" data-card-feed>Feed</button>
@@ -361,6 +404,83 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       </p>
     </aside>
 
+    <section class="den-settings" id="den-settings" data-den-settings data-spider-ignore aria-label="Den settings" hidden>
+      <div class="panel-head">
+        <strong>The den</strong>
+        <button class="card-close" type="button" data-den-settings-close aria-label="Close den settings">✕</button>
+      </div>
+      <div class="setting">
+        <span class="setting-label" id="den-set-speed">Time</span>
+        <div class="view-switch" role="group" aria-labelledby="den-set-speed">
+          {
+            SPEEDS.map((speed) => (
+              <button type="button" data-den-speed={speed} aria-pressed="false">
+                {speedLabel(speed)}
+              </button>
+            ))
+          }
+        </div>
+        <p class="setting-note">Speeds up (or slows down) everything: spiders, flies, predators, growing up.</p>
+      </div>
+      <div class="setting">
+        <span class="setting-label" id="den-set-flies">Flies</span>
+        <div class="view-switch" role="group" aria-labelledby="den-set-flies">
+          {
+            amounts.map(([key, { label }]) => (
+              <button type="button" data-den-flies={key} aria-pressed="false">
+                {label}
+              </button>
+            ))
+          }
+        </div>
+      </div>
+      <div class="setting">
+        <span class="setting-label" id="den-set-predators">Predators</span>
+        <div class="view-switch" role="group" aria-labelledby="den-set-predators">
+          {
+            amounts.map(([key, { label }]) => (
+              <button type="button" data-den-predators={key} aria-pressed="false">
+                {label}
+              </button>
+            ))
+          }
+        </div>
+        <p class="setting-note">Birds, frogs and pirate spiders. Grab a spider to save it, or press a predator to shoo it.</p>
+      </div>
+      <label class="setting setting-toggle">
+        <input type="checkbox" data-den-fights />
+        <span>
+          <span class="setting-label">Starving spiders fight</span>
+          <span class="setting-note">And sometimes eat each other.</span>
+        </span>
+      </label>
+      <form class="code-form" data-den-code>
+        <label for="den-code-settings">Have a code?</label>
+        <div class="code-row">
+          <input id="den-code-settings" name="code" maxlength="32" placeholder="Enter a code" autocomplete="off" spellcheck="false" />
+          <button class="chip" type="submit">Redeem</button>
+        </div>
+        <p class="code-note" data-code-note aria-live="polite"></p>
+      </form>
+    </section>
+
+    <div class="den-deaths" data-den-deaths data-spider-ignore>
+      <button class="deaths-toggle" type="button" data-deaths-toggle aria-expanded="false" aria-controls="den-deaths-panel">
+        <Fragment set:html={ghost} />
+        <span class="deaths-label">Deaths</span>
+        <span class="deaths-badge" data-deaths-badge hidden>0</span>
+      </button>
+      <section class="deaths-panel" id="den-deaths-panel" data-deaths-panel aria-label="Deaths" hidden>
+        <div class="panel-head">
+          <strong>Deaths</strong>
+          <span class="deaths-count" data-deaths-count></span>
+          <button class="chip deaths-clear" type="button" data-deaths-clear>Clear</button>
+          <button class="card-close" type="button" data-deaths-close aria-label="Close the deaths log">✕</button>
+        </div>
+        <p class="deaths-empty" data-deaths-empty>Nobody's died yet. Keep them fed, and keep an eye out for birds.</p>
+        <ol class="deaths-list" data-deaths-list></ol>
+      </section>
+    </div>
   </main>
 
   <SpiderString stage="[data-den-slot]" hook="[data-den-hook]" tryOn />
@@ -849,7 +969,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
   .den[data-den-view="den"] .den-bar {
     top: calc(var(--header-height) + 0.75rem);
     left: 0.75rem;
-    max-width: calc(100vw - 1.5rem);
+    max-width: calc(100vw - 9.5rem);
     gap: 0.5rem;
     padding: 0.3rem 0.4rem 0.3rem 0.3rem;
     box-sizing: border-box;
@@ -859,7 +979,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     backdrop-filter: blur(6px);
   }
   .den[data-den-view="den"][data-wardrobe="open"] .den-bar {
-    max-width: calc(100vw - min(400px, 100vw - 1.5rem) - 2.25rem);
+    max-width: calc(100vw - min(400px, 100vw - 1.5rem) - 10.25rem);
   }
   .den[data-den-view="den"] .wardrobe {
     top: calc(var(--header-height) + 0.75rem);
@@ -1036,6 +1156,422 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     display: none;
   }
 
+  /* ── Settings, the cut tool, and the deaths log ── */
+  .den-settings,
+  .den-deaths {
+    display: none;
+  }
+  .bar-button[hidden],
+  .den[data-den-view="den"] .bar-button[hidden] {
+    display: none;
+  }
+  .bar-icon {
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1rem;
+  }
+  .bar-icon[aria-pressed="true"] {
+    color: var(--bg);
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .den[data-den-view="den"] .den-settings:not([hidden]) {
+    display: grid;
+    gap: 0.9rem;
+    position: fixed;
+    z-index: 4;
+    top: calc(var(--header-height) + 4.1rem);
+    left: 0.75rem;
+    width: min(360px, calc(100vw - 1.5rem));
+    max-height: calc(100svh - var(--header-height) - 5rem);
+    overflow-y: auto;
+    padding: 0.875rem 1rem 1rem;
+    box-sizing: border-box;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 0 10px 34px rgb(0 0 0 / 0.14);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.75rem;
+  }
+  .panel-head strong {
+    font-size: 1.0625rem;
+  }
+  .panel-head .card-close {
+    position: static;
+    margin-left: auto;
+  }
+  .setting {
+    display: grid;
+    gap: 0.4rem;
+    justify-items: start;
+  }
+  .setting-label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+  .setting-note {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .setting .view-switch {
+    flex-wrap: wrap;
+  }
+  .setting .view-switch button {
+    padding: 0.45rem 0.75rem;
+  }
+  .setting-toggle {
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 0.625rem;
+    cursor: pointer;
+  }
+  .setting-toggle > span {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .setting-toggle input {
+    width: 1.05rem;
+    height: 1.05rem;
+    margin: 0.05rem 0 0;
+    accent-color: var(--accent);
+  }
+  .code-form {
+    display: grid;
+    gap: 0.4rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--line);
+  }
+  .code-form label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+  .code-row {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .code-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.45rem 0.75rem;
+    font: 600 0.875rem/1.2 system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .code-row input::placeholder {
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .code-note {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .code-note:empty {
+    display: none;
+  }
+  .code-note[data-ok] {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .wardrobe-code {
+    margin-top: 1.75rem;
+  }
+
+  .colour-lock {
+    margin: 0 0 1.25rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    background: var(--fill);
+    border-radius: 12px;
+  }
+  .colour-lock strong {
+    color: var(--ink);
+  }
+  .colour-lock[hidden] {
+    display: none;
+  }
+  .tile[aria-disabled="true"],
+  .chip.thread[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  .tile[aria-disabled="true"]:not([aria-pressed="true"]) {
+    opacity: 0.55;
+  }
+
+  .den[data-den-view="den"] .den-deaths {
+    display: block;
+    position: fixed;
+    z-index: 4;
+    top: calc(var(--header-height) + 0.75rem);
+    right: 0.75rem;
+  }
+  .den[data-den-view="den"][data-wardrobe="open"] .den-deaths {
+    right: calc(min(400px, 100vw - 1.5rem) + 1.5rem);
+  }
+  .deaths-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.75rem;
+    padding: 0 0.9rem;
+    font: 700 0.8125rem/1 system-ui, sans-serif;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 0 10px 34px rgb(0 0 0 / 0.14);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+  }
+  .deaths-toggle:hover,
+  .deaths-toggle[aria-expanded="true"] {
+    border-color: var(--accent);
+  }
+  .deaths-badge {
+    min-width: 1.25rem;
+    padding: 0.2rem 0.35rem;
+    box-sizing: border-box;
+    font-size: 0.6875rem;
+    color: #fff;
+    text-align: center;
+    background: #d9473f;
+    border-radius: 999px;
+  }
+  .deaths-badge[hidden] {
+    display: none;
+  }
+  .deaths-toggle[data-new] {
+    animation: deaths-nudge 0.6s ease;
+  }
+  @keyframes deaths-nudge {
+    20%,
+    60% {
+      transform: rotate(-6deg);
+    }
+    40%,
+    80% {
+      transform: rotate(6deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .deaths-toggle[data-new] {
+      animation: none;
+    }
+  }
+  .deaths-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    width: min(360px, calc(100vw - 1.5rem));
+    max-height: calc(100svh - var(--header-height) - 5.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.875rem 1rem 0.5rem;
+    box-sizing: border-box;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 0 10px 34px rgb(0 0 0 / 0.14);
+  }
+  .deaths-panel[hidden] {
+    display: none;
+  }
+  .deaths-count {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .deaths-clear {
+    margin-left: auto;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+  }
+  .deaths-clear + .card-close {
+    margin-left: 0;
+  }
+  .deaths-empty {
+    margin: 0.75rem 0 0.5rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .deaths-empty[hidden] {
+    display: none;
+  }
+  .deaths-list {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .death {
+    display: grid;
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .death canvas {
+    width: 3.25rem;
+    height: 2.4rem;
+    filter: grayscale(0.85);
+    opacity: 0.75;
+  }
+  .death-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.5rem;
+    margin: 0;
+    font-size: 0.875rem;
+  }
+  .death-name strong {
+    overflow-wrap: anywhere;
+  }
+  .death-when {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .death[data-unseen] .death-name strong::after {
+    content: "new";
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #fff;
+    vertical-align: 0.1em;
+    background: #d9473f;
+    border-radius: 999px;
+  }
+  .death-cause {
+    margin: 0.1rem 0 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .death[data-cause="starved"] .death-cause,
+  .death[data-cause="old"] .death-cause {
+    color: var(--muted);
+  }
+  .death-detail {
+    margin: 0.1rem 0 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .card-family {
+    margin: -0.25rem 0 0.4rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .card-traits {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card-traits:empty {
+    display: none;
+  }
+  .card-traits li {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    background: var(--fill);
+    border-radius: 999px;
+  }
+  .card-traits li[data-tone="warn"] {
+    color: #fff;
+    background: #c4553f;
+  }
+  .card-traits li[data-tone="rare"] {
+    color: var(--bg);
+    background: var(--accent);
+  }
+  .card-genes {
+    grid-column: 1 / -1;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    border-top: 1px solid var(--line);
+  }
+  .card-genes summary {
+    padding: 0.5rem 0 0.25rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .card-genes summary span {
+    margin-left: 0.25rem;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.625rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--fill);
+    border-radius: 4px;
+  }
+  .genes-grid {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr) 2.4rem;
+    align-items: center;
+    gap: 0.2rem 0.5rem;
+    max-height: 13rem;
+    overflow-y: auto;
+    padding: 0.25rem 0.25rem 0.25rem 0;
+  }
+  .genes-grid h3 {
+    grid-column: 1 / -1;
+    margin: 0.4rem 0 0.1rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .genes-grid input[type="range"] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+  .genes-grid select {
+    grid-column: 2 / -1;
+    padding: 0.2rem 0.3rem;
+    font: inherit;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .genes-grid output {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .genes-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding: 0.5rem 0 0.1rem;
+  }
+  .genes-actions .chip {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+  }
+  .den[data-den-view="den"] .den-card {
+    max-height: calc(100svh - var(--header-height) - 5.5rem);
+    overflow-y: auto;
+  }
+
   /* One column: the spider on top, not following you down. */
   @media (max-width: 860px) {
     .den {
@@ -1066,7 +1602,10 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       height: 62svh;
     }
     .den[data-den-view="den"][data-wardrobe="open"] .den-bar {
-      max-width: calc(100vw - 1.5rem);
+      max-width: calc(100vw - 9.5rem);
+    }
+    .den[data-den-view="den"][data-wardrobe="open"] .den-deaths {
+      right: 0.75rem;
     }
     .den[data-den-view="den"][data-wardrobe="open"] .den-card {
       display: none;
@@ -1085,8 +1624,38 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       gap: 0.25rem;
       top: calc(var(--header-height) + 0.5rem);
       left: 0.5rem;
-      right: 0.5rem;
+      right: 3.75rem;
       max-width: none;
+    }
+    .den[data-den-view="den"] .den-deaths,
+    .den[data-den-view="den"][data-wardrobe="open"] .den-deaths {
+      top: calc(var(--header-height) + 0.5rem);
+      right: 0.5rem;
+    }
+    .deaths-toggle {
+      position: relative;
+      width: 2.75rem;
+      padding: 0;
+      justify-content: center;
+    }
+    .deaths-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .deaths-badge {
+      position: absolute;
+      top: -0.3rem;
+      right: -0.3rem;
+    }
+    .den[data-den-view="den"] .den-settings:not([hidden]) {
+      top: auto;
+      left: 0.5rem;
+      bottom: 0.5rem;
+      width: calc(100vw - 1rem);
+      max-height: 70svh;
     }
     .den[data-den-view="den"] .picker {
       flex-basis: 100%;

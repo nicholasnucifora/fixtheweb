@@ -227,10 +227,23 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 /** How far through the stretch of time from `a` to `b` (fractions of the whole) `t` is, 0–1. */
 const part = (t: number, a: number, b: number) => clamp01((t - a) / (b - a));
 
+/** A spider's temperament, each 0–1 with 0.5 as ordinary (see the Spider Den's genes.ts). */
+export interface Feelings {
+  /** How easily annoyed. */
+  temper: number;
+  /** Loves (1) or hates (0) being flung about. */
+  thrill: number;
+  /** Brave (1) or timid (0). */
+  nerve: number;
+}
+const ORDINARY: Feelings = { temper: 0.5, thrill: 0.5, nerve: 0.5 };
+
 /**
  * `listen: false` leaves the page's `spider:play` / `spider:reset` events alone (use `play` and
  * `reset`), and `blink` is how it blinks after being startled awake: by default, a page-wide
- * `spider:play`. For spiders played with one at a time, like the Spider Den's colony.
+ * `spider:play`. For spiders played with one at a time, like the Spider Den's colony. `feelings`
+ * gives it a temperament: how quickly it gets annoyed, and whether being grabbed and flung scares
+ * it or thrills it. Without it, it's the ordinary spider.
  */
 export function createMood(
   root: HTMLElement,
@@ -240,8 +253,15 @@ export function createMood(
   {
     listen = true,
     blink = () => document.dispatchEvent(new CustomEvent("spider:play", { detail: { id: "blink" } })),
-  }: { listen?: boolean; blink?: () => void } = {},
+    feelings = () => ORDINARY,
+  }: { listen?: boolean; blink?: () => void; feelings?: () => Feelings } = {},
 ) {
+  /** How much annoyance a thing adds, for its temper (1 for an ordinary spider). */
+  const annoys = () => 0.3 + 1.4 * feelings().temper;
+  /** Thrill-seekers enjoy what scares everyone else. */
+  const thrilled = () => feelings().thrill > 0.65;
+  /** How fast it has to be going to be scared, for its nerve and thrill (1 for an ordinary spider). */
+  const braveness = () => 0.6 + 0.4 * (feelings().nerve + feelings().thrill);
   /** Everything it listens to, so `dispose` can stop it all. */
   const events = new AbortController();
   const signal = events.signal;
@@ -360,7 +380,7 @@ export function createMood(
     grabAt = now;
     grabMoved = 0;
     grabs.push(now);
-    annoyance += config.faceAngry.grabCost;
+    annoyance += config.faceAngry.grabCost * (thrilled() ? 0.3 : annoys());
     stir();
   };
   root.addEventListener("spider:grab", grabbed, { signal });
@@ -512,24 +532,33 @@ export function createMood(
           (isHoldingSpider() || config.faceGrabbed.string) &&
           on("grabbed")
         ) {
-          trigger("grabbed", 0.12);
+          if (thrilled() && on("excited")) trigger("excited", 0.3);
+          else trigger("grabbed", 0.12);
         }
 
         // ── Thrown, and flying ──
         if (!held) {
           if (now - releasedAt < 0.2 && speed > config.faceThrown.speed) {
-            if (on("thrown")) trigger("thrown", config.faceThrown.hold);
+            if (thrilled()) {
+              if (on("excited")) trigger("excited", config.faceThrown.hold);
+            } else if (on("thrown")) trigger("thrown", config.faceThrown.hold);
             if (!releaseCounted) {
-              annoyance += config.faceAngry.throwCost * Math.min(2, speed / config.faceThrown.speed);
+              if (!thrilled()) annoyance += config.faceAngry.throwCost * Math.min(2, speed / config.faceThrown.speed) * annoys();
               releaseCounted = true;
             }
           }
           const panic = config.facePanicked;
-          if (on("panicked") && speed > panic.speed) {
-            const how = clamp01((speed - panic.speed) / Math.max(0.001, panic.full - panic.speed));
-            trigger("panicked", panic.linger, 0.55 + 0.45 * how);
+          const brave = braveness();
+          if (thrilled()) {
+            // Whee.
+            if (on("excited") && speed > panic.speed * brave) trigger("excited", panic.linger);
+          } else {
+            if (on("panicked") && speed > panic.speed * brave) {
+              const how = clamp01((speed - panic.speed * brave) / Math.max(0.001, (panic.full - panic.speed) * brave));
+              trigger("panicked", panic.linger, 0.55 + 0.45 * how);
+            }
+            if (on("scared") && speed > config.faceScared.speed * brave) trigger("scared", config.faceScared.linger);
           }
-          if (on("scared") && speed > config.faceScared.speed) trigger("scared", config.faceScared.linger);
 
           // ── Jolted ──
           const hit = config.faceImpact;
@@ -540,7 +569,7 @@ export function createMood(
             impactAxis =
               hit.axis === "vertical" ? [0, 1] : hit.axis === "horizontal" ? [1, 0] : [change[0] / d, change[1] / d];
             if (on("impact")) trigger("impact", hit.hold);
-            annoyance += config.faceAngry.impactCost;
+            annoyance += config.faceAngry.impactCost * annoys();
           }
         }
         previousSpeed = speed;
@@ -631,7 +660,7 @@ export function createMood(
         // ── Played with nicely ──
         const nice = config.faceHappy;
         swung = !held && speed >= nice.minSpeed && speed <= nice.maxSpeed ? swung + dt : Math.max(0, swung - dt * 2);
-        if (on("happy") && swung >= nice.after) trigger("happy", nice.linger);
+        if (on("happy") && swung >= nice.after * (1.4 - 0.8 * feelings().thrill)) trigger("happy", nice.linger);
 
         // ── Where did you go? ──
         const search = config.faceSearch;

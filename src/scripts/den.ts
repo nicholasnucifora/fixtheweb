@@ -5,24 +5,32 @@ import {
   dressMain,
   dressSpider,
   dressing,
+  elderness,
   feed,
   grownUp,
   makeMain,
+  makeOld,
   members,
   nameOf,
   picked,
   pickSpider,
+  reroll,
+  setGenes,
   sizeOf,
+  starve,
   wear,
   type Member,
 } from "./den/colony";
 import { den, groups as denGroups, schema as denSchema } from "./den/config";
+import { DEATHS_EVENT, causeText, clearLog, deaths, markSeen, unseen, type Death } from "./den/deaths";
+import { FEELINGS, LIMITS, TRAITS, patternRarity, skinRarity, traitWords, type Feeling, type Trait } from "./den/genes";
 import type { SceneId } from "./den/scenes";
+import { AMOUNTS, SETTINGS_EVENT, change, settings, type Amount, type DenSettings } from "./den/settings";
 import { createWorld } from "./den/world";
 import { config } from "./spider-string/config";
 import { getFigure } from "./spider-string/figure";
 import { drawSnack, type Snack } from "./spider-string/food";
-import { LOOK_EVENT, ateSnack, isUnlocked, setLook, snacks, trying } from "./spider-string/look";
+import { LOOK_EVENT, ateSnack, isUnlocked, redeemCode, setLook, snacks, trying } from "./spider-string/look";
 import {
   PALETTE,
   PATTERNS,
@@ -51,8 +59,12 @@ import {
  * by the spider being dressed, but it isn't saved until it's unlocked. Tiles are pictures of the
  * spider in its current look with that item swapped in, redrawn whenever the look changes.
  *
- * With ?tune, the den's own tuning panel (den/config.ts). The spider's own settings are tuned on the
- * home page.
+ * The den also has its settings (time speed, flies, predators, fights) behind the ⚙ in its bar, a log
+ * of deaths at the top right, and a box for codes. A spider's colours are in its genes: den-born
+ * spiders can't change them in the wardrobe (the first spider can).
+ *
+ * With ?tune, the den's own tuning panel (den/config.ts), a cut tool in the bar, and a genes editor on
+ * the picked spider's card. The spider's own settings are tuned on the home page.
  */
 
 type View = [x: number, y: number, w: number, h: number];
@@ -141,6 +153,10 @@ export function mountDen() {
     // Dress up always has a spider to dress: the main one, if nobody's picked. The den can have nobody.
     dressMain(to === "dress");
     world.setActive(to === "den");
+    if (to !== "den") {
+      showSettings(false);
+      showDeaths(false);
+    }
     if (remember) {
       try {
         localStorage.setItem(VIEW_KEY, to);
@@ -286,6 +302,16 @@ export function mountDen() {
     return slot && item && !isUnlocked(slot as Slot, item) ? itemOf(slot as Slot, item) : null;
   };
 
+  /** Whether a spider's colours are fixed by its genes: den-born spiders' are, unless testing. */
+  const coloursLocked = (m: Member | null) => !!m && !!m.parent && den.genetics.enabled && !world.tuning;
+  const isColour = (tile: HTMLElement) => !!(tile.dataset.skin || tile.dataset.pattern || tile.dataset.thread);
+  const colourWords = (m: Member) => {
+    const skin = SKINS[m.look.skin].label.toLowerCase();
+    return m.look.pattern === "none" ? skin : `${skin} with ${PATTERNS[m.look.pattern].label.toLowerCase()}`;
+  };
+  const lockedColours = (m: Member) =>
+    say(`<strong>${escape(nameOf(m))} was born ${escape(colourWords(m))}.</strong> Colours are in the genes: its babies take after it.`);
+
   /** Nobody's picked in the den, so a click has nobody to dress. */
   const nobody = () => say("<strong>Drag it onto a spider</strong> to dress it up, or pick a spider first.");
 
@@ -293,6 +319,7 @@ export function mountDen() {
   const apply = (tile: HTMLElement) => {
     const m = dressing();
     if (!m) return nobody();
+    if (isColour(tile) && coloursLocked(m)) return lockedColours(m);
     changeFor(tile)(trying);
     wear();
     const locked = lockedItem(tile);
@@ -312,6 +339,7 @@ export function mountDen() {
   const dropOn = (tile: HTMLElement, id: string) => {
     const m = byId(id);
     if (!m) return;
+    if (isColour(tile) && coloursLocked(m)) return lockedColours(m);
     world.play(id, "faceHappy");
     if (m.id === dressing()?.id) return apply(tile);
     const locked = lockedItem(tile);
@@ -475,16 +503,18 @@ export function mountDen() {
       trying.items[slot] = item?.id ?? "none";
       trying.tints[slot] = item?.tint ? pick(Object.keys(PALETTE) as Tint[]) : trying.tints[slot];
     }
-    trying.skin = Math.random() < 0.5 ? "ink" : pick(Object.keys(SKINS) as Look["skin"][]);
-    trying.pattern = Math.random() < 0.7 ? "none" : pick(Object.keys(PATTERNS) as Look["pattern"][]);
-    trying.thread = Math.random() < 0.7 ? "silk" : pick(Object.keys(THREADS) as Look["thread"][]);
+    if (!coloursLocked(dressing())) {
+      trying.skin = Math.random() < 0.5 ? "ink" : pick(Object.keys(SKINS) as Look["skin"][]);
+      trying.pattern = Math.random() < 0.7 ? "none" : pick(Object.keys(PATTERNS) as Look["pattern"][]);
+      trying.thread = Math.random() < 0.7 ? "silk" : pick(Object.keys(THREADS) as Look["thread"][]);
+    }
     wear();
     say(`Ta-da. ${escape(nameOfTrying())} has never looked better.`);
     playFor("faceExcited");
   });
   wardrobe.querySelector("[data-den-undress]")?.addEventListener("click", () => {
     if (!dressing()) return say("Pick a spider to undress.");
-    setLook(trying, { ...blankLook(), name: trying.name, skin: trying.skin, pattern: trying.pattern });
+    setLook(trying, { ...blankLook(), name: trying.name, skin: trying.skin, pattern: trying.pattern, thread: trying.thread });
     wear();
     say("Back to basics.");
     playFor("faceSurprised");
@@ -551,7 +581,8 @@ export function mountDen() {
   $card("[data-card-close]").addEventListener("click", () => pickSpider(null));
   document.addEventListener("keydown", (e) => {
     const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, select");
-    if (e.key === "Escape" && view === "den" && picked() && !typing) pickSpider(null);
+    const popover = !settingsPanel.hidden || !deathsPanel.hidden;
+    if (e.key === "Escape" && view === "den" && picked() && !typing && !popover) pickSpider(null);
   });
   $card("[data-card-dress]").addEventListener("click", () => {
     setDrawer(true);
@@ -577,6 +608,110 @@ export function mountDen() {
     say(`<strong>${escape(nameOf(m))} is your main spider now.</strong> It's the one on the logo and in the header.`);
   });
 
+  /** Somebody by id, alive or remembered. */
+  const nameById = (id: string) => {
+    const alive = byId(id);
+    return alive ? nameOf(alive) : (deaths().find((d) => d.id === id)?.name ?? null);
+  };
+
+  /** What it's like, in a few words: its genes and personality, and anything worth knowing now. */
+  let traitsKey = "";
+  const refreshTraits = (m: Member) => {
+    const words: [string, string?][] = traitWords(m.genes, m.personality).map((w) => [w]);
+    if (skinRarity(m.genes.skin) >= 0.7 || patternRarity(m.genes.pattern) >= 0.75) words.unshift(["Rare colours", "rare"]);
+    if (elderness(m) > 0.6) words.unshift(["Very old", "warn"]);
+    if (m.starving > 0) words.unshift(["Starving: feed it soon", "warn"]);
+    if (m.kills) words.push([`Has eaten ${m.kills} spider${m.kills === 1 ? "" : "s"}`]);
+    const key = JSON.stringify(words);
+    if (key === traitsKey) return;
+    traitsKey = key;
+    $card("[data-card-traits]").replaceChildren(
+      ...words.map(([word, tone]) => {
+        const li = document.createElement("li");
+        li.textContent = word;
+        if (tone) li.dataset.tone = tone;
+        return li;
+      }),
+    );
+  };
+
+  // With ?tune, the picked spider's genes, to change and see what they do.
+  const genesBox = $card<HTMLDetailsElement>("[data-card-genes]");
+  genesBox.hidden = !world.tuning;
+  const geneInputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+  if (world.tuning) {
+    const grid = genesBox.querySelector<HTMLElement>("[data-genes-grid]")!;
+    const heading = (text: string) => {
+      const h = document.createElement("h3");
+      h.textContent = text;
+      grid.append(h);
+    };
+    const WORDS: Record<Trait | Feeling, string> = {
+      speed: "Speed", appetite: "Appetite", silk: "Silk", strength: "Strength", size: "Size", lifespan: "Lifespan", fertility: "Fertility",
+      temper: "Temper", thrill: "Thrill", nerve: "Nerve", aggression: "Aggression", energy: "Energy", tidiness: "Tidiness",
+    };
+    const slider = (key: Trait | Feeling, min: number, max: number, set: (m: Member, v: number) => void) => {
+      const label = document.createElement("label");
+      label.textContent = WORDS[key];
+      const input = document.createElement("input");
+      Object.assign(input, { type: "range", min: String(min), max: String(max), step: "0.01", id: `den-gene-${key}` });
+      label.htmlFor = input.id;
+      const out = document.createElement("output");
+      input.addEventListener("input", () => {
+        const m = picked();
+        out.textContent = Number(input.value).toFixed(2);
+        if (m) set(m, Number(input.value));
+      });
+      geneInputs.set(key, input);
+      grid.append(label, input, out);
+    };
+    heading("Genes (1 = average)");
+    for (const t of TRAITS) slider(t, LIMITS[t][0], LIMITS[t][1], (m, v) => setGenes(m.id, { [t]: v } as Partial<Record<Trait, number>>));
+    heading("Colours");
+    const choice = (key: "skin" | "pattern" | "thread", options: Record<string, { label: string }>) => {
+      const label = document.createElement("label");
+      label.textContent = key === "skin" ? "Body" : key === "pattern" ? "Pattern" : "Thread";
+      const select = document.createElement("select");
+      select.id = `den-gene-${key}`;
+      label.htmlFor = select.id;
+      for (const [id, { label: text }] of Object.entries(options)) select.add(new Option(text, id));
+      select.addEventListener("change", () => {
+        const m = picked();
+        if (m) setGenes(m.id, { [key]: select.value } as Parameters<typeof setGenes>[1]);
+      });
+      geneInputs.set(key, select);
+      grid.append(label, select);
+    };
+    choice("skin", SKINS);
+    choice("pattern", PATTERNS);
+    choice("thread", THREADS);
+    heading("Personality (0 to 1)");
+    for (const f of FEELINGS) slider(f, 0, 1, (m, v) => setGenes(m.id, {}, { [f]: v } as Partial<Record<Feeling, number>>));
+    const act = (selector: string, run: (m: Member) => void) =>
+      genesBox.querySelector(selector)!.addEventListener("click", () => {
+        const m = picked();
+        if (m) run(m);
+      });
+    act("[data-genes-reroll]", (m) => reroll(m.id));
+    act("[data-genes-colours]", (m) => reroll(m.id, true));
+    act("[data-genes-old]", (m) => makeOld(m.id));
+    act("[data-genes-starve]", (m) => starve(m.id));
+  }
+  const refreshGenes = (m: Member) => {
+    if (!world.tuning || !genesBox.open) return;
+    const values: Record<string, number | string> = { ...m.genes, ...m.personality };
+    for (const [key, input] of geneInputs) {
+      if (document.activeElement === input) continue;
+      input.value = String(values[key]);
+      const out = input.nextElementSibling;
+      if (out instanceof HTMLOutputElement) out.textContent = Number(values[key]).toFixed(2);
+    }
+  };
+  genesBox.addEventListener("toggle", () => {
+    const m = picked();
+    if (m) refreshGenes(m);
+  });
+
   let portraitKey = "";
   const refreshCard = () => {
     const m = picked();
@@ -585,7 +720,7 @@ export function mountDen() {
     $card("[data-card-name]").textContent = nameOf(m);
     $card("[data-card-main]").hidden = !m.main;
     $card("[data-card-make-main]").hidden = m.main;
-    const stage = grownUp(m) ? "Grown up" : m.growth < 0.35 ? "Baby" : "Growing up";
+    const stage = elderness(m) > 0 ? "Old" : grownUp(m) ? "Grown up" : m.growth < 0.35 ? "Baby" : "Growing up";
     // The spider that was here before the den had babies didn't hatch here.
     $card("[data-card-age]").textContent = `${stage} · ${m.parent || !m.main ? age(m) : "here from the start"}`;
     const growth = $card("[data-card-growth]");
@@ -596,6 +731,17 @@ export function mountDen() {
     fullness.querySelector<HTMLElement>(".meter-bar span")!.style.setProperty("--done", `${Math.round(m.fullness * 100)}%`);
     fullness.querySelector(".meter-value")!.textContent = tummy(m.fullness);
     fullness.toggleAttribute("data-low", m.fullness < 0.2);
+    const family = $card("[data-card-family]");
+    const parents = [m.parent, m.mate].filter((id): id is string => !!id).map(nameById);
+    const known = parents.filter((n): n is string => !!n);
+    const lineage = [
+      known.length ? `${known.length === 2 ? "Child of" : "Baby of"} ${known.join(" and ")}` : m.parent ? "Its parents are gone" : "",
+      m.generation > 0 ? `generation ${m.generation + 1}` : "",
+    ].filter(Boolean);
+    family.hidden = !lineage.length;
+    family.textContent = lineage.join(" · ").replace(/^g/, "G");
+    refreshTraits(m);
+    refreshGenes(m);
     const lay = $card<HTMLButtonElement>("[data-card-lay]");
     const can = canLay(m);
     lay.hidden = !grownUp(m);
@@ -638,6 +784,215 @@ export function mountDen() {
     }
   };
 
+  // ── The den's settings ────────────────────────────────────────────────────
+  const settingsPanel = document.querySelector<HTMLElement>("[data-den-settings]")!;
+  const settingsToggle = document.querySelector<HTMLButtonElement>("[data-den-settings-toggle]")!;
+  const fightsBox = settingsPanel.querySelector<HTMLInputElement>("[data-den-fights]")!;
+  const showSettings = (open: boolean) => {
+    settingsPanel.hidden = !open;
+    settingsToggle.setAttribute("aria-expanded", String(open));
+    if (open) showDeaths(false);
+  };
+  const refreshSettings = () => {
+    const press = (attr: string, on: (value: string) => boolean) => {
+      for (const b of settingsPanel.querySelectorAll<HTMLButtonElement>(`[${attr}]`)) b.setAttribute("aria-pressed", String(on(b.getAttribute(attr)!)));
+    };
+    press("data-den-speed", (v) => Number(v) === settings.speed);
+    press("data-den-flies", (v) => v === settings.flies);
+    press("data-den-predators", (v) => v === settings.predators);
+    fightsBox.checked = settings.fights;
+    // Time's not at its usual speed: the bar says so.
+    settingsToggle.toggleAttribute("data-changed", settings.speed !== 1);
+    settingsToggle.title = settings.speed === 1 ? "Den settings" : `Den settings (time at ${settings.speed}×)`;
+  };
+  settingsToggle.addEventListener("click", () => showSettings(settingsPanel.hidden));
+  settingsPanel.querySelector("[data-den-settings-close]")!.addEventListener("click", () => {
+    showSettings(false);
+    settingsToggle.focus();
+  });
+  settingsPanel.addEventListener("click", (e) => {
+    const b = (e.target as Element).closest<HTMLButtonElement>("button");
+    if (!b) return;
+    if (b.dataset.denSpeed) {
+      change({ speed: Number(b.dataset.denSpeed) as DenSettings["speed"] });
+      say(settings.speed === 1 ? "Time's back to normal." : `<strong>Time's running at ${settings.speed}×.</strong> Everything, from flies to growing up.`);
+    } else if (b.dataset.denFlies) {
+      change({ flies: b.dataset.denFlies as Amount });
+    } else if (b.dataset.denPredators) {
+      change({ predators: b.dataset.denPredators as Amount });
+      say(settings.predators === "none" ? "No more predators." : `Predators: ${AMOUNTS[settings.predators].label.toLowerCase()}.`);
+    }
+  });
+  fightsBox.addEventListener("change", () => change({ fights: fightsBox.checked }));
+  document.addEventListener(SETTINGS_EVENT, refreshSettings);
+  refreshSettings();
+
+  // With ?tune, a pair of scissors for the webs.
+  const cutButton = document.querySelector<HTMLButtonElement>("[data-den-cut]")!;
+  cutButton.hidden = !world.tuning;
+  cutButton.addEventListener("click", () => {
+    const on = cutButton.getAttribute("aria-pressed") !== "true";
+    world.setCutting(on);
+    cutButton.setAttribute("aria-pressed", String(on));
+    say(on ? "<strong>Cutting.</strong> Drag across threads to cut them. Press ✂ again to stop." : "Done cutting.");
+  });
+
+  // ── Codes ─────────────────────────────────────────────────────────────────
+  for (const form of document.querySelectorAll<HTMLFormElement>("[data-den-code]")) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = form.querySelector<HTMLInputElement>("input")!;
+      const note = form.querySelector<HTMLElement>("[data-code-note]")!;
+      const result = redeemCode(input.value);
+      note.toggleAttribute("data-ok", result.ok);
+      if (!result.ok) {
+        note.textContent = result.why;
+        return;
+      }
+      input.value = "";
+      const names = result.unlocked.map(({ item }) => `the ${item.label.toLowerCase()}`);
+      note.textContent = names.length ? `Unlocked ${names.join(", ")}.` : "That worked, but there was nothing new to unlock.";
+    });
+  }
+
+  // ── Deaths ────────────────────────────────────────────────────────────────
+  const deathsBox = document.querySelector<HTMLElement>("[data-den-deaths]")!;
+  const deathsToggle = deathsBox.querySelector<HTMLButtonElement>("[data-deaths-toggle]")!;
+  const deathsPanel = deathsBox.querySelector<HTMLElement>("[data-deaths-panel]")!;
+  const deathsList = deathsBox.querySelector<HTMLElement>("[data-deaths-list]")!;
+  const deathsBadge = deathsBox.querySelector<HTMLElement>("[data-deaths-badge]")!;
+  const clearButton = deathsBox.querySelector<HTMLButtonElement>("[data-deaths-clear]")!;
+  /** How many at the top of the list are new since it was last opened. */
+  let fresh = 0;
+  let badgeWas = unseen();
+
+  const span = (hours: number) => {
+    if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
+    if (hours < 48) return `${Math.round(hours)} h`;
+    return `${Math.round(hours / 24)} days`;
+  };
+  const ago = (at: number) => {
+    const seconds = Math.max(0, (Date.now() - at) / 1000);
+    if (seconds < 60) return "just now";
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
+    const days = Math.floor(seconds / 86400);
+    return days === 1 ? "yesterday" : `${days} days ago`;
+  };
+  /** The details that matter for how it died: how long it went hungry, how old it got. */
+  const detailOf = (d: Death) => {
+    const bits: string[] = [];
+    if (d.cause === "starved") bits.push(`Went hungry for ${span(d.starving)}`, `${span(d.age)} old`);
+    else if (d.cause === "old") bits.push(`Lived to ${span(d.age)}`);
+    else {
+      bits.push(`${span(d.age)} old`);
+      if (d.life >= den.aging.elderAt) bits.push("getting on");
+      bits.push(`tummy ${tummy(d.fullness).toLowerCase()}`);
+    }
+    if (d.away) bits.push("while you were away");
+    return bits.join(" · ");
+  };
+  const renderDeaths = () => {
+    const list = deaths();
+    deathsBox.querySelector<HTMLElement>("[data-deaths-empty]")!.hidden = list.length > 0;
+    deathsBox.querySelector("[data-deaths-count]")!.textContent = list.length ? String(list.length) : "";
+    clearButton.hidden = !list.length;
+    deathsList.replaceChildren(
+      ...list.map((d, i) => {
+        const li = document.createElement("li");
+        li.className = "death";
+        li.dataset.cause = d.cause;
+        li.toggleAttribute("data-unseen", i < fresh);
+        li.innerHTML = `<canvas aria-hidden="true"></canvas><div><p class="death-name"><strong></strong><span class="death-when"></span></p><p class="death-cause"></p><p class="death-detail"></p></div>`;
+        li.querySelector("strong")!.textContent = d.main ? `${d.name} ★` : d.name;
+        const when = li.querySelector<HTMLElement>(".death-when")!;
+        when.textContent = ago(d.at);
+        when.dataset.at = String(d.at);
+        li.querySelector(".death-cause")!.textContent = causeText(d);
+        li.querySelector(".death-detail")!.textContent = detailOf(d);
+        return li;
+      }),
+    );
+    deathsList.querySelectorAll("canvas").forEach((canvas, i) => drawSpider(canvas, list[i].look, VIEWS.whole, 0.8));
+  };
+  const refreshBadge = () => {
+    const n = deathsPanel.hidden ? unseen() : 0;
+    deathsBadge.hidden = !n;
+    deathsBadge.textContent = n > 99 ? "99+" : String(n);
+    deathsToggle.setAttribute("aria-label", n ? `Deaths (${n} new)` : "Deaths");
+    if (n > badgeWas) {
+      deathsToggle.removeAttribute("data-new");
+      void deathsToggle.offsetWidth;
+      deathsToggle.setAttribute("data-new", "");
+    }
+    badgeWas = n;
+  };
+  deathsToggle.addEventListener("animationend", () => deathsToggle.removeAttribute("data-new"));
+  const showDeaths = (open: boolean) => {
+    if (open === !deathsPanel.hidden) return;
+    deathsPanel.hidden = !open;
+    deathsToggle.setAttribute("aria-expanded", String(open));
+    if (open) {
+      showSettings(false);
+      fresh = unseen();
+      renderDeaths();
+      markSeen();
+    }
+    refreshBadge();
+  };
+  deathsToggle.addEventListener("click", () => showDeaths(deathsPanel.hidden));
+  deathsBox.querySelector("[data-deaths-close]")!.addEventListener("click", () => {
+    showDeaths(false);
+    deathsToggle.focus();
+  });
+  // Clearing the log takes a second press, in case.
+  let clearing = 0;
+  clearButton.addEventListener("click", () => {
+    if (!clearing) {
+      clearButton.textContent = "Clear all?";
+      clearing = window.setTimeout(() => {
+        clearing = 0;
+        clearButton.textContent = "Clear";
+      }, 3000);
+      return;
+    }
+    window.clearTimeout(clearing);
+    clearing = 0;
+    clearButton.textContent = "Clear";
+    clearLog();
+  });
+  document.addEventListener(DEATHS_EVENT, () => {
+    if (!deathsPanel.hidden) {
+      // Someone died while you were looking: it's new, and seen.
+      const n = unseen();
+      if (n) {
+        fresh += n;
+        markSeen();
+        return;
+      }
+      renderDeaths();
+    }
+    refreshBadge();
+  });
+  refreshBadge();
+
+  // Clicking away or pressing Escape closes the popovers.
+  document.addEventListener("pointerdown", (e) => {
+    const target = e.target as Node;
+    if (!settingsPanel.hidden && !settingsPanel.contains(target) && !settingsToggle.contains(target)) showSettings(false);
+    if (!deathsPanel.hidden && !deathsBox.contains(target)) showDeaths(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!settingsPanel.hidden) {
+      showSettings(false);
+      settingsToggle.focus();
+    } else if (!deathsPanel.hidden) {
+      showDeaths(false);
+      deathsToggle.focus();
+    }
+  });
+
   // ── Keeping it all up to date ─────────────────────────────────────────────
   const refresh = () => {
     const m = dressing();
@@ -652,6 +1007,18 @@ export function mountDen() {
       for (const swatch of $$<HTMLButtonElement>(".swatch", group)) {
         swatch.setAttribute("aria-pressed", String(trying.tints[slot] === swatch.dataset.tint));
       }
+    }
+    const lockColours = coloursLocked(m);
+    for (const tile of $$<HTMLButtonElement>("[data-skin], [data-pattern], [data-thread]")) {
+      tile.setAttribute("aria-disabled", String(lockColours));
+    }
+    const lockNote = wardrobe.querySelector<HTMLElement>("[data-colour-lock]")!;
+    const testingNote = !!m?.parent && den.genetics.enabled && world.tuning;
+    lockNote.hidden = !lockColours && !testingNote;
+    if (m && lockColours) {
+      lockNote.innerHTML = `<strong>${escape(nameOf(m))} was born ${escape(colourWords(m))}.</strong> Colours are in the genes, so they can't be changed: its babies take after it (and now and then turn up a colour of their own).`;
+    } else if (m && testingNote) {
+      lockNote.innerHTML = `<strong>Testing:</strong> colours are in the genes, but with ?tune you can change them. ${escape(nameOf(m))}'s babies will take after whatever you pick.`;
     }
     for (const tile of $$<HTMLButtonElement>("[data-skin]")) tile.setAttribute("aria-pressed", String(trying.skin === tile.dataset.skin));
     for (const tile of $$<HTMLButtonElement>("[data-pattern]")) {
@@ -700,12 +1067,13 @@ export function mountDen() {
     cancelAnimationFrame(resized);
     resized = requestAnimationFrame(drawTiles);
   });
-  // Hunger and growing up tick along: keep the card and picker current.
+  // Hunger and growing up tick along: keep the card and picker current, and how long ago deaths were.
   window.setInterval(() => {
     if (view === "den") {
       refreshCard();
       refreshPicker();
     }
+    if (!deathsPanel.hidden) for (const when of deathsList.querySelectorAll<HTMLElement>(".death-when")) when.textContent = ago(Number(when.dataset.at));
   }, 1000);
 
   let saved: string | null = null;

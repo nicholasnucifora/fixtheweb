@@ -8,7 +8,8 @@ import type { Spot, Vec, Web } from "./web";
  *
  * They fly across in a wobbly line, and a thread they cross can catch them. Stuck, they struggle
  * for a bit, shaking the web, and some get away. Hungry spiders come and eat the ones that don't.
- * You can pick one up and give it to a spider yourself, or stick it on a thread.
+ * You can pick one up and give it to a spider yourself, or stick it on a thread. Hitting a thread and
+ * struggling in it wears it (and if it breaks, the fly drops out).
  *
  * Snacks from the wardrobe turn up hovering in one place, like the home page's fly, until you drag
  * them somewhere.
@@ -102,6 +103,7 @@ export function createBugs(den_: { web: Web; unit: number }) {
     bug.stuckFor = 0;
     bug.hover = null;
     den_.web.push(hit.x, hit.y, pushX, pushY);
+    den_.web.wear(hit.edge, den.health.flyHit, hit.t);
   };
 
   return {
@@ -193,16 +195,17 @@ export function createBugs(den_: { web: Web; unit: number }) {
       list = [];
     },
 
-    update(dt: number, sendIn: boolean) {
+    /** `amount` is how many flies come in, next to normal (0: none). */
+    update(dt: number, amount: number) {
       const web = den_.web;
       const f = den.flies;
       time += dt;
 
-      nextIn -= dt;
+      nextIn -= dt * amount;
       if (nextIn <= 0) {
         nextIn = between(f.everyFrom, f.everyTo);
         const about = list.filter((b) => b.state !== "gone" && b.state !== "eaten").length;
-        if (sendIn && f.enabled && about < f.most) flyIn();
+        if (amount > 0 && f.enabled && about < Math.ceil(f.most * Math.max(1, amount))) flyIn();
       }
 
       for (const bug of list) {
@@ -238,10 +241,20 @@ export function createBugs(den_: { web: Web; unit: number }) {
           bug.x = bug.hover[0] + Math.sin(bug.wobble * 1.7) * den_.unit * 0.05;
           bug.y = bug.hover[1] + Math.sin(bug.wobble * 2.3 + 1.1) * den_.unit * 0.035;
         } else if (bug.state === "stuck" && bug.spot) {
+          if (!web.isAlive(bug.spot.edge)) {
+            // The thread broke: it drops out and buzzes off.
+            bug.state = "flying";
+            bug.spot = null;
+            bug.heading = Math.PI / 2 + (Math.random() - 0.5);
+            bug.slippery = 0.8;
+            bug.claimedBy = null;
+            continue;
+          }
           const [px, py] = web.point(bug.spot);
           bug.stuckFor += dt;
           if (bug.struggle > 0) {
             bug.struggle -= dt;
+            web.wear(bug.spot.edge, den.health.flyWear * dt, bug.spot.t);
             const shake = den_.unit * 0.025;
             bug.x = px + Math.sin(time * 47 + bug.wobble) * shake;
             bug.y = py + Math.cos(time * 39 + bug.wobble) * shake;

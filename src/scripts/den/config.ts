@@ -1,8 +1,10 @@
 import type { Param } from "../spider-string/config";
 
 /**
- * Every tunable that only the Spider Den has: its webs, how threads catch a flung spider, strings
- * snapping, what the spiders get up to, flies, and their lives (hunger, growing up, babies).
+ * Every tunable that only the Spider Den has: its webs (and how they fray, break and get mended), how
+ * threads catch a flung spider, strings snapping, what the spiders get up to, their lives (hunger,
+ * growing up, babies, growing old), their genes and personalities, danger (predators and fights),
+ * flies, and tools for testing it all.
  *
  * How the spiders themselves move, look and feel (string physics, throwing, faces, legs, blinking…)
  * is shared with every other page and tuned there: config.ts, or the home page with ?tune. This
@@ -27,9 +29,21 @@ export const groups = {
     label: "Life",
     info: "Hunger, growing up, babies and dying. Times are real time; speed life up to watch it happen.",
   },
+  genes: {
+    label: "Genes",
+    info: "What spiders are born with: how quick, hungry, strong and long-lived they are, their silk, colours and personality, and how much they take after their parents. Pick a spider in the den to see (and, with ?tune, change) its genes on its card.",
+  },
+  danger: {
+    label: "Danger",
+    info: "Birds, frogs and pirate spiders that come hunting, hungry spiders that turn on each other, and how everyone gets away.",
+  },
   flies: {
     label: "Flies",
     info: "Flies that wander into the den and get stuck in the webs.",
+  },
+  tools: {
+    label: "Tools",
+    info: "For testing: cut threads by hand, bring in predators, start fights, and fast-forward life.",
   },
 };
 
@@ -165,6 +179,130 @@ export const schema = {
         value: 0.5, min: 0.05, max: 2, step: 0.05, unit: "b",
         label: "Push reach",
         info: "How far around a hit the threads are pushed.",
+      },
+    },
+  },
+
+  health: {
+    group: "web",
+    label: "Fraying",
+    info: "Every thread has health. It frays over time, and faster when spiders walk on it, flies hit it or flung spiders crash through it. Frayed threads fade, and at nothing left they break. The spider that spun or mended a thread gives it its silk's strength.",
+    params: {
+      enabled: { value: true, label: "Threads fray", info: "" },
+      decay: {
+        value: 14, min: 0.1, max: 240, step: 0.5, unit: "h",
+        label: "Frays away over",
+        info: "How long an untouched thread of ordinary silk lasts from full health (life speed counts).",
+      },
+      variety: {
+        value: 0.35, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Some threads last longer",
+        info: "How much strength varies from thread to thread, so they don't all go at once.",
+      },
+      fadeMin: {
+        value: 0.2, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Faintest",
+        info: "How strongly a thread about to break still shows, next to a healthy one.",
+      },
+      walkWear: {
+        value: 0.012, min: 0, max: 0.3, step: 0.001, unit: "/s",
+        label: "Wear from walking",
+        info: "Health a grown-up takes off a thread each second it walks on it.",
+      },
+      flyHit: {
+        value: 0.08, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "A fly hitting it",
+        info: "",
+      },
+      flyWear: {
+        value: 0.05, min: 0, max: 1, step: 0.01, unit: "/s",
+        label: "A fly struggling in it",
+        info: "",
+      },
+      impactWear: {
+        value: 0.02, min: 0, max: 0.5, step: 0.005, unit: "per b/s",
+        label: "A flung spider crashing through",
+        info: "For every b/s it's going.",
+      },
+      startFrom: { value: 0.55, min: 0, max: 1, step: 0.01, unit: "×", label: "New webs start at, from", info: "" },
+      startTo: { value: 1, min: 0, max: 1, step: 0.01, unit: "×", label: "…to", info: "" },
+      awayHours: {
+        value: 8, min: 0, max: 240, step: 0.5, unit: "h",
+        label: "Fraying while you're away, at most",
+        info: "Webs are remembered between visits. This caps how much time away counts, so you don't come back to nothing.",
+      },
+    },
+  },
+
+  breaking: {
+    group: "web",
+    label: "Breaking",
+    info: "A thread that breaks splits in two, and each half dangles from where it was tied before fading away. A piece of web cut loose from everything it hangs from falls.",
+    params: {
+      collapse: { value: true, label: "Pieces cut loose fall", info: "" },
+      fade: {
+        value: 3.5, min: 0.2, max: 20, step: 0.1, unit: "s",
+        label: "Broken ends fade over",
+        info: "",
+      },
+      gravity: {
+        value: 0.6, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "How heavily they fall",
+        info: "Next to the spiders' own gravity.",
+      },
+      most: {
+        value: 400, min: 20, max: 2000, step: 10,
+        label: "Most pieces at once",
+        info: "The oldest go first past this.",
+      },
+    },
+  },
+
+  repair: {
+    group: "web",
+    label: "Mending",
+    info: "Spiders look after their webs: they mend frayed threads (working silk into them, and the thread shows stronger again), and re-spin broken ones, trailing a new thread from one end to the other. Tidy spiders do it more.",
+    params: {
+      enabled: { value: true, label: "Spiders mend webs", info: "" },
+      mend: {
+        value: 2.5, min: 0, max: 10, step: 0.5,
+        label: "Mending, how often",
+        info: "Next to the other habits (Spiders → Habits).",
+      },
+      spin: {
+        value: 2, min: 0, max: 10, step: 0.5,
+        label: "Re-spinning, how often",
+        info: "",
+      },
+      below: {
+        value: 0.6, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Mends threads below",
+        info: "Health a thread has to be under before a spider bothers.",
+      },
+      range: {
+        value: 4, min: 0.5, max: 20, step: 0.5, unit: "b",
+        label: "Looks for work within",
+        info: "",
+      },
+      rate: {
+        value: 0.4, min: 0.01, max: 5, step: 0.01, unit: "/s",
+        label: "Mending speed",
+        info: "Health a thread gets back each second, for ordinary silk.",
+      },
+      spinSpeed: {
+        value: 1.1, min: 0.1, max: 6, step: 0.1, unit: "b/s",
+        label: "Spinning speed",
+        info: "How fast it lays a new thread across a gap.",
+      },
+      spinHealth: {
+        value: 0.85, min: 0.1, max: 1, step: 0.01, unit: "×",
+        label: "A new thread starts at",
+        info: "",
+      },
+      streak: {
+        value: 10, min: 1, max: 60, step: 1,
+        label: "Threads in a row",
+        info: "After spinning one, it carries on with the next broken thread along, up to this many.",
       },
     },
   },
@@ -359,6 +497,22 @@ export const schema = {
     },
   },
 
+  emotes: {
+    group: "spiders",
+    label: "Emotes",
+    info: "Little symbols that pop up over a spider as it feels things: a heart, an angry mark, a !, a sweat drop. What sets them off depends on its personality.",
+    params: {
+      enabled: { value: true, label: "Show emotes", info: "" },
+      size: { value: 0.2, min: 0.05, max: 0.6, step: 0.01, unit: "b", label: "Size", info: "" },
+      chance: {
+        value: 0.85, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "How chatty",
+        info: "Chance a feeling shows as an emote.",
+      },
+      life: { value: 1.4, min: 0.3, max: 5, step: 0.1, unit: "s", label: "Lasts", info: "" },
+    },
+  },
+
   marks: {
     group: "spiders",
     label: "Marks",
@@ -391,7 +545,6 @@ export const schema = {
         label: "Life speed",
         info: "Speeds up hunger, growing up and hatching, for watching them happen. 3600 = an hour a second.",
       },
-      spawnFly: { value: 0, kind: "action", label: "Send in a fly", info: "" },
       feedAll: { value: 0, kind: "action", label: "Feed everyone", info: "Fills every spider right up." },
       starveAll: { value: 0, kind: "action", label: "Make everyone hungry", info: "Empties every spider." },
       layEggs: { value: 0, kind: "action", label: "Lay eggs now", info: "The picked spider (or the main one) lays a clutch, whatever it's allowed to do." },
@@ -500,29 +653,262 @@ export const schema = {
         info: "How much of its tummy laying a clutch takes.",
       },
       max: {
-        value: 16, min: 1, max: 40, step: 1,
+        value: 40, min: 1, max: 150, step: 1,
         label: "Most spiders",
-        info: "No more eggs once the den (counting eggs still to hatch) has this many.",
+        info: "No more eggs once the den (counting eggs still to hatch) has this many. Every spider is a whole animated spider, so a lot of them takes a lot of work: see Tools → Detail.",
       },
-      inherit: {
-        value: 0.7, min: 0, max: 1, step: 0.05, unit: "×",
-        label: "Take after their parent",
-        info: "Chance a baby gets its parent's colour and pattern rather than its own.",
+      nest: {
+        value: 0.8, min: 0, max: 10, step: 0.1,
+        label: "Lays eggs by itself, how often",
+        info: "Next to its other habits, for a grown-up that's able to. Fertile spiders more.",
       },
+      mateRange: {
+        value: 5, min: 0, max: 30, step: 0.5, unit: "b",
+        label: "Looks for a mate within",
+        info: "A grown-up nearby that could lay too becomes the other parent: they court, and the babies get genes from both.",
+      },
+      solo: {
+        value: 0.35, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "Lays alone, if there's nobody",
+        info: "Chance it lays anyway without a mate.",
+      },
+      court: { value: 2.4, min: 0, max: 10, step: 0.1, unit: "s", label: "Courting takes", info: "" },
+    },
+  },
+
+  aging: {
+    group: "life",
+    label: "Growing old",
+    info: "Spiders get old, slow down, get weaker in a fight and worse at getting away, and at the end of their life die of old age. How long they live is in their genes.",
+    params: {
+      enabled: { value: true, label: "Spiders grow old", info: "" },
+      lifespanFrom: { value: 2, min: 0.01, max: 60, step: 0.01, unit: "days", label: "Lives for, from", info: "For an average lifespan gene." },
+      lifespanTo: { value: 5, min: 0.01, max: 90, step: 0.01, unit: "days", label: "…to", info: "" },
+      elderAt: {
+        value: 0.7, min: 0.1, max: 1, step: 0.01, unit: "×",
+        label: "Old from",
+        info: "How far through its life it starts getting old.",
+      },
+      slow: { value: 0.45, min: 0, max: 1, step: 0.01, unit: "×", label: "Slows down by", info: "At the very end." },
+      weak: { value: 0.5, min: 0, max: 1, step: 0.01, unit: "×", label: "Weaker in a fight by", info: "" },
+      dodge: { value: 0.5, min: 0, max: 1, step: 0.01, unit: "×", label: "Worse at getting away by", info: "" },
+      droop: { value: 0.5, min: 0, max: 1, step: 0.01, unit: "×", label: "Droopy eyes", info: "How sleepy an old spider's eyes look." },
     },
   },
 
   dying: {
     group: "life",
     label: "Dying",
-    info: "A spider left empty for too long dies, and floats away. The main spider never does: it just gets very grumpy.",
+    info: "A spider left empty for too long starves and floats away. Every death goes in the den's log (top right in the den). The main spider is the site's own spider, so by default it never dies: it just gets very grumpy (or gets away).",
     params: {
       enabled: { value: true, label: "Spiders can starve", info: "" },
       after: {
-        value: 48, min: 0.1, max: 720, step: 0.5, unit: "h",
+        value: 24, min: 0.1, max: 720, step: 0.5, unit: "h",
         label: "After being empty for",
         info: "",
       },
+      main: {
+        value: false,
+        label: "The main spider can die too",
+        info: "Then the main spider passes to its oldest child (or the oldest spider left).",
+      },
+      logMost: { value: 40, min: 5, max: 200, step: 5, label: "Deaths remembered", info: "" },
+    },
+  },
+
+  time: {
+    group: "life",
+    label: "Time",
+    info: "The den's time speed (in the den's settings) speeds up or slows down everything: the spiders, flies, predators and life itself. Time away from the page runs at ordinary speed.",
+    params: {
+      awayMost: {
+        value: 72, min: 0, max: 720, step: 1, unit: "h",
+        label: "Time away counts, at most",
+        info: "Hunger, growing up, getting old and hatching carry on while you're away, up to this long.",
+      },
+      awayHunt: {
+        value: 0.06, min: 0, max: 1, step: 0.01, unit: "/h",
+        label: "Predators while you're away",
+        info: "Chance each hour away that a predator takes a spider (shown in the log).",
+      },
+    },
+  },
+
+  // ── Genes ─────────────────────────────────────────────────────────────────
+
+  genetics: {
+    group: "genes",
+    label: "Genes",
+    info: "Every spider has genes. Each trait is a multiplier around 1 (average), passed down from its parents with a little wobble. How much each trait matters is set here.",
+    params: {
+      enabled: { value: true, label: "Colours are in the genes", info: "Body colour, pattern and thread are inherited: spiders born in the den can't change them in the wardrobe (the first spider can, and anyone can with ?tune). Off: change them freely." },
+      spread: {
+        value: 0.18, min: 0, max: 0.6, step: 0.01, unit: "×",
+        label: "How different spiders are",
+        info: "How far traits spread from average, in spiders with no parents to take after.",
+      },
+      inherit: {
+        value: 0.8, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Take after their parents",
+        info: "1 = just like their parents (with a little wobble), 0 = nothing like them.",
+      },
+      wobble: {
+        value: 0.07, min: 0, max: 0.5, step: 0.01, unit: "×",
+        label: "Wobble",
+        info: "Random change from the parents' average.",
+      },
+      colour: {
+        value: 0.15, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "A new body colour",
+        info: "Chance a baby is born a colour neither parent has.",
+      },
+      pattern: { value: 0.2, min: 0, max: 1, step: 0.01, unit: "×", label: "A new pattern", info: "" },
+      thread: { value: 0.1, min: 0, max: 1, step: 0.01, unit: "×", label: "A new thread colour", info: "" },
+      speed: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Speed matters", info: "How much the speed gene changes how fast it walks, runs and jumps." },
+      appetite: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Appetite matters", info: "How much it changes how quickly it gets hungry." },
+      speedHunger: {
+        value: 0.6, min: 0, max: 3, step: 0.05, unit: "×",
+        label: "Quick ones get hungry quicker",
+        info: "On top of appetite: how much being quick burns food.",
+      },
+      silk: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Silk matters", info: "How much the silk gene changes how long its threads last, and how hard its string is to snap." },
+      strength: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Strength matters", info: "In a fight." },
+      size: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Size matters", info: "How big a grown-up gets." },
+      lifespan: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Lifespan matters", info: "" },
+      fertility: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Fertility matters", info: "How many babies, and how soon it can lay again." },
+      randomise: { value: 0, kind: "action", label: "Re-roll the picked spider's genes", info: "" },
+      rerollColours: { value: 0, kind: "action", label: "Re-roll the picked spider's colours", info: "" },
+    },
+  },
+
+  personality: {
+    group: "genes",
+    label: "Personality",
+    info: "Every spider has a personality, part inherited: temper (how easily annoyed), thrill (whether it loves or hates being flung about), nerve (brave or timid), aggression (whether it'd eat another spider), energy (busy or lazy) and tidiness (how much it looks after webs). It changes the faces it pulls and the emotes it shows.",
+    params: {
+      strength: {
+        value: 1, min: 0, max: 2, step: 0.05, unit: "×",
+        label: "How much personality shows",
+        info: "0 = every spider acts the same.",
+      },
+      spread: { value: 0.22, min: 0, max: 0.5, step: 0.01, label: "How different they are", info: "" },
+      inherit: { value: 0.5, min: 0, max: 1, step: 0.05, unit: "×", label: "Take after their parents", info: "" },
+    },
+  },
+
+  // ── Danger ────────────────────────────────────────────────────────────────
+
+  predators: {
+    group: "danger",
+    label: "Predators",
+    info: "Now and then a bird, a frog or a pirate spider turns up and goes for a spider, usually a small, slow or old one. Spiders nearby panic, and the one it's after might get away. Grab a spider to save it, or press a predator to shoo it.",
+    params: {
+      enabled: { value: true, label: "Predators come", info: "" },
+      everyFrom: { value: 100, min: 5, max: 1800, step: 5, unit: "s", label: "One every, from", info: "" },
+      everyTo: { value: 260, min: 5, max: 3600, step: 5, unit: "s", label: "…to", info: "" },
+      atLeast: {
+        value: 3, min: 1, max: 30, step: 1,
+        label: "Only once there are",
+        info: "Spiders in the den before predators start coming.",
+      },
+      bird: { value: 1, min: 0, max: 5, step: 0.1, label: "Birds", info: "How likely each kind is, next to each other." },
+      frog: { value: 1, min: 0, max: 5, step: 0.1, label: "Frogs", info: "" },
+      pirate: { value: 0.6, min: 0, max: 5, step: 0.1, label: "Pirate spiders", info: "" },
+      dodge: {
+        value: 0.4, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Getting away",
+        info: "Chance an average grown-up gets away. Nerve, speed, age and size change it.",
+      },
+      panic: {
+        value: 3, min: 0, max: 15, step: 0.25, unit: "b",
+        label: "Spiders panic within",
+        info: "How close a hunting predator has to be for spiders to scatter.",
+      },
+      shoo: {
+        value: 0.8, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "Shooing works",
+        info: "Chance pressing a predator scares it off.",
+      },
+    },
+  },
+
+  bird: {
+    group: "danger",
+    label: "Birds",
+    info: "Flies in, circles, and swoops.",
+    params: {
+      size: { value: 0.85, min: 0.3, max: 4, step: 0.05, unit: "b", label: "Size", info: "A grown-up spider is 0.48 b wide." },
+      speed: { value: 3.5, min: 1, max: 20, step: 0.25, unit: "b/s", label: "Flying speed", info: "" },
+      dive: { value: 6.5, min: 2, max: 30, step: 0.25, unit: "b/s", label: "Swooping speed", info: "" },
+      circle: { value: 1.6, min: 0, max: 8, step: 0.1, unit: "s", label: "Circles for", info: "Before it swoops: time for spiders to notice." },
+      tries: { value: 2, min: 1, max: 6, step: 1, label: "Tries", info: "Swoops before it gives up." },
+    },
+  },
+
+  frog: {
+    group: "danger",
+    label: "Frogs",
+    info: "Hops in at the bottom and shoots its tongue at spiders in reach.",
+    params: {
+      size: { value: 0.8, min: 0.3, max: 4, step: 0.05, unit: "b", label: "Size", info: "" },
+      tongue: { value: 2.4, min: 0.5, max: 12, step: 0.1, unit: "b", label: "Tongue reaches", info: "" },
+      aim: { value: 0.9, min: 0, max: 5, step: 0.05, unit: "s", label: "Takes aim for", info: "" },
+      wait: { value: 3, min: 0, max: 20, step: 0.5, unit: "s", label: "Waits between tries", info: "" },
+      tries: { value: 3, min: 1, max: 10, step: 1, label: "Tries", info: "" },
+      full: { value: 0.75, min: 0, max: 1, step: 0.05, unit: "×", label: "Leaves once it has eaten", info: "Chance it hops off after catching one." },
+      stay: { value: 25, min: 3, max: 180, step: 1, unit: "s", label: "Stays for", info: "If nothing comes in reach." },
+    },
+  },
+
+  pirate: {
+    group: "danger",
+    label: "Pirate spiders",
+    info: "A spider that eats other spiders. It sneaks in along the webs, stalks one, and pounces.",
+    params: {
+      speed: { value: 1.3, min: 0.3, max: 4, step: 0.05, unit: "×", label: "Speed", info: "Next to an ordinary spider." },
+      strength: { value: 1.6, min: 0.3, max: 5, step: 0.05, unit: "×", label: "Strength", info: "" },
+      size: { value: 1.05, min: 0.5, max: 2, step: 0.05, unit: "×", label: "Size", info: "" },
+      patience: { value: 45, min: 5, max: 300, step: 5, unit: "s", label: "Gives up after", info: "" },
+    },
+  },
+
+  fights: {
+    group: "danger",
+    label: "Fights",
+    info: "A starving, aggressive spider may go after a smaller one to eat it. It stalks, and pounces. The other might run, jump away, drop on a string, fight back or freeze. In a fight, the bigger, stronger, better-fed spider usually wins, but not always, and the loser sometimes escapes.",
+    params: {
+      enabled: { value: true, label: "Spiders fight", info: "" },
+      hunger: {
+        value: 0.25, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Hungry enough below",
+        info: "How empty it has to be to think about eating another spider.",
+      },
+      chance: {
+        value: 0.35, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Goes for it",
+        info: "Chance each time it thinks about it, for a fully aggressive spider.",
+      },
+      smaller: {
+        value: 0.9, min: 0.3, max: 2, step: 0.05, unit: "×",
+        label: "Picks on spiders up to",
+        info: "Of its own size.",
+      },
+      family: { value: true, label: "Leaves its own family alone", info: "Parents, babies, brothers and sisters." },
+      stalk: { value: 20, min: 2, max: 120, step: 1, unit: "s", label: "Stalks for", info: "Before it gives up." },
+      notice: { value: 2.5, min: 0, max: 10, step: 0.1, unit: "b", label: "Noticed within", info: "For an average spider." },
+      pounce: { value: 1.6, min: 0.2, max: 6, step: 0.1, unit: "b", label: "Pounces from", info: "" },
+      duration: { value: 1.8, min: 0.3, max: 8, step: 0.1, unit: "s", label: "A fight lasts", info: "" },
+      luck: {
+        value: 0.35, min: 0, max: 2, step: 0.05, unit: "×",
+        label: "Luck",
+        info: "How much chance plays a part. 0 = the stronger always wins.",
+      },
+      escape: {
+        value: 0.3, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Loser gets away",
+        info: "For an average loser (quick and brave ones more).",
+      },
+      meals: { value: 2.5, min: 0, max: 10, step: 0.1, unit: "meals", label: "Eating a spider fills", info: "" },
     },
   },
 
@@ -560,6 +946,46 @@ export const schema = {
         value: 150, min: 5, max: 1200, step: 5, unit: "s",
         label: "Stuck ones rot after",
         info: "A stuck fly nobody eats fades away.",
+      },
+    },
+  },
+
+  // ── Tools ─────────────────────────────────────────────────────────────────
+
+  tools: {
+    group: "tools",
+    label: "Tools",
+    info: "",
+    params: {
+      cut: {
+        value: false,
+        label: "Cut threads",
+        info: "Drag across the den to cut any threads you cross. (Also the ✂ button in the den's bar, with ?tune.)",
+      },
+      stats: { value: false, label: "Show numbers over spiders", info: "Hunger, age and genes, for testing." },
+      spawnFly: { value: 0, kind: "action", label: "Send in a fly", info: "" },
+      bird: { value: 0, kind: "action", label: "Send in a bird", info: "" },
+      frog: { value: 0, kind: "action", label: "Send in a frog", info: "" },
+      pirate: { value: 0, kind: "action", label: "Send in a pirate spider", info: "" },
+      fight: { value: 0, kind: "action", label: "Start a fight", info: "The picked spider (or a random one) goes for the nearest spider." },
+      collapse: { value: 0, kind: "action", label: "Knock down a web", info: "Cuts every anchor of a random web." },
+      fray: { value: 0, kind: "action", label: "Fray every web", info: "Takes every thread down to a third of its health." },
+      mendAll: { value: 0, kind: "action", label: "Mend every web", info: "" },
+      old: { value: 0, kind: "action", label: "Make the picked spider old", info: "" },
+      starve: { value: 0, kind: "action", label: "Starve the picked spider", info: "Empties it, and it's been empty long enough to die." },
+      clearLog: { value: 0, kind: "action", label: "Clear the deaths log", info: "" },
+    },
+  },
+
+  detail: {
+    group: "tools",
+    label: "Detail",
+    info: "Every spider is a whole animated spider, which takes work. With lots of them, some of it is done less often.",
+    params: {
+      above: {
+        value: 24, min: 1, max: 150, step: 1,
+        label: "Save work above",
+        info: "Past this many spiders, the ones just sitting about are posed every other frame.",
       },
     },
   },

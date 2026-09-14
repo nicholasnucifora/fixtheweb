@@ -18,10 +18,30 @@ import type { Scene } from "./scenes";
  * thread's node sits at its built place plus a small springy offset, so a push makes the threads
  * give and ripple back (Webs → Wobble); nodes on supports stay put.
  *
+ * Every silk thread has health and toughness. It frays (`decay`, `wear`), fades as it does, and
+ * at no health it breaks: it's dead, and stays in the graph only so it can be spun again
+ * (`restore`). Breaks are queued for world.ts to show (`takeBreaks`), and any piece of web that
+ * a break leaves hanging from nothing breaks too, and falls. Health, toughness and what's broken can
+ * be saved and loaded (`save`, `load`).
+ *
  * Positions are CSS px in the den, from its top-left corner.
  */
 
 export type Vec = [number, number];
+
+/** A thread that just broke: where it was, and whether each end is still held by the rest of the web. */
+export interface Break {
+  edge: number;
+  a: Vec;
+  b: Vec;
+  /** Where along it it went (0–1). */
+  t: number;
+  /** Each end's node, if it's still tied to something, so the dangling half can hang from it. */
+  heldA: number;
+  heldB: number;
+  /** Cut loose from everything: it falls. */
+  falls: boolean;
+}
 
 /** A place on a thread: `t` is how far along edge `edge`, from its first node to its second. */
 export interface Spot {
@@ -92,6 +112,13 @@ export class Web {
   private ea: number[] = [];
   private eb: number[] = [];
   private kind: Kind[] = [];
+  /** Silk only: health 0–1, toughness (how slowly it frays), and whether it's there at all. */
+  private health = new Float32Array(0);
+  private tough = new Float32Array(0);
+  private alive = new Uint8Array(0);
+  private breaks: Break[] = [];
+  /** Something broke since the last check for pieces left hanging from nothing. */
+  private loose = false;
 
   /** Each orb web's hub node and reach. */
   hubs: { node: number; radius: number }[] = [];
@@ -441,6 +468,17 @@ export class Web {
       this.links[this.eb[e]].push(e);
     });
     this.moving = false;
+    const h = den.health;
+    const edges = this.ea.length;
+    this.health = new Float32Array(edges);
+    this.tough = new Float32Array(edges);
+    this.alive = new Uint8Array(edges).fill(1);
+    for (let e = 0; e < edges; e++) {
+      this.health[e] = this.kind[e] === Kind.Support ? 1 : between(h.startFrom, h.startTo);
+      this.tough[e] = Math.max(0.1, 1 + (rand() * 2 - 1) * h.variety);
+    }
+    this.breaks = [];
+    this.loose = false;
     this.index();
   }
 
@@ -521,16 +559,16 @@ export class Web {
     if (a === undefined) return [0, 0];
     return [this.x(a) + (this.x(b) - this.x(a)) * spot.t, this.y(a) + (this.y(b) - this.y(a)) * spot.t];
   }
-  /** The edge joining two nodes, if there is one. */
+  /** The unbroken edge joining two nodes, if there is one. */
   between(a: number, b: number) {
-    return this.links[a]?.find((e) => this.other(e, a) === b) ?? -1;
+    return this.links[a]?.find((e) => this.alive[e] && this.other(e, a) === b) ?? -1;
   }
 
   /** The nearest place on anything within `within` px of (x, y): silk or scenery, or just silk. */
   nearest(x: number, y: number, within: number, silkOnly = false): Hit | null {
     let best: Hit | null = null;
     this.edgesNear(x, y, x, y, within, (e) => {
-      if (silkOnly && this.kind[e] === Kind.Support) return;
+      if (!this.alive[e] || (silkOnly && this.kind[e] === Kind.Support)) return;
       const ax = this.x(this.ea[e]);
       const ay = this.y(this.ea[e]);
       const dx = this.x(this.eb[e]) - ax;
@@ -548,7 +586,7 @@ export class Web {
   crossings(ax: number, ay: number, bx: number, by: number, silkOnly = false): Hit[] {
     const hits: Hit[] = [];
     this.edgesNear(ax, ay, bx, by, 1, (e) => {
-      if (silkOnly && this.kind[e] === Kind.Support) return;
+      if (!this.alive[e] || (silkOnly && this.kind[e] === Kind.Support)) return;
       const cx = this.x(this.ea[e]);
       const cy = this.y(this.ea[e]);
       const sx = this.x(this.eb[e]) - cx;
@@ -585,7 +623,7 @@ export class Web {
       for (let cx = x0; cx <= x1; cx++) {
         for (const n of this.nodeCells[cy * this.cols + cx]) {
           const d = Math.hypot(this.bx[n] - x, this.by[n] - y);
-          if (d >= from && d <= to && (anywhere || !this.pinned[n]) && this.links[n].length && ok(n)) found.push(n);
+          if (d >= from && d <= to && (anywhere || !this.pinned[n]) && this.held(n) && ok(n)) found.push(n);
         }
       }
     }
@@ -640,6 +678,7 @@ export class Web {
       if (at === to) break;
       done[at] = 1;
       for (const e of this.links[at]) {
+        if (!this.alive[e]) continue;
         const next = this.other(e, at);
         if (done[next]) continue;
         const cost = g[at] + Math.hypot(this.bx[next] - this.bx[at], this.by[next] - this.by[at]);
@@ -654,6 +693,218 @@ export class Web {
     const out: number[] = [];
     for (let at = to; at !== from; at = came[at]) out.push(at);
     return out.reverse();
+  }
+
+  // ── Health ────────────────────────────────────────────────────────────────
+
+  isAlive(e: number) {
+    return this.alive[e] === 1;
+  }
+  isSilk(e: number) {
+    return e >= 0 && e < this.ea.length && this.kind[e] !== Kind.Support;
+  }
+  healthOf(e: number) {
+    return this.health[e] ?? 0;
+  }
+  toughOf(e: number) {
+    return this.tough[e] ?? 1;
+  }
+  /** Does node `n` have an unbroken thread (or the scenery) at it? */
+  held(n: number) {
+    if (this.pinned[n]) return true;
+    for (const e of this.links[n]) if (this.alive[e]) return true;
+    return false;
+  }
+  /** What kind of thread it is, as a word: for the order webs are re-spun in. */
+  kindOf(e: number) {
+    return (["spoke", "spiral", "frame", "anchor", "bridge", "cobweb", "support"] as const)[this.kind[e]];
+  }
+
+  /** Takes `amount` of health off a silk thread (less, the tougher it is), breaking it at nothing. */
+  wear(e: number, amount: number, t = 0.5) {
+    if (!den.health.enabled || !this.isSilk(e) || !this.alive[e] || amount <= 0) return;
+    this.health[e] -= amount / Math.max(0.1, this.tough[e]);
+    if (this.health[e] <= 0) this.cut(e, t);
+  }
+
+  /** Every silk thread frays by `hours` of time. */
+  decay(hours: number) {
+    const h = den.health;
+    if (!h.enabled || hours <= 0) return;
+    const loss = hours / Math.max(0.01, h.decay);
+    for (let e = 0; e < this.ea.length; e++) {
+      if (!this.alive[e] || this.kind[e] === Kind.Support) continue;
+      this.health[e] -= loss / Math.max(0.1, this.tough[e]);
+      if (this.health[e] <= 0) this.cut(e, 0.2 + Math.random() * 0.6);
+    }
+  }
+
+  /** Breaks a silk thread at `t` along it. */
+  cut(e: number, t = 0.5) {
+    if (!this.isSilk(e) || !this.alive[e]) return;
+    this.alive[e] = 0;
+    this.health[e] = 0;
+    const [a, b] = [this.ea[e], this.eb[e]];
+    this.breaks.push({ edge: e, a: [this.x(a), this.y(a)], b: [this.x(b), this.y(b)], t, heldA: this.held(a) ? a : -1, heldB: this.held(b) ? b : -1, falls: false });
+    this.loose = true;
+  }
+
+  /** Mends a thread by `amount` of health, working in silk as tough as `silk`. */
+  mend(e: number, amount: number, silk: number) {
+    if (!this.isSilk(e) || !this.alive[e]) return;
+    this.health[e] = Math.min(1, this.health[e] + amount);
+    this.tough[e] += (silk - this.tough[e]) * Math.min(1, amount);
+  }
+
+  /** Spins a broken thread again, at `health`, as tough as `silk`. */
+  restore(e: number, health: number, silk: number) {
+    if (!this.isSilk(e) || this.alive[e]) return;
+    this.alive[e] = 1;
+    this.health[e] = Math.max(0.01, Math.min(1, health));
+    this.tough[e] = Math.max(0.1, silk);
+    this.moving = true;
+  }
+
+  /** For tuning: every silk thread at `health` (dead ones stay dead), or brought back and mended (`mendAll`). */
+  setHealth(health: number, mendAll = false) {
+    for (let e = 0; e < this.ea.length; e++) {
+      if (this.kind[e] === Kind.Support) continue;
+      if (mendAll) this.alive[e] = 1;
+      if (this.alive[e]) this.health[e] = health;
+    }
+  }
+
+  /** The threads that broke since last time (and any pieces of web that now hang from nothing, which fall). */
+  takeBreaks(): Break[] {
+    if (this.loose && den.breaking.collapse) this.dropLoose();
+    this.loose = false;
+    const out = this.breaks;
+    this.breaks = [];
+    return out;
+  }
+
+  /** Breaks every thread no longer joined, through unbroken threads, to anything that holds the web up. */
+  private dropLoose() {
+    const n = this.bx.length;
+    const reached = new Uint8Array(n);
+    const queue: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (this.pinned[i]) {
+        reached[i] = 1;
+        queue.push(i);
+      }
+    }
+    while (queue.length) {
+      const at = queue.pop()!;
+      for (const e of this.links[at]) {
+        if (!this.alive[e]) continue;
+        const next = this.other(e, at);
+        if (reached[next]) continue;
+        reached[next] = 1;
+        queue.push(next);
+      }
+    }
+    for (let e = 0; e < this.ea.length; e++) {
+      if (!this.alive[e] || this.kind[e] === Kind.Support || reached[this.ea[e]]) continue;
+      this.alive[e] = 0;
+      this.health[e] = 0;
+      const [a, b] = [this.ea[e], this.eb[e]];
+      this.breaks.push({ edge: e, a: [this.x(a), this.y(a)], b: [this.x(b), this.y(b)], t: 0.5, heldA: -1, heldB: -1, falls: true });
+    }
+  }
+
+  /**
+   * The most frayed thread within `range` px of (x, y) below `below` health that passes `ok`,
+   * weighing how frayed it is against how far, or −1.
+   */
+  frayedNear(x: number, y: number, range: number, below: number, ok: (e: number) => boolean) {
+    let best = -1;
+    let bestScore = Infinity;
+    this.edgesNear(x, y, x, y, range, (e) => {
+      if (!this.alive[e] || this.kind[e] === Kind.Support || this.health[e] >= below || !ok(e)) return;
+      const [mx, my] = this.point({ edge: e, t: 0.5 });
+      const d = Math.hypot(mx - x, my - y);
+      if (d > range) return;
+      const score = this.health[e] * range + d;
+      if (score < bestScore) {
+        best = e;
+        bestScore = score;
+      }
+    });
+    return best;
+  }
+
+  /**
+   * A broken thread within `range` px of (x, y) with an end still held (so it can be spun from
+   * there) that passes `ok`: the nearest, or −1. Anchors and frames come first, the way a web's built.
+   */
+  brokenNear(x: number, y: number, range: number, ok: (e: number) => boolean) {
+    let best = -1;
+    let bestScore = Infinity;
+    const order = [3, 0, 2, 4, 1, 5];
+    this.edgesNear(x, y, x, y, range, (e) => {
+      if (this.alive[e] || this.kind[e] === Kind.Support || !ok(e)) return;
+      if (!this.held(this.ea[e]) && !this.held(this.eb[e])) return;
+      const [mx, my] = this.point({ edge: e, t: 0.5 });
+      const d = Math.hypot(mx - x, my - y);
+      if (d > range) return;
+      const score = d + order.indexOf(this.kind[e]) * this.unit * 0.4;
+      if (score < bestScore) {
+        best = e;
+        bestScore = score;
+      }
+    });
+    return best;
+  }
+
+  /** The broken threads at node `n` (for carrying on spinning from where the last one ended). */
+  brokenAt(n: number) {
+    return this.links[n].filter((e) => !this.alive[e] && this.kind[e] !== Kind.Support);
+  }
+
+  /** How much of the web is broken, and how frayed it is on average (for the numbers overlay). */
+  condition() {
+    let silk = 0;
+    let dead = 0;
+    let sum = 0;
+    for (let e = 0; e < this.ea.length; e++) {
+      if (this.kind[e] === Kind.Support) continue;
+      silk++;
+      if (!this.alive[e]) dead++;
+      else sum += this.health[e];
+    }
+    return { silk, dead, health: silk - dead ? sum / (silk - dead) : 0 };
+  }
+
+  /** The web's health, toughness and breaks, packed small for saving. */
+  save() {
+    const n = this.ea.length;
+    const bytes = new Uint8Array(n * 2);
+    for (let e = 0; e < n; e++) {
+      bytes[e * 2] = this.alive[e] ? Math.max(1, Math.round(this.health[e] * 255)) : 0;
+      bytes[e * 2 + 1] = Math.round(Math.min(2.55, this.tough[e]) * 100);
+    }
+    let text = "";
+    for (let i = 0; i < bytes.length; i++) text += String.fromCharCode(bytes[i]);
+    return btoa(text);
+  }
+
+  /** Puts back what `save` packed, if it was saved from a web built the same way. */
+  load(packed: string) {
+    try {
+      const text = atob(packed);
+      if (text.length !== this.ea.length * 2) return false;
+      for (let e = 0; e < this.ea.length; e++) {
+        if (this.kind[e] === Kind.Support) continue;
+        const h = text.charCodeAt(e * 2);
+        this.alive[e] = h > 0 ? 1 : 0;
+        this.health[e] = h / 255;
+        this.tough[e] = Math.max(0.1, text.charCodeAt(e * 2 + 1) / 100);
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ── Wobble ────────────────────────────────────────────────────────────────
@@ -708,6 +959,7 @@ export class Web {
         ay[i] = -k * this.oy[i] - c * this.vy[i];
       }
       for (let e = 0; e < this.ea.length; e++) {
+        if (!this.alive[e]) continue;
         const a = this.ea[e];
         const b = this.eb[e];
         const dx = (this.ox[b] - this.ox[a]) * couple;
@@ -738,25 +990,36 @@ export class Web {
 
   // ── Drawing ───────────────────────────────────────────────────────────────
 
-  /** Strokes the silk in `color`: the structural threads a touch stronger than the spiral and cobwebs. */
+  /**
+   * Strokes the silk in `color`: the structural threads a touch stronger than the spiral and
+   * cobwebs, and each fainter the more frayed it is (in a few steps, so it's a handful of strokes).
+   */
   draw(ctx: CanvasRenderingContext2D, color: string) {
     const w = den.webs;
+    const LEVELS = 6;
+    const fade = den.health.enabled ? den.health.fadeMin : 1;
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = w.thickness;
     ctx.lineCap = "round";
-    for (const fine of [false, true]) {
-      ctx.globalAlpha = w.opacity * (fine ? 0.72 : 1);
-      ctx.beginPath();
-      for (let e = 0; e < this.ea.length; e++) {
-        const kind = this.kind[e];
-        if (kind === Kind.Support || (kind === Kind.Spiral || kind === Kind.Cobweb) !== fine) continue;
-        const a = this.ea[e];
-        const b = this.eb[e];
-        ctx.moveTo(this.x(a), this.y(a));
-        ctx.lineTo(this.x(b), this.y(b));
+    const paths = Array.from({ length: LEVELS * 2 }, () => new Path2D());
+    for (let e = 0; e < this.ea.length; e++) {
+      const kind = this.kind[e];
+      if (kind === Kind.Support || !this.alive[e]) continue;
+      const fine = kind === Kind.Spiral || kind === Kind.Cobweb ? 1 : 0;
+      const level = Math.min(LEVELS - 1, Math.floor(this.health[e] * LEVELS));
+      const p = paths[fine * LEVELS + level];
+      const a = this.ea[e];
+      const b = this.eb[e];
+      p.moveTo(this.x(a), this.y(a));
+      p.lineTo(this.x(b), this.y(b));
+    }
+    for (let fine = 0; fine < 2; fine++) {
+      for (let level = 0; level < LEVELS; level++) {
+        const health = (level + 0.5) / LEVELS;
+        ctx.globalAlpha = w.opacity * (fine ? 0.72 : 1) * (fade + (1 - fade) * health);
+        ctx.stroke(paths[fine * LEVELS + level]);
       }
-      ctx.stroke();
     }
     ctx.restore();
   }

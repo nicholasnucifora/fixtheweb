@@ -4,42 +4,61 @@ import { ateSnack, trying } from "../spider-string/look";
 import { Particles } from "../spider-string/particles";
 import { drawString, threadStyle } from "../spider-string/render";
 import { Rope } from "../spider-string/rope";
-import type { Look } from "../spider-string/wardrobe";
+import { blankLook, type Look } from "../spider-string/wardrobe";
 import { type Bug, createBugs } from "./bugs";
 import {
   COLONY_EVENT,
+  DIED_EVENT,
   type Egg,
+  type Member,
   byId,
+  canLay,
+  countKill,
   eggs,
+  family,
   feed,
   growEveryoneUp,
   hatch,
   hatchAllNow,
   hurry,
+  kill,
   layEggs,
   mainSpider,
+  makeOld,
   members,
+  mortal,
   nameOf,
   picked,
+  reroll,
   setFullness,
+  sizeOf,
+  starve,
   startOver,
-  tick,
+  watch,
   wear,
+  elderness,
 } from "./colony";
 import { den } from "./config";
-import { type Critter, type DenWorld, WIDTH, createCritter } from "./critter";
+import { type Critter, type DenWorld, type Fight, WIDTH, createCritter } from "./critter";
+import { clearLog } from "./deaths";
+import { createDebris } from "./debris";
+import { effect, randomGenes } from "./genes";
+import { type Hunter, type HuntWorld, createBird, createFrog } from "./predators";
 import { SCENES, type Palette, type Scene, type SceneId, buildScene } from "./scenes";
+import { fliesAmount, predatorsAmount, settings } from "./settings";
 import { type Spot, type Vec, Web, random } from "./web";
 
 /**
- * The Spider Den's ecosystem (the den view of src/pages/den.astro): the webs, every spider you have
- * living on them, egg sacs, and flies. Drawn on one canvas filling `root`.
+ * The Spider Den's ecosystem (the den view of src/pages/den.astro): the scenery and its webs, every
+ * spider you have living on them, egg sacs, flies, predators, and pirate spiders. Drawn on one
+ * canvas filling `root`.
  *
  * Press a spider to pick it up (and pick it, for the wardrobe): drag it about and fling it. Press a
- * fly to carry it to a spider's mouth, and an egg sac to hurry it along.
+ * fly to carry it to a spider's mouth, an egg sac to hurry it along, and a predator to shoo it.
  *
- * It only runs while it's showing (`setActive`). Hunger and growing up carry on regardless: they're
- * worked out from the clock (colony.ts).
+ * It runs while it's showing (`setActive`), at the den's time speed. The spiders' lives (hunger,
+ * growing up, old age) carry on regardless: colony.ts keeps its own clock. The webs fray as time
+ * passes here, and remember how frayed they are between visits.
  */
 
 export interface WorldHooks {
@@ -51,6 +70,7 @@ export interface WorldHooks {
 
 const SEED_KEY = "den:web-seed";
 const SCENE_KEY = "den:scene";
+const WEB_KEY = "den:web-state";
 
 /** The scenery's colours, on a light page and a dark one: flat and quiet, so the spiders stand out. */
 const PALETTES: Record<"light" | "dark", Palette> = {
@@ -102,33 +122,43 @@ const PALETTES: Record<"light" | "dark", Palette> = {
   },
 };
 
-function readScene(): SceneId {
+function read(key: string) {
   try {
-    const saved = localStorage.getItem(SCENE_KEY);
-    if (saved && saved in SCENES) return saved as SceneId;
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
   } catch {
     // ignore
   }
-  return "tree";
+}
+
+function readScene(): SceneId {
+  const saved = read(SCENE_KEY);
+  return saved && saved in SCENES ? (saved as SceneId) : "tree";
 }
 const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 const between = (a: number, b: number) => Math.min(a, b) + Math.random() * Math.abs(b - a);
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 function readSeed() {
-  try {
-    const saved = Number(localStorage.getItem(SEED_KEY));
-    if (saved) return saved;
-    const seed = Math.floor(Math.random() * 2 ** 31) + 1;
-    localStorage.setItem(SEED_KEY, String(seed));
-    return seed;
-  } catch {
-    return 1234567;
-  }
+  const saved = Number(read(SEED_KEY));
+  if (saved) return saved;
+  const seed = Math.floor(Math.random() * 2 ** 31) + 1;
+  store(SEED_KEY, String(seed));
+  return seed;
 }
 
 interface Sac {
   egg: Egg;
   spot: Spot | null;
+  /** Falling, once what it hung from broke: where it is, and how fast. */
+  fall: Vec | null;
+  fallV: number;
   angle: number;
   swing: number;
   wiggle: number;
@@ -147,9 +177,12 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const ctx = canvas.getContext("2d")!;
   const html = document.documentElement;
   const dark = matchMedia("(prefers-color-scheme: dark)");
+  const tuning = new URLSearchParams(location.search).has("tune");
   const web = new Web();
   const particles = new Particles();
   const fluff = new Particles();
+  const dust = new Particles();
+  const debris = createDebris();
   const bugs = createBugs({
     web,
     get unit() {
@@ -158,6 +191,12 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   });
   const sacs = new Map<string, Sac>();
   let strands: Strand[] = [];
+  let hunters: Hunter[] = [];
+  const carried = new Map<Critter, Hunter>();
+  let fights: Fight[] = [];
+  const claims = new Map<number, Critter>();
+  let huntIn = between(den.predators.everyFrom, den.predators.everyTo);
+  let greetIn = 2;
   let seed = readSeed();
   let sceneId = readScene();
   let scene: Scene | null = null;
@@ -169,9 +208,13 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   let active = false;
   let raf = 0;
   let last = 0;
-  let lifeIn = 0;
+  let frames = 0;
+  let frameMs = 0;
   let dirty = true;
   let highlighted: string | null = null;
+  let webSavedAt = 0;
+  let cutting = false;
+  const skipped = new Map<Critter, number>();
   const colors = { ink: "#1b1e29", accent: "#2b8666", surface: "#ffffff" };
 
   const world: DenWorld = {
@@ -184,10 +227,10 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     pickedId: null,
     trying,
     preyNear: (x, y, range, hunter) => bugs.preyNear(x, y, range, hunter),
-    eating(_hunter, prey) {
+    eating(hunter, prey) {
       const bug = prey as Bug;
       bug.state = "eaten";
-      bug.eatenBy = _hunter;
+      bug.eatenBy = hunter;
       bug.claimedBy = null;
       bug.eaten = 0;
       bug.spot = null;
@@ -213,9 +256,100 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       strands.push({ rope, anchor: { ...anchor }, thread, age: 0 });
     },
     drop(critter) {
-      if (holding?.critter === critter) holding = null;
+      if (holding?.critter === critter) {
+        holding = null;
+        html.classList.remove("spider-held");
+      }
     },
     drawBug: (c, x, y, size, wing) => drawSnack(c, "fly", x, y, size, wing),
+
+    claim(edge, who) {
+      const owner = claims.get(edge);
+      if (owner && owner !== who && owner.alive) return false;
+      claims.set(edge, who);
+      return true;
+    },
+    unclaim(edge, who) {
+      if (claims.get(edge) === who) claims.delete(edge);
+    },
+
+    quarryFor(hunter) {
+      const range = den.hunger.huntRange * world.unit * 1.5;
+      const [hx, hy] = hunter.center();
+      const mine = sizeOf(hunter.member);
+      let best: Critter | null = null;
+      let bestScore = Infinity;
+      for (const c of world.critters) {
+        if (c === hunter || c.pirate || !c.alive || c.held || c.fighting || c.mode !== "web" || !mortal(c.member)) continue;
+        if (!hunter.pirate) {
+          if (sizeOf(c.member) > mine * den.fights.smaller) continue;
+          if (den.fights.family && family(hunter.member, c.member)) continue;
+        }
+        const [cx, cy] = c.center();
+        const d = Math.hypot(cx - hx, cy - hy);
+        if (d > range) continue;
+        // The nearest, most so if it's weak.
+        const score = d / (1 + (1 / Math.max(0.2, c.power())) * 0.5);
+        if (score < bestScore) {
+          best = c;
+          bestScore = score;
+        }
+      }
+      return best;
+    },
+
+    mateFor(spider) {
+      const range = den.babies.mateRange * world.unit;
+      const [sx, sy] = spider.center();
+      let best: Critter | null = null;
+      let bestD = range;
+      for (const c of world.critters) {
+        if (c === spider || c.pirate || !c.alive || c.held || c.fighting || c.mode !== "web") continue;
+        if (c.task === "court" || !canLay(c.member).ok || family(spider.member, c.member)) continue;
+        const [cx, cy] = c.center();
+        const d = Math.hypot(cx - sx, cy - sy);
+        if (d < bestD) {
+          best = c;
+          bestD = d;
+        }
+      }
+      return best;
+    },
+
+    layEggs(spider, mate) {
+      const why = layFor(spider.member.id, false, mate?.member.id);
+      if (why) return;
+      const names = mate ? `${escape(nameOf(spider.member))} and ${escape(nameOf(mate.member))}` : escape(nameOf(spider.member));
+      hooks.say(`<strong>${names} ${mate ? "have" : "has"} eggs on the way!</strong>`);
+    },
+
+    pounced(hunter, target) {
+      if (!hunter.alive || !target.alive || target.held || hunter.fighting || target.fighting || target.mode !== "web" || hunter.mode !== "web") return;
+      const [hx, hy] = hunter.center();
+      const [tx, ty] = target.center();
+      if (Math.hypot(tx - hx, ty - hy) > (hunter.radius() + target.radius()) * 1.5) {
+        hunter.emote("question");
+        return;
+      }
+      const fight: Fight = { a: hunter, b: target, x: (hx + tx) / 2, y: (hy + ty) / 2, t: 0, duration: den.fights.duration * between(0.8, 1.25) };
+      fights.push(fight);
+      hunter.enterFight(fight);
+      target.enterFight(fight);
+    },
+
+    breakFight(spider) {
+      const fight = fights.find((f) => f.a === spider || f.b === spider);
+      if (!fight) return;
+      fights = fights.filter((f) => f !== fight);
+      const other = fight.a === spider ? fight.b : fight.a;
+      other.fightOff();
+      spider.fightOff();
+    },
+
+    left(spider) {
+      if (holding?.critter === spider) world.drop(spider);
+      spider.vanish();
+    },
   };
 
   // ── Size, colours, webs ───────────────────────────────────────────────────
@@ -231,6 +365,13 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     colors.surface = hex("--surface", dark.matches ? "#222633" : "#ffffff");
   };
   dark.addEventListener("change", readColors);
+
+  /** Remembers how frayed and broken this scene's web is. */
+  const saveWeb = () => {
+    if (!builtKey || !web.edgeCount) return;
+    webSavedAt = Date.now();
+    store(`${WEB_KEY}:${sceneId}`, JSON.stringify({ key: builtKey, packed: web.save(), at: webSavedAt }));
+  };
 
   const fit = () => {
     const w = root.clientWidth;
@@ -251,9 +392,23 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       const first = builtKey === "";
       const sx = web.width ? w / web.width : 1;
       const sy = web.height ? h / web.height : 1;
+      if (!first) saveWeb();
       builtKey = key;
       scene = buildScene(sceneId, w, h, world.unit, random(seed));
       web.build(w, h, world.unit, seed, scene);
+      // The same web as last time? Pick up where it left off, frayed by the time away.
+      try {
+        const saved = JSON.parse(read(`${WEB_KEY}:${sceneId}`) ?? "null");
+        if (saved?.key === key && web.load(saved.packed)) {
+          const hours = Math.min(den.health.awayHours, (Math.max(0, Date.now() - saved.at) / 3600_000) * den.pace.speed);
+          web.decay(hours);
+        }
+      } catch {
+        // a fresh web, then
+      }
+      web.takeBreaks();
+      claims.clear();
+      debris.clear();
       paintedKey = "";
       for (const sac of sacs.values()) sac.spot = null;
       strands = [];
@@ -277,14 +432,17 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     const parent = m.parent ? world.critters.find((c) => c.member.id === m.parent && c !== critter) : null;
     let node = -1;
     if (m.main) {
-      const middle = web.hubs.reduce(
-        (best, hub) =>
-          Math.hypot(web.x(hub.node) - web.width / 2, web.y(hub.node) - web.height * 0.45) <
-          Math.hypot(web.x(best.node) - web.width / 2, web.y(best.node) - web.height * 0.45)
-            ? hub
-            : best,
-        web.hubs[0],
-      );
+      const middle = web.hubs
+        .filter((hub) => web.held(hub.node))
+        .reduce<{ node: number; radius: number } | null>(
+          (best, hub) =>
+            !best ||
+            Math.hypot(web.x(hub.node) - web.width / 2, web.y(hub.node) - web.height * 0.45) <
+              Math.hypot(web.x(best.node) - web.width / 2, web.y(best.node) - web.height * 0.45)
+              ? hub
+              : best,
+          null,
+        );
       node = middle?.node ?? -1;
     } else if (parent) {
       const [px, py] = parent.position;
@@ -307,8 +465,10 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     dirty = false;
     const list = members();
     const byMember = new Map(list.map((m) => [m.id, m]));
+    const replacements: Critter[] = [];
     world.critters = world.critters.filter((c) => {
-      if (c.mode === "ghost") return true;
+      // Pirates aren't yours; the dying are on their way out.
+      if (c.pirate || !c.alive) return true;
       const m = byMember.get(c.member.id);
       if (m === c.member) return true;
       // Gone, or reloaded from another tab (a new object): start it over where it was.
@@ -321,7 +481,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       }
       return false;
     });
-    world.critters.push(...replacements.splice(0));
+    world.critters.push(...replacements);
     for (const m of list) {
       if (world.critters.some((c) => c.member === m)) continue;
       const critter = createCritter(m, world);
@@ -330,42 +490,85 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     }
     world.pickedId = picked()?.id ?? null;
   };
-  const replacements: Critter[] = [];
   document.addEventListener(COLONY_EVENT, () => (dirty = true));
+
+  // Starved or died of old age, while you're watching: it floats away.
+  document.addEventListener(DIED_EVENT, (e) => {
+    const { id, cause } = (e as CustomEvent).detail as { id: string; cause: "starved" | "old" };
+    const critter = world.critters.find((c) => c.member.id === id && c.alive);
+    if (critter && active) critter.die(cause);
+    const m = critter?.member ?? byId(id);
+    if (!m) return;
+    const name = escape(nameOf(m));
+    hooks.say(cause === "old" ? `<strong>${name} died of old age.</strong> A good long life.` : `<strong>${name} starved</strong> and floated away. Keep your spiders fed.`);
+  });
+
+  /** A spider killed by something in the den (a predator, another spider): it's gone from your colony. */
+  const died = (victim: Critter, cause: "eaten" | "bird" | "frog" | "pirate", killer?: string) => {
+    if (victim.pirate) return;
+    const name = escape(nameOf(victim.member));
+    kill(victim.member.id, cause, { killer });
+    const how = {
+      eaten: `was eaten by ${escape(killer ?? "another spider")}`,
+      bird: "was taken by a bird",
+      frog: "was eaten by a frog",
+      pirate: "was eaten by a pirate spider",
+    }[cause];
+    hooks.say(`<strong>${name} ${how}.</strong>`);
+  };
 
   // ── Egg sacs ──────────────────────────────────────────────────────────────
 
   const sacPoint = (sac: Sac): { anchor: Vec; ball: Vec; r: number } => {
-    const anchor: Vec = sac.spot ? web.point(sac.spot) : [sac.egg.x * web.width, sac.egg.y * web.height];
     const hang = world.unit * 0.3;
     const r = world.unit * 0.12;
+    if (sac.fall) return { anchor: [sac.fall[0], sac.fall[1] - hang], ball: sac.fall, r };
+    const anchor: Vec = sac.spot ? web.point(sac.spot) : [sac.egg.x * web.width, sac.egg.y * web.height];
     return { anchor, ball: [anchor[0] + Math.sin(sac.angle) * hang, anchor[1] + Math.cos(sac.angle) * hang], r };
   };
 
   const updateSacs = (dt: number) => {
-    const now = Date.now();
     const current = eggs();
     for (const id of sacs.keys()) if (!current.some((e) => e.id === id)) sacs.delete(id);
     for (const egg of current) {
       let sac = sacs.get(egg.id);
       if (!sac) {
-        sac = { egg, spot: null, angle: 0, swing: 0, wiggle: 0, shown: 0 };
+        sac = { egg, spot: null, fall: null, fallV: 0, angle: 0, swing: 0, wiggle: 0, shown: 0 };
         sacs.set(egg.id, sac);
       }
       sac.egg = egg;
-      if (!sac.spot) {
-        const near = web.nearest(egg.x * web.width, egg.y * web.height, Math.max(web.width, web.height), true);
-        sac.spot = near ? { edge: near.edge, t: near.t } : null;
+      if (sac.fall) {
+        // Falling until a thread catches it.
+        const g = config.rope.gravity * world.unit;
+        sac.fallV = Math.min(sac.fallV + g * dt, world.unit * 12);
+        const next: Vec = [sac.fall[0], sac.fall[1] + sac.fallV * dt];
+        const hit = web.crossings(sac.fall[0], sac.fall[1] - world.unit * 0.3, next[0], next[1] - world.unit * 0.3, true)[0];
+        if (hit) {
+          sac.spot = { edge: hit.edge, t: hit.t };
+          sac.fall = null;
+          sac.swing = 3;
+          web.push(hit.x, hit.y, 0, world.unit * 3);
+        } else {
+          sac.fall = next[1] > web.height + world.unit ? [next[0], -world.unit] : next;
+        }
+      } else {
+        if (sac.spot && !web.isAlive(sac.spot.edge)) {
+          sac.fall = sacPoint(sac).ball;
+          sac.fallV = 0;
+          sac.spot = null;
+        } else if (!sac.spot) {
+          const near = web.nearest(egg.x * web.width, egg.y * web.height, Math.max(web.width, web.height), true);
+          sac.spot = near ? { edge: near.edge, t: near.t } : null;
+        }
+        const hang = world.unit * 0.3;
+        const g = config.rope.gravity * world.unit;
+        sac.swing += (-(g / hang) * Math.sin(sac.angle) - 1.5 * sac.swing) * dt;
+        sac.angle += sac.swing * dt;
       }
       sac.shown += dt;
-      const hang = world.unit * 0.3;
-      const g = config.rope.gravity * world.unit;
-      sac.swing += (-(g / hang) * Math.sin(sac.angle) - 1.5 * sac.swing) * dt;
-      sac.angle += sac.swing * dt;
       sac.wiggle = Math.max(0, sac.wiggle - dt * 2);
-      const left = egg.hatch - now;
-      if (left < 4000 && Math.random() < dt * 3) sac.swing += (Math.random() - 0.5) * 3;
-      if (left <= 0 && sac.shown > 2.5) hatchSac(sac);
+      if (egg.hatchIn < 4 && Math.random() < dt * 3) sac.swing += (Math.random() - 0.5) * 3;
+      if (egg.hatchIn <= 0 && sac.shown > 2.5) hatchSac(sac);
     }
   };
 
@@ -407,20 +610,21 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   };
 
   const drawSacs = () => {
-    const now = Date.now();
     for (const sac of sacs.values()) {
       const { anchor, ball, r } = sacPoint(sac);
-      const left = (sac.egg.hatch - now) / 1000;
+      const left = sac.egg.hatchIn;
       const pulse = left < 5 ? 1 + Math.sin(performance.now() / 60) * 0.04 : 1;
       const size = r * pulse * (1 + sac.wiggle * 0.12);
       ctx.save();
-      ctx.strokeStyle = colors.ink;
-      ctx.globalAlpha = 0.55;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(anchor[0], anchor[1]);
-      ctx.lineTo(ball[0], ball[1] - size * 0.8);
-      ctx.stroke();
+      if (!sac.fall) {
+        ctx.strokeStyle = colors.ink;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(anchor[0], anchor[1]);
+        ctx.lineTo(ball[0], ball[1] - size * 0.8);
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1;
       // A fluffy ball of silk: little puffs round a middle, with the eggs showing through.
       const puffs = new Path2D();
@@ -484,11 +688,226 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     }
   };
 
+  // ── Predators ─────────────────────────────────────────────────────────────
+
+  const huntWorld: HuntWorld = {
+    web,
+    get unit() {
+      return world.unit;
+    },
+    get critters() {
+      return world.critters;
+    },
+    choose(x, y, range) {
+      let total = 0;
+      const options: [Critter, number][] = [];
+      for (const c of world.critters) {
+        if (c.pirate || !c.alive || c.held || c.fighting || !mortal(c.member) || (c.mode !== "web" && c.mode !== "dangle")) continue;
+        const [cx, cy] = c.center();
+        const d = Math.hypot(cx - x, cy - y);
+        if (d > range) continue;
+        // The small, slow and old are easiest pickings.
+        const weight =
+          (1.4 - Math.min(1.1, sizeOf(c.member))) * (2.2 - Math.min(1.8, effect(c.member.genes, "speed"))) * (1 + 1.5 * elderness(c.member)) / (1 + d / world.unit / 6);
+        options.push([c, weight]);
+        total += weight;
+      }
+      let roll = Math.random() * total;
+      for (const [c, w] of options) if ((roll -= w) <= 0) return c;
+      return options[0]?.[0] ?? null;
+    },
+    threaten(target, x, y) {
+      target.alarm(x, y, true);
+      const radius = den.predators.panic * world.unit;
+      const [tx, ty] = target.center();
+      for (const c of world.critters) {
+        if (c === target || c.pirate) continue;
+        const [cx, cy] = c.center();
+        if (Math.hypot(cx - tx, cy - ty) < radius) c.alarm(x, y, false);
+      }
+    },
+    caught(target, kind, hold) {
+      const hunter = hunters.find((h) => h.target === target) ?? hunters[hunters.length - 1];
+      target.carry(hold);
+      if (hunter) carried.set(target, hunter);
+      died(target, kind);
+    },
+  };
+
+  const spawnHunter = (kind: "bird" | "frog" | "pirate") => {
+    if (!web.width) return;
+    if (kind === "pirate") return spawnPirate();
+    const hunter = kind === "bird" ? createBird(huntWorld) : createFrog(huntWorld);
+    hunters.push(hunter);
+    hooks.say(kind === "bird" ? "<strong>A bird!</strong> Keep an eye on the little ones." : "<strong>A frog!</strong> Watch out for its tongue.");
+  };
+
+  const spawnPirate = () => {
+    const look = blankLook();
+    look.name = "Pirate spider";
+    look.skin = "ember";
+    look.pattern = "stripes";
+    look.items.eyes = "patch";
+    look.tints.eyes = "ink";
+    look.items.outfit = "bandana";
+    look.tints.outfit = "ink";
+    const genes = { ...randomGenes(look), speed: 1, strength: 1, size: den.pirate.size };
+    const member: Member = {
+      id: `pirate-${Math.random().toString(36).slice(2, 8)}`,
+      look,
+      genes,
+      personality: { temper: 0.8, thrill: 0.5, nerve: 0.95, aggression: 1, energy: 0.9, tidiness: 0 },
+      born: Date.now(),
+      age: 0,
+      lifeRoll: 0.5,
+      growth: 1,
+      fullness: 0.2,
+      plump: 0,
+      starving: 0,
+      cooldown: 999,
+      main: false,
+      generation: 0,
+      meals: 0,
+      kills: 0,
+    };
+    const pirate = createCritter(member, world, { pirate: true });
+    world.critters.push(pirate);
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const r = (WIDTH * world.unit * den.pirate.size) / 2;
+    pirate.toss(side < 0 ? -r * 1.5 : web.width + r * 1.5, web.height * between(0.15, 0.55), -side * world.unit * between(4, 6), -world.unit * between(2, 4));
+    pirates.set(pirate, 0);
+    hooks.say("<strong>A pirate spider!</strong> It eats other spiders. Grab it and fling it out.");
+  };
+  const pirates = new Map<Critter, number>();
+
+  const updateDanger = (dt: number) => {
+    const p = den.predators;
+    const amount = predatorsAmount();
+    huntIn -= dt * amount;
+    if (huntIn <= 0) {
+      huntIn = between(p.everyFrom, p.everyTo);
+      const busy = hunters.length > 0 || pirates.size > 0;
+      if (p.enabled && amount > 0 && !busy && members().length >= p.atLeast) {
+        const kinds: ["bird" | "frog" | "pirate", number][] = [["bird", p.bird], ["frog", p.frog], ["pirate", p.pirate]];
+        let roll = Math.random() * kinds.reduce((s, [, w]) => s + w, 0);
+        const kind = kinds.find(([, w]) => (roll -= w) <= 0)?.[0];
+        if (kind) spawnHunter(kind);
+      }
+    }
+    for (const h of hunters) {
+      h.update(dt);
+      // Spiders near a hunting predator scatter.
+      if (h.hunting) {
+        const radius = p.panic * world.unit;
+        for (const c of world.critters) {
+          if (c.pirate || c === h.target) continue;
+          const [cx, cy] = c.center();
+          if (Math.hypot(cx - h.x, cy - h.y) < radius * 0.6) c.alarm(h.x, h.y, false);
+        }
+      }
+    }
+    for (const [c, h] of carried) {
+      if (h.done || h.holding !== c) {
+        c.vanish();
+        carried.delete(c);
+      }
+    }
+    hunters = hunters.filter((h) => !h.done);
+
+    for (const [pirate, age] of pirates) {
+      const now = age + dt;
+      pirates.set(pirate, now);
+      if (!pirate.alive && pirate.gone) pirates.delete(pirate);
+      else if (now > den.pirate.patience * 2.5) pirate.leaveDen();
+      // Spiders right by a stalking pirate get nervous.
+      if (pirate.quarry) {
+        const [px, py] = pirate.center();
+        for (const c of world.critters) {
+          if (c === pirate || c === pirate.quarry || c.pirate) continue;
+          const [cx, cy] = c.center();
+          if (Math.hypot(cx - px, cy - py) < world.unit * 1.3) c.alarm(px, py, false);
+        }
+      }
+    }
+    for (const pirate of [...pirates.keys()]) if (pirate.gone) pirates.delete(pirate);
+  };
+
+  // ── Fights ────────────────────────────────────────────────────────────────
+
+  const updateFights = (dt: number) => {
+    for (const f of fights) {
+      f.t += dt;
+      const shake = world.unit * 0.12;
+      const t = f.t * 25;
+      const apart = (f.a.radius() + f.b.radius()) * 0.45;
+      f.a.scrap(f.x - apart + Math.sin(t) * shake, f.y + Math.cos(t * 1.3) * shake);
+      f.b.scrap(f.x + apart + Math.sin(t + 2) * shake, f.y + Math.cos(t * 1.1 + 1) * shake);
+      // A cloud of dust, and the web takes a beating.
+      if (Math.random() < dt * 25) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = world.unit * between(0.8, 2);
+        dust.spawn({
+          x: f.x + Math.cos(angle) * apart,
+          y: f.y + Math.sin(angle) * apart * 0.6,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          length: world.unit * 0.1,
+          width: Math.max(2, world.unit * 0.05),
+          life: 0.35,
+          drag: 6,
+          gravity: 0,
+          shrink: 0.4,
+        });
+      }
+      if (Math.random() < dt * 8) web.push(f.x, f.y, (Math.random() - 0.5) * world.unit * 6, (Math.random() - 0.5) * world.unit * 6, world.unit * 0.6);
+      const under = web.nearest(f.x, f.y, world.unit * 0.5, true);
+      if (under) web.wear(under.edge, 0.12 * dt, under.t);
+    }
+    const over = fights.filter((f) => f.t >= f.duration);
+    fights = fights.filter((f) => f.t < f.duration);
+    for (const f of over) resolve(f);
+  };
+
+  const resolve = (f: Fight) => {
+    const luck = den.fights.luck;
+    const roll = (c: Critter) => c.power() * Math.max(0.05, 1 + luck * (Math.random() * 2 - 1));
+    const [winner, loser] = roll(f.a) >= roll(f.b) ? [f.a, f.b] : [f.b, f.a];
+    if (!winner.alive || !loser.alive) {
+      winner.fightOff();
+      loser.fightOff();
+      return;
+    }
+    const canDie = !loser.pirate && mortal(loser.member);
+    const odds = clamp(den.fights.escape * loser.agility() * (0.7 + 0.6 * loser.nerve()), 0, 0.95);
+    const [wx, wy] = winner.position;
+    if (!canDie || Math.random() < odds) {
+      winner.won(false);
+      loser.escaped(wx, wy);
+      if (loser.pirate) loser.leaveDen();
+      hooks.say(
+        loser.pirate
+          ? `<strong>${escape(nameOf(winner.member))} fought off the pirate spider!</strong>`
+          : `<strong>${escape(nameOf(loser.member))} got away</strong> from ${winner.pirate ? "the pirate spider" : escape(nameOf(winner.member))}.`,
+      );
+      return;
+    }
+    loser.eatenBy(winner);
+    winner.won(true);
+    if (!winner.pirate) {
+      feed(winner.member.id, den.fights.meals);
+      countKill(winner.member.id);
+    }
+    died(loser, winner.pirate ? "pirate" : "eaten", winner.pirate ? undefined : nameOf(winner.member));
+  };
+
   // ── Holding things ────────────────────────────────────────────────────────
 
   let holding: { critter?: Critter; bug?: Bug; pointerId: number; offset: Vec } | null = null;
   let hovered: Critter | null = null;
   const trail: { x: number; y: number; t: number }[] = [];
+  let cutFrom: Vec | null = null;
+  let cutPointer = -1;
+  let cutMarks: { from: Vec; to: Vec; age: number }[] = [];
 
   const local = (e: { clientX: number; clientY: number }): Vec => {
     const r = root.getBoundingClientRect();
@@ -500,7 +919,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     let best: Critter | null = null;
     let bestD = 0;
     for (const c of world.critters) {
-      if (c.mode === "ghost") continue;
+      if (!c.alive && !c.pirate) continue;
+      if (c.mode === "ghost" || c.mode === "eaten" || c.mode === "carried") continue;
       const d = c.distance(x, y) - (c.member.id === world.pickedId ? 4 : 0);
       if (d <= 0 && (!best || d < bestD)) {
         best = c;
@@ -527,10 +947,28 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     return [((lastPoint.x - first.x) / over) * rested, ((lastPoint.y - first.y) / over) * rested];
   };
 
+  const cutMode = () => cutting || den.tools.cut;
+
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || holding || !active) return;
     const [x, y] = local(e);
     world.pointer = [x, y];
+    if (cutMode()) {
+      e.preventDefault();
+      cutFrom = [x, y];
+      cutPointer = e.pointerId;
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // window listeners still see the moves
+      }
+      return;
+    }
+    const hunter = hunters.find((h) => h.hit(x, y));
+    if (hunter) {
+      hooks.say(hunter.shoo() ? `<strong>Shoo!</strong> The ${hunter.kind} is off.` : `The ${hunter.kind} isn't going anywhere.`);
+      return;
+    }
     const bug = bugs.at(x, y);
     const critter = bug ? null : critterAt(x, y);
     if (!bug && !critter) {
@@ -562,7 +1000,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     } else if (critter) {
       holding = { critter, pointerId: e.pointerId, offset: [0, 0] };
       critter.grab(x, y);
-      hooks.pick(critter.member.id);
+      if (!critter.pirate) hooks.pick(critter.member.id);
     }
   });
 
@@ -572,6 +1010,12 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       if (!active) return;
       const [x, y] = local(e);
       const inside = x >= 0 && y >= 0 && x <= web.width && y <= web.height;
+      if (cutFrom && e.pointerId === cutPointer) {
+        for (const hit of web.crossings(cutFrom[0], cutFrom[1], x, y, true)) web.cut(hit.edge, hit.t);
+        cutMarks.push({ from: cutFrom, to: [x, y], age: 0 });
+        cutFrom = [x, y];
+        return;
+      }
       if (holding && e.pointerId === holding.pointerId) {
         world.pointer = [x, y];
         trail.push({ x, y, t: e.timeStamp });
@@ -590,6 +1034,11 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   );
 
   const letGo = (e: PointerEvent) => {
+    if (cutFrom && e.pointerId === cutPointer) {
+      cutFrom = null;
+      cutPointer = -1;
+      return;
+    }
     if (!holding || e.pointerId !== holding.pointerId) return;
     const was = holding;
     holding = null;
@@ -603,7 +1052,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       let eater: Critter | null = null;
       let best = Infinity;
       for (const c of world.critters) {
-        if (c.mode === "ghost") continue;
+        if (!c.alive || c.pirate) continue;
         const [mx, my] = c.mouth();
         const d = Math.hypot(bug.x - mx, bug.y - my);
         if (d <= Math.max(config.feed.eatDistance * c.unit(), world.unit * 0.18) && d < best) {
@@ -625,49 +1074,99 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     if (!holding) world.pointer = null;
   });
 
-  // ── Tuning buttons (Life → Pace, in /den?tune) ───────────────────────────
+  // ── Tuning buttons (in /den?tune) ─────────────────────────────────────────
 
-  const pressed: Record<string, number> = {};
+  const target = () => (picked() && world.critters.find((c) => c.member.id === picked()!.id && c.alive)) || null;
   const actions: Record<string, () => void> = {
-    spawnFly: () => bugs.flyIn(),
-    feedAll: () => setFullness(1),
-    starveAll: () => setFullness(0),
-    layEggs: () => layFor((picked() ?? mainSpider()).id, true),
-    hatchNow: () => hatchAllNow(),
-    growUp: () => growEveryoneUp(),
-    rebuild: () => {
+    "pace.feedAll": () => setFullness(1),
+    "pace.starveAll": () => setFullness(0),
+    "pace.layEggs": () => layFor((picked() ?? mainSpider()).id, true),
+    "pace.hatchNow": () => hatchAllNow(),
+    "pace.growUp": () => growEveryoneUp(),
+    "pace.rebuild": () => {
       seed = Math.floor(Math.random() * 2 ** 31) + 1;
-      try {
-        localStorage.setItem(SEED_KEY, String(seed));
-      } catch {
-        // ignore
-      }
+      store(SEED_KEY, String(seed));
     },
-    resetDen: () => {
+    "pace.resetDen": () => {
       for (const c of world.critters) c.dispose();
       world.critters = [];
       holding = null;
       bugs.clear();
+      fights = [];
+      hunters = [];
+      pirates.clear();
+      carried.clear();
       startOver();
     },
+    "genetics.randomise": () => {
+      const m = picked();
+      if (m) reroll(m.id);
+    },
+    "genetics.rerollColours": () => {
+      const m = picked();
+      if (m) reroll(m.id, true);
+    },
+    "tools.spawnFly": () => bugs.flyIn(),
+    "tools.bird": () => spawnHunter("bird"),
+    "tools.frog": () => spawnHunter("frog"),
+    "tools.pirate": () => spawnHunter("pirate"),
+    "tools.fight": () => {
+      const onWeb = world.critters.filter((c) => c.alive && !c.pirate && c.mode === "web");
+      const attacker = target() ?? onWeb[Math.floor(Math.random() * onWeb.length)] ?? null;
+      if (!attacker) return;
+      const [ax, ay] = attacker.center();
+      const victim = world.critters
+        .filter((c) => c !== attacker && c.alive && !c.pirate && c.mode === "web")
+        .sort((p, q) => Math.hypot(p.center()[0] - ax, p.center()[1] - ay) - Math.hypot(q.center()[0] - ax, q.center()[1] - ay))[0];
+      if (victim && attacker.stalk(victim)) hooks.say(`<strong>${escape(nameOf(attacker.member))}</strong> is going after ${escape(nameOf(victim.member))}.`);
+    },
+    "tools.collapse": () => {
+      const hubs = web.hubs.filter((h) => web.held(h.node));
+      const hub = hubs[Math.floor(Math.random() * hubs.length)];
+      if (!hub) return;
+      // Cut every thread crossing a ring round it, just outside the web: its anchors.
+      const r = hub.radius * 1.08;
+      const hx = web.x(hub.node);
+      const hy = web.y(hub.node);
+      for (let i = 0; i < 48; i++) {
+        const a0 = (i / 48) * Math.PI * 2;
+        const a1 = ((i + 1) / 48) * Math.PI * 2;
+        for (const hit of web.crossings(hx + Math.cos(a0) * r, hy + Math.sin(a0) * r, hx + Math.cos(a1) * r, hy + Math.sin(a1) * r, true)) web.cut(hit.edge, hit.t);
+      }
+    },
+    "tools.fray": () => web.setHealth(0.33),
+    "tools.mendAll": () => web.setHealth(1, true),
+    "tools.old": () => {
+      const m = picked();
+      if (m) makeOld(m.id);
+    },
+    "tools.starve": () => {
+      const m = picked();
+      if (m) starve(m.id);
+    },
+    "tools.clearLog": () => clearLog(),
   };
-  const pace = den.pace as unknown as Record<string, number>;
-  for (const key of Object.keys(actions)) pressed[key] = pace[key];
+  const actionValue = (path: string) => {
+    const [section, key] = path.split(".");
+    return (den as unknown as Record<string, Record<string, number>>)[section][key];
+  };
+  const pressed = new Map(Object.keys(actions).map((path) => [path, actionValue(path)]));
   const checkActions = () => {
-    for (const [key, run] of Object.entries(actions)) {
-      if (pace[key] === pressed[key]) continue;
-      pressed[key] = pace[key];
+    for (const [path, run] of Object.entries(actions)) {
+      const now = actionValue(path);
+      if (now === pressed.get(path)) continue;
+      pressed.set(path, now);
       run();
     }
   };
 
-  /** Lays eggs for spider `id` somewhere near it on the web. Returns why not, or null. */
-  const layFor = (id: string, force = false) => {
-    const critter = world.critters.find((c) => c.member.id === id && c.mode !== "ghost");
+  /** Lays eggs for spider `id` somewhere near it on the web (with `mateId` as the other parent). Returns why not, or null. */
+  const layFor = (id: string, force = false, mateId?: string) => {
+    const critter = world.critters.find((c) => c.member.id === id && c.alive);
     const [cx, cy] = critter?.position ?? [web.width / 2, web.height / 3];
     const below = web.nearest(cx + (Math.random() - 0.5) * world.unit * 0.8, cy + world.unit * 0.35, world.unit * 1.2, true);
     const [x, y] = below ? [below.x, below.y] : [cx, cy];
-    const result = layEggs(id, x / Math.max(1, web.width), y / Math.max(1, web.height), force);
+    const result = layEggs(id, x / Math.max(1, web.width), y / Math.max(1, web.height), force, mateId);
     if (typeof result === "string") return result;
     critter?.proud();
     return null;
@@ -680,63 +1179,107 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     frame(now);
   };
 
+  /** Spiders passing each other say hello, in their own way. */
+  const greet = () => {
+    const near = world.unit * 0.8;
+    const idle = world.critters.filter((c) => c.alive && !c.pirate && c.mode === "web" && (c.task === "walk" || c.task === "rest"));
+    for (let i = 0; i < idle.length; i++) {
+      for (let j = i + 1; j < idle.length; j++) {
+        const [ax, ay] = idle[i].position;
+        const [bx, by] = idle[j].position;
+        if (Math.hypot(ax - bx, ay - by) > near || Math.random() > 0.25) continue;
+        const kin = family(idle[i].member, idle[j].member);
+        for (const c of [idle[i], idle[j]]) {
+          const grumpy = c.member.personality.temper > 0.7;
+          c.emote(kin ? "heart" : grumpy ? "dots" : "note");
+        }
+        return;
+      }
+    }
+  };
+
   const frame = (now: number) => {
+    const began = performance.now();
     const real = Math.max(0, Math.min((now - last) / 1000, config.sim.maxFrame));
     last = now;
-    const dt = real * config.sim.timeScale;
+    const dt = real * config.sim.timeScale * settings.speed;
     fit();
     if (!web.width) return;
+    frames++;
     checkActions();
     if (dirty) sync();
     world.pickedId = picked()?.id ?? null;
 
-    lifeIn -= real;
-    if (lifeIn <= 0) {
-      lifeIn = 1;
-      const starved = tick();
-      for (const m of starved) world.critters.find((c) => c.member.id === m.id)?.die();
-      if (starved.length) {
-        const names = starved.map((m) => escape(nameOf(m)));
-        const who = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
-        hooks.say(`<strong>${who} starved</strong> and floated away. Keep your spiders fed.`);
-      }
-    }
-
+    web.decay((real * den.pace.speed * settings.speed) / 3600);
     updateSacs(dt);
     web.step(dt);
-    bugs.update(dt, true);
+    bugs.update(dt, fliesAmount());
     for (const c of world.critters) c.think(dt);
+    updateFights(dt);
+    updateDanger(dt);
+    greetIn -= dt;
+    if (greetIn <= 0) {
+      greetIn = 1.5;
+      greet();
+    }
 
     // A bug being carried opens the mouth of whoever it's coming near.
-    const carried = holding?.bug;
+    const carriedBug = holding?.bug;
     for (const c of world.critters) {
-      if (!carried || c.mode === "ghost") {
+      if (!carriedBug || !c.alive || c.pirate) {
         c.foodNear = 0;
         continue;
       }
       const [mx, my] = c.mouth();
-      const d = Math.hypot(carried.x - mx, carried.y - my) / Math.max(1, c.unit());
-      const feed = config.feed;
-      c.foodNear = Math.max(0, Math.min(1, (feed.openDistance - d) / Math.max(0.001, feed.openDistance - feed.eatDistance)));
+      const d = Math.hypot(carriedBug.x - mx, carriedBug.y - my) / Math.max(1, c.unit());
+      const feedConfig = config.feed;
+      c.foodNear = Math.max(0, Math.min(1, (feedConfig.openDistance - d) / Math.max(0.001, feedConfig.openDistance - feedConfig.eatDistance)));
     }
 
-    for (const c of world.critters) c.animate(dt, dpr);
+    // With lots of spiders, the ones just sitting about are posed every other frame.
+    const saving = world.critters.length > den.detail.above;
+    world.critters.forEach((c, i) => {
+      const idle = saving && c.mode === "web" && (c.task === "rest" || c.task === "nap") && !c.held && c !== hovered && c.member.id !== world.pickedId;
+      const owed = (skipped.get(c) ?? 0) + dt;
+      if (idle && (frames + i) % 2) {
+        skipped.set(c, owed);
+        return;
+      }
+      skipped.delete(c);
+      c.animate(owed, dpr);
+    });
     for (const c of world.critters) {
-      if (c.gone) c.dispose();
+      if (!c.gone) continue;
+      c.dispose();
+      skipped.delete(c);
+      pirates.delete(c);
+      carried.delete(c);
     }
     world.critters = world.critters.filter((c) => !c.gone);
     particles.update(dt);
     fluff.update(dt);
+    dust.update(dt);
     updateStrands(dt);
 
-    hovered = holding?.critter ?? (world.pointer ? critterAt(...world.pointer) : null);
-    canvas.style.cursor = holding
-      ? "grabbing"
-      : hovered || (world.pointer && bugs.at(...world.pointer))
-        ? "grab"
-        : "";
+    for (const b of web.takeBreaks()) {
+      debris.add(b);
+      claims.delete(b.edge);
+    }
+    debris.update(dt, web, config.rope.gravity * world.unit);
+    cutMarks = cutMarks.filter((m) => (m.age += dt) < 0.4);
 
+    hovered = holding?.critter ?? (world.pointer ? critterAt(...world.pointer) : null);
+    canvas.style.cursor = cutMode()
+      ? "crosshair"
+      : holding
+        ? "grabbing"
+        : hovered || (world.pointer && (bugs.at(...world.pointer) || hunters.some((h) => h.hit(...world.pointer!))))
+          ? "grab"
+          : "";
+
+    if (Date.now() - webSavedAt > 15_000) saveWeb();
     draw();
+    frameMs += (performance.now() - began - frameMs) * 0.05;
   };
 
   const paintScenery = () => {
@@ -762,14 +1305,18 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     web.draw(ctx, colors.ink);
+    debris.draw(ctx, colors.ink);
     drawStrands();
     drawSacs();
     bugs.draw(ctx, false);
+    for (const h of hunters) if (h.kind === "frog") h.draw(ctx, { ink: colors.ink, surface: colors.surface, outline: dark.matches });
     ctx.strokeStyle = colors.ink;
     particles.draw(ctx);
     // Silk fluff from a hatching egg sac: cream, dark enough to show on a light page.
     ctx.strokeStyle = "#d8c9a6";
     fluff.draw(ctx);
+    ctx.strokeStyle = dark.matches ? "rgba(242, 242, 238, 0.5)" : "rgba(27, 30, 41, 0.35)";
+    dust.draw(ctx);
 
     const [ox, oy] = world.origin;
     ctx.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr);
@@ -778,16 +1325,56 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     for (const c of order) c.drawBehind(ctx, colors.ink, colors.accent);
     for (const c of order) c.draw(ctx, colors.ink);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const h of hunters) if (h.kind === "bird") h.draw(ctx, { ink: colors.ink, surface: colors.surface, outline: dark.matches });
     bugs.draw(ctx, true);
+    if (cutMarks.length) {
+      ctx.save();
+      ctx.strokeStyle = colors.accent;
+      ctx.lineCap = "round";
+      for (const m of cutMarks) {
+        ctx.globalAlpha = 1 - m.age / 0.4;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(...m.from);
+        ctx.lineTo(...m.to);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     ctx.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr);
     for (const c of order) {
       const id = c.member.id;
       c.drawMarks(ctx, colors, id === world.pickedId || id === highlighted, c === hovered || id === highlighted);
     }
+    if (den.tools.stats) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const health = web.condition();
+      const lines = [
+        `${world.critters.filter((c) => !c.pirate).length} spiders · ${pirates.size} pirates · ${hunters.length} predators · ${fights.length} fights`,
+        `web ${Math.round((1 - health.dead / Math.max(1, health.silk)) * 100)}% whole · health ${Math.round(health.health * 100)}% · ${debris.count} pieces`,
+        `${frameMs.toFixed(1)} ms a frame · time ${settings.speed}× · life ${den.pace.speed}×`,
+      ];
+      ctx.font = "11px ui-monospace, monospace";
+      ctx.textAlign = "right";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = colors.surface;
+      ctx.fillStyle = colors.ink;
+      lines.forEach((line, i) => {
+        const ly = web.height - 12 - (lines.length - 1 - i) * 14;
+        ctx.strokeText(line, web.width - 12, ly);
+        ctx.fillText(line, web.width - 12, ly);
+      });
+    }
   };
   const rank = (c: Critter) => (c.held ? 3 : c.member.id === world.pickedId ? 2 : c.member.main ? 1 : 0);
 
   readColors();
+  const showing = () => active && document.visibilityState === "visible";
+  document.addEventListener("visibilitychange", () => {
+    watch(showing());
+    if (document.visibilityState === "hidden") saveWeb();
+  });
+  window.addEventListener("pagehide", saveWeb);
 
   return {
     get scene() {
@@ -797,18 +1384,16 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     /** Moves the den to another scene: new webs, and everyone finds their feet on them. */
     setScene(id: SceneId) {
       if (id === sceneId) return;
+      saveWeb();
       sceneId = id;
-      try {
-        localStorage.setItem(SCENE_KEY, id);
-      } catch {
-        // ignore
-      }
+      store(SCENE_KEY, id);
     },
 
     /** Runs the den while it's showing, and stops when it isn't. */
     setActive(on: boolean) {
       if (on === active) return;
       active = on;
+      watch(showing());
       if (on) {
         readColors();
         last = performance.now();
@@ -820,13 +1405,25 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
         if (holding?.critter) holding.critter.release(null);
         holding = null;
         html.classList.remove("spider-held");
+        saveWeb();
       }
     },
+
+    /** The cut tool: dragging across the den cuts threads. */
+    get cutting() {
+      return cutMode();
+    },
+    setCutting(on: boolean) {
+      cutting = on;
+    },
+    /** Whether this is a tuning session (tools show). */
+    tuning,
 
     /** The spider at a point on the page (client px), for dropping clothes on. */
     spiderAt(clientX: number, clientY: number) {
       const [x, y] = local({ clientX, clientY });
-      return critterAt(x, y)?.member.id ?? null;
+      const c = critterAt(x, y);
+      return c && !c.pirate ? c.member.id : null;
     },
 
     /** Rings a spider, while something's dragged over it. */
@@ -839,7 +1436,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
 
     /** A snack from the wardrobe, hovering next to spider `id` (or in the middle of the den). */
     offer(kind: Snack, id: string | null) {
-      const critter = world.critters.find((c) => c.member.id === id && c.mode !== "ghost");
+      const critter = world.critters.find((c) => c.member.id === id && c.alive);
       const [cx, cy] = critter?.center() ?? [web.width / 2, web.height / 2];
       const side = cx > web.width - world.unit * 1.2 ? -1 : 1;
       bugs.offer(kind, cx + side * world.unit * 0.9, Math.max(world.unit * 0.3, cy - world.unit * 0.3));
@@ -847,9 +1444,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
 
     /** A trick or mood from the wardrobe, for spider `id`. */
     play(id: string, what: string) {
-      world.critters.find((c) => c.member.id === id && c.mode !== "ghost")?.play(what);
+      world.critters.find((c) => c.member.id === id && c.alive)?.play(what);
     },
-
   };
 }
 

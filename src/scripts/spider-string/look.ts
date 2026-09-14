@@ -1,4 +1,4 @@
-import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, blankLook, itemOf, type Look, type Slot, type Tint } from "./wardrobe";
+import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, blankLook, itemOf, type Item, type Look, type Slot, type Tint, type Unlock } from "./wardrobe";
 
 /**
  * What the spider's wearing, saved in this browser so it looks the same on every page: the one
@@ -8,12 +8,13 @@ import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, blankLook, itemOf, type Look,
  * being tried on, which only the den's own spider shows (a rig with data-look="try"). Both are the
  * same objects for the page's lifetime, changed in place, since rigs read them every frame.
  *
- * Also here: snacks eaten, and what's been unlocked.
+ * Also here: snacks eaten, what's been unlocked, and codes that unlock things.
  */
 
 const LOOK_KEY = "spider:look";
 const SNACKS_KEY = "spider:snacks";
 const UNLOCKS_KEY = "spider:unlocks";
+const CODES_KEY = "spider:codes";
 /** Announced on the document when the saved look, snacks or unlocks change (here or in another tab). */
 export const LOOK_EVENT = "spider:look";
 
@@ -121,6 +122,32 @@ export function ateSnack(save = wear) {
   const now = locked.filter(({ slot, item }) => isUnlocked(slot, item.id));
   save();
   return now;
+}
+
+/**
+ * Codes that unlock things (a giveaway, a thank-you): each unlocks one or more kinds of unlock
+ * (`"all"` for everything). A placeholder for now: there aren't any yet. Add one like
+ * `WEBBYCROWN: ["discord"]`, in capitals with no spaces or dashes; people can type it any way.
+ */
+const CODES: Record<string, (Exclude<Unlock["kind"], "snacks"> | "all")[]> = {};
+
+export type Redeemed = { ok: true; unlocked: { slot: Slot; item: Item }[] } | { ok: false; why: string };
+
+/** Tries a code someone typed in. */
+export function redeemCode(typed: string): Redeemed {
+  const code = typed.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!code) return { ok: false, why: "Type in a code first." };
+  const gives = Object.hasOwn(CODES, code) ? CODES[code] : null;
+  if (!gives) return { ok: false, why: "That code doesn't work. Codes are coming soon." };
+  const used = readList(read(CODES_KEY));
+  if (used.has(code)) return { ok: false, why: "You've already used that code in this browser." };
+  const locked = lockedItems();
+  for (const kind of gives) unlocked.add(kind);
+  used.add(code);
+  store(UNLOCKS_KEY, JSON.stringify([...unlocked]));
+  store(CODES_KEY, JSON.stringify([...used]));
+  announce();
+  return { ok: true, unlocked: locked.filter(({ slot, item }) => isUnlocked(slot, item.id)) };
 }
 
 const lockedItems = () =>
