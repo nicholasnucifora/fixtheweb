@@ -24,7 +24,6 @@ import {
 import { den, groups as denGroups, schema as denSchema } from "./den/config";
 import { DEATHS_EVENT, causeText, clearLog, deaths, markSeen, unseen, type Death } from "./den/deaths";
 import { clockText } from "./den/daytime";
-import { REPLAYS_EVENT, hasReplay, loadReplay } from "./den/replays";
 import { FEELINGS, LIMITS, TRAITS, patternRarity, skinRarity, traitWords, type Feeling, type Trait } from "./den/genes";
 import type { SceneId } from "./den/scenes";
 import { AMOUNTS, SETTINGS_EVENT, change, settings, type Amount, type DenSettings } from "./den/settings";
@@ -51,8 +50,8 @@ import {
  * The Spider Den (src/pages/den.astro): its two views, and the wardrobe they share.
  *
  * Dress up: the picked spider (or the main one) hangs from a web, big, next to the wardrobe. The den:
- * every spider you have, living on webs across the whole page (den/world.ts), with a card for the
- * picked one, if any, and the wardrobe in a drawer.
+ * every spider you have, living on webs across the whole page (den/world.ts), with the wardrobe in
+ * a drawer on the right, and a spider's details there instead when it's pressed in the picker.
  *
  * Clicking something in the wardrobe dresses the spider being dressed in it straight away, and saves
  * it (den/colony.ts). In the den, anything in the wardrobe can also be dragged onto any spider, picked
@@ -62,7 +61,7 @@ import {
  * spider in its current look with that item swapped in, redrawn whenever the look changes.
  *
  * The den also has its settings (time speed, flies, predators, fights) behind the ⚙ in its bar, a log
- * of deaths at the top right (with a replay of each death the den saw), and a box for codes. A spider's colours are in its genes: den-born
+ * of deaths at the top right, and a box for codes. A spider's colours are in its genes: den-born
  * spiders can't change them in the wardrobe (the first spider can).
  *
  * With ?tune, the den's own tuning panel (den/config.ts), a cut tool in the bar, and a genes editor on
@@ -127,10 +126,20 @@ export function mountDen() {
 
   const nameOfTrying = () => trying.name.trim() || DEFAULT_NAME;
   const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const toast = document.querySelector<HTMLElement>("[data-den-toast]")!;
+  let toastTimer = 0;
   const say = (html: string) => {
     notice.innerHTML = html;
     cardNote.innerHTML = html;
+    // In the den with nothing open on the right to show it in, it pops up for a moment at the bottom.
+    if (main.dataset.denView !== "den" || main.dataset.wardrobe === "open" || main.dataset.info === "open") return;
+    toast.innerHTML = html;
+    toast.hidden = false;
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => (toast.hidden = true), 4500);
   };
+  /** Whether the picked spider's details are open, on the right. */
+  const infoOpen = () => main.dataset.info === "open";
   const play = (id: string, detail: object = {}) =>
     document.dispatchEvent(new CustomEvent("spider:play", { detail: { id, ...detail } }));
 
@@ -158,6 +167,8 @@ export function mountDen() {
     if (to !== "den") {
       showSettings(false);
       showDeaths(false);
+      main.dataset.info = "closed";
+      toast.hidden = true;
     }
     if (remember) {
       try {
@@ -186,6 +197,12 @@ export function mountDen() {
 
   const setDrawer = (open: boolean, remember = true) => {
     main.dataset.wardrobe = open ? "open" : "closed";
+    // The wardrobe and a spider's details share the right-hand side.
+    if (open && infoOpen()) {
+      main.dataset.info = "closed";
+      card.hidden = true;
+    }
+    if (open) toast.hidden = true;
     document.querySelector("[data-den-wardrobe-toggle]")?.setAttribute("aria-expanded", String(open));
     if (open) drawTiles();
     if (remember) {
@@ -586,11 +603,25 @@ export function mountDen() {
   const tummy = (full: number) =>
     full >= 0.75 ? "Full" : full >= 0.45 ? "Peckish" : full >= 0.2 ? "Hungry" : full > 0 ? "Starving" : "Empty";
 
-  $card("[data-card-close]").addEventListener("click", () => pickSpider(null));
+  /** Opens (or closes) the picked spider's details on the right, where the wardrobe goes. */
+  const showInfo = (open: boolean) => {
+    main.dataset.info = open ? "open" : "closed";
+    if (open) {
+      setDrawer(false, false);
+      toast.hidden = true;
+    }
+    refreshCard();
+  };
+  $card("[data-card-close]").addEventListener("click", () => {
+    showInfo(false);
+    pickSpider(null);
+  });
   document.addEventListener("keydown", (e) => {
     const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, select");
     const popover = !settingsPanel.hidden || !deathsPanel.hidden;
-    if (e.key === "Escape" && view === "den" && picked() && !typing && !popover) pickSpider(null);
+    if (e.key !== "Escape" || view !== "den" || typing || popover) return;
+    if (infoOpen()) showInfo(false);
+    else if (picked()) pickSpider(null);
   });
   $card("[data-card-dress]").addEventListener("click", () => {
     setDrawer(true);
@@ -723,8 +754,9 @@ export function mountDen() {
   let portraitKey = "";
   const refreshCard = () => {
     const m = picked();
-    card.hidden = !m;
-    if (!m) return;
+    if (!m && infoOpen()) main.dataset.info = "closed";
+    card.hidden = !m || !infoOpen();
+    if (!m || card.hidden) return;
     $card("[data-card-name]").textContent = nameOf(m);
     $card("[data-card-main]").hidden = !m.main;
     $card("[data-card-make-main]").hidden = m.main;
@@ -781,13 +813,23 @@ export function mountDen() {
         button.dataset.id = m.id;
         button.innerHTML = `<canvas aria-hidden="true"></canvas><span class="picker-name"></span>`;
         // In the den, clicking the picked one again lets go of it.
-        button.addEventListener("click", () => pickSpider(view === "den" && picked()?.id === m.id ? null : m.id));
+        button.addEventListener("click", () => {
+          if (view !== "den") return pickSpider(m.id);
+          // In the den, a spider up here opens its details on the right; pressing it again closes them.
+          if (picked()?.id === m.id && infoOpen()) {
+            showInfo(false);
+            pickSpider(null);
+          } else {
+            pickSpider(m.id);
+            showInfo(true);
+          }
+        });
         picker.append(button);
       }
       button.querySelector(".picker-name")!.textContent = nameOf(m);
       button.setAttribute("aria-pressed", String(m.id === on));
       button.toggleAttribute("data-main", m.main);
-      button.title = m.main ? `${nameOf(m)} (main spider)` : nameOf(m);
+      button.title = `${nameOf(m)}${m.main ? " (main spider)" : ""}: see what it's like`;
       // Only the spiders whose picture has changed are drawn again.
       const look = m.id === on ? trying : m.look;
       const scale = 0.5 + 0.5 * Math.min(1, sizeOf(m));
@@ -939,15 +981,6 @@ export function mountDen() {
         li.dataset.id = d.id;
         li.toggleAttribute("data-unseen", i < fresh);
         li.innerHTML = `<canvas aria-hidden="true"></canvas><div><p class="death-name"><strong></strong><span class="death-when"></span></p><p class="death-cause"></p><p class="death-detail"></p></div>`;
-        if (hasReplay(d.id)) {
-          const watch = document.createElement("button");
-          watch.type = "button";
-          watch.className = "chip death-replay";
-          watch.setAttribute("aria-expanded", String(player?.id === d.id));
-          watch.innerHTML = `<span aria-hidden="true">▶</span> Replay`;
-          watch.addEventListener("click", () => openReplay(li, d, watch));
-          li.querySelector("div")!.append(watch);
-        }
         li.querySelector("strong")!.textContent = d.main ? `${d.name} ★` : d.name;
         const when = li.querySelector<HTMLElement>(".death-when")!;
         when.textContent = ago(d.at);
@@ -958,125 +991,8 @@ export function mountDen() {
       }),
     );
     deathsList.querySelectorAll<HTMLCanvasElement>(".death > canvas").forEach((canvas, i) => drawSpider(canvas, list[i].look, VIEWS.whole, 0.8));
-    // A replay that's playing carries on in the new list.
-    if (player) {
-      const row = [...deathsList.querySelectorAll<HTMLElement>(".death")].find((li) => li.dataset.id === player!.id);
-      if (row) row.append(player.el);
-      else closeReplay();
-    }
   };
 
-  // ── Replays ───────────────────────────────────────────────────────────────
-  let player: { id: string; el: HTMLElement; button: HTMLButtonElement; stop: () => void } | null = null;
-  const closeReplay = () => {
-    if (!player) return;
-    player.stop();
-    player.el.remove();
-    player.button.setAttribute("aria-expanded", "false");
-    player = null;
-  };
-  /** Plays the replay of `d`'s death under its row (or closes it, if it's already playing). */
-  const openReplay = async (li: HTMLElement, d: Death, button: HTMLButtonElement) => {
-    const again = player?.id === d.id;
-    closeReplay();
-    if (again) return;
-    const el = document.createElement("div");
-    el.className = "replay";
-    el.innerHTML = `<canvas role="img"></canvas><div class="replay-bar"><button type="button" class="replay-play" aria-label="Pause">❚❚</button><span class="replay-track" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="replay-done"></span><span class="replay-mark" title="The moment it died"></span></span></div>`;
-    el.querySelector("canvas")!.setAttribute("aria-label", `Replay: ${d.name}, ${causeText(d).toLowerCase()}`);
-    li.append(el);
-    button.setAttribute("aria-expanded", "true");
-    let stopped = false;
-    let raf = 0;
-    let pictures: ImageBitmap[] = [];
-    player = {
-      id: d.id,
-      el,
-      button,
-      stop: () => {
-        stopped = true;
-        cancelAnimationFrame(raf);
-        for (const p of pictures) p.close();
-      },
-    };
-    const replay = await loadReplay(d.id);
-    if (stopped) return;
-    try {
-      if (!replay) throw new Error("gone");
-      pictures = await Promise.all(replay.frames.map((blob) => createImageBitmap(blob)));
-    } catch {
-      el.textContent = "This replay can't be played any more.";
-      return;
-    }
-    if (stopped || !replay) {
-      for (const p of pictures) p.close();
-      return;
-    }
-    const canvas = el.querySelector("canvas")!;
-    canvas.width = replay.width;
-    canvas.height = replay.height;
-    const ctx = canvas.getContext("2d")!;
-    const play = el.querySelector<HTMLButtonElement>(".replay-play")!;
-    const track = el.querySelector<HTMLElement>(".replay-track")!;
-    const done = el.querySelector<HTMLElement>(".replay-done")!;
-    const count = pictures.length;
-    el.querySelector<HTMLElement>(".replay-mark")!.style.left = `${(replay.diedAt / Math.max(1, count - 1)) * 100}%`;
-    // It holds on the last picture a moment before it starts over.
-    const hold = Math.round(replay.fps * 1.2);
-    let at = 0;
-    let playing = true;
-    let last = performance.now();
-    let owed = 0;
-    const show = () => {
-      const i = Math.min(count - 1, at);
-      ctx.drawImage(pictures[i], 0, 0);
-      const share = (i / Math.max(1, count - 1)) * 100;
-      done.style.width = `${share}%`;
-      track.setAttribute("aria-valuenow", String(Math.round(share)));
-    };
-    const tick = (now: number) => {
-      if (stopped) return;
-      raf = requestAnimationFrame(tick);
-      if (playing) {
-        owed += now - last;
-        const step = 1000 / replay.fps;
-        while (owed >= step) {
-          owed -= step;
-          at = (at + 1) % (count + hold);
-        }
-        show();
-      }
-      last = now;
-    };
-    const setPlaying = (on: boolean) => {
-      playing = on;
-      play.textContent = on ? "❚❚" : "▶";
-      play.setAttribute("aria-label", on ? "Pause" : "Play");
-    };
-    play.addEventListener("click", () => setPlaying(!playing));
-    const seek = (share: number) => {
-      at = Math.round(Math.max(0, Math.min(1, share)) * (count - 1));
-      owed = 0;
-      show();
-    };
-    track.addEventListener("pointerdown", (e) => {
-      const box = track.getBoundingClientRect();
-      seek((e.clientX - box.left) / box.width);
-    });
-    track.addEventListener("keydown", (e) => {
-      const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-      if (!by) return;
-      e.preventDefault();
-      setPlaying(false);
-      at = Math.max(0, Math.min(count - 1, Math.min(count - 1, at) + by));
-      show();
-    });
-    show();
-    raf = requestAnimationFrame(tick);
-  };
-  document.addEventListener(REPLAYS_EVENT, () => {
-    if (!deathsPanel.hidden) renderDeaths();
-  });
   const refreshBadge = () => {
     const n = deathsPanel.hidden ? unseen() : 0;
     deathsBadge.hidden = !n;
@@ -1093,7 +1009,6 @@ export function mountDen() {
   const showDeaths = (open: boolean) => {
     if (open === !deathsPanel.hidden) return;
     deathsPanel.hidden = !open;
-    if (!open) closeReplay();
     deathsToggle.setAttribute("aria-expanded", String(open));
     if (open) {
       showSettings(false);

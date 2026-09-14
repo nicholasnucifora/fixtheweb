@@ -5,8 +5,8 @@ import type { Palette, Scene } from "./scenes";
 /**
  * The Spider Den's sky, and the light of the time of day, drawn flat like everything else.
  *
- * By day the sky's blue and the sun crosses it, warming everything a little, with soft shafts of
- * sunlight and a faint cartoon lens flare. Around sunrise and sunset it glows orange. At night it's
+ * By day the sky's blue and the sun crosses it, warming everything a little, with a faint cartoon
+ * lens flare. Around sunrise and sunset it glows orange. At night it's
  * a deep blue with stars and the moon, everything takes on a cool moonlit tint, and fireflies come
  * out. Out of doors the sky's behind everything; through a window, it's just what's seen through the
  * window, and the room's in the same light.
@@ -319,36 +319,13 @@ export function createSky() {
     return half;
   };
 
-  /** Soft shafts of sunlight and a faint lens flare, fanning out from the sun (plain washes of colour: cheap). */
-  const drawSunlight = (ctx: CanvasRenderingContext2D, view: SkyView, [sx, sy]: Vec, unit: number, light: Light, dark: boolean) => {
+  /** A faint cartoon lens flare, along the line from the sun through the middle. */
+  const drawFlare = (ctx: CanvasRenderingContext2D, view: SkyView, [sx, sy]: Vec, unit: number, light: Light, dark: boolean) => {
     const s = den.sky;
     const up = Math.max(0, Math.min(1, light.sun / 0.3)) * light.day;
     if (up <= 0.02) return;
-    const w = view.r - view.l;
     const cx = (view.l + view.r) / 2;
     const cy = (view.t + view.b) / 2;
-    if (s.rays > 0) {
-      const reach = Math.hypot(w, view.b - view.t) * 0.6;
-      const toward = Math.atan2(cy - sy, cx - sx);
-      const strength = s.rays * up * (dark ? 0.1 : 0.16);
-      const color = mix(hex("#fff1c1"), hex("#ffc27d"), light.golden);
-      // One fill for all five beams, fading out as they reach across.
-      const beam = ctx.createRadialGradient(sx, sy, 0, sx, sy, reach);
-      beam.addColorStop(0, css(color, strength));
-      beam.addColorStop(0.4, css(color, strength * 0.35));
-      beam.addColorStop(1, css(color, 0));
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      for (let i = 0; i < 5; i++) {
-        const angle = toward + (i - 2) * 0.22;
-        const spread = 0.018 + (i % 2) * 0.014;
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + Math.cos(angle - spread) * reach, sy + Math.sin(angle - spread) * reach);
-        ctx.lineTo(sx + Math.cos(angle + spread) * reach, sy + Math.sin(angle + spread) * reach);
-        ctx.closePath();
-      }
-      ctx.fill();
-    }
     if (s.flare > 0) {
       const flare: [number, number, string][] = [
         [0.35, 0.06, "#fff4c9"],
@@ -499,15 +476,8 @@ export function createSky() {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
-      // Sunbeams over it all (through the window, indoors).
-      if (indoors) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(view.l, view.t, view.r - view.l, view.b - view.t);
-        ctx.clip();
-      }
-      drawSunlight(ctx, view, sun, unit, light, dark);
-      if (indoors) ctx.restore();
+      // A little lens flare over it all (not indoors: there's a window in the way).
+      if (!indoors && den.sky.flare > 0) drawFlare(ctx, view, sun, unit, light, dark);
     },
 
     /** Fireflies, wandering and blinking, once it's dark (den px). `dt`: seconds of movement. */

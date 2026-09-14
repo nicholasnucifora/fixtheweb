@@ -35,7 +35,7 @@ export const groups = {
   },
   genes: {
     label: "Genes",
-    info: "What spiders are born with: how quick, hungry, strong and long-lived they are, their silk, colours and personality, and how much they take after their parents. Pick a spider in the den to see (and, with ?tune, change) its genes on its card.",
+    info: "What spiders are born with: how quick, hungry, strong and long-lived they are, their silk, colours and personality, and how much they take after their parents. Press a spider in the den's picker to see (and, with ?tune, change) its genes in its details.",
   },
   danger: {
     label: "Danger",
@@ -461,11 +461,6 @@ export const schema = {
       },
       napFrom: { value: 8, min: 1, max: 120, step: 1, unit: "s", label: "Naps for, from", info: "" },
       napTo: { value: 25, min: 1, max: 300, step: 1, unit: "s", label: "…to", info: "" },
-      wakeRadius: {
-        value: 0.6, min: 0, max: 5, step: 0.05, unit: "b",
-        label: "Woken by the cursor within",
-        info: "A napping spider wakes when the cursor comes this close.",
-      },
     },
   },
 
@@ -552,7 +547,7 @@ export const schema = {
   emotes: {
     group: "spiders",
     label: "Emotes",
-    info: "Little symbols that pop up over a spider as it feels things: an angry mark, a !, a ?, a sweat drop, a trail of dots, and hearts when spiders court and lay eggs. What sets them off depends on its personality.",
+    info: "Little symbols that pop up over a spider as it feels things: an angry mark, a !, a ?, a sweat drop, a trail of dots, and a heart when you save it from something that was about to eat it. What sets them off depends on its personality.",
     params: {
       enabled: { value: true, label: "Show emotes", info: "" },
       size: { value: 0.2, min: 0.05, max: 0.6, step: 0.01, unit: "b", label: "Size", info: "" },
@@ -773,22 +768,6 @@ export const schema = {
     },
   },
 
-  replays: {
-    group: "life",
-    label: "Death replays",
-    info: "The den films spiders in danger (hunted, in a fight, about to starve or die of old age) and, if one dies, keeps the film for the deaths log. Films are small pictures, saved in this browser.",
-    params: {
-      enabled: { value: true, label: "Film deaths", info: "" },
-      before: { value: 5, min: 1, max: 20, step: 0.5, unit: "s", label: "Keeps the last", info: "How much of what happened before it died." },
-      after: { value: 2.2, min: 0, max: 10, step: 0.1, unit: "s", label: "Carries on after for", info: "" },
-      fps: { value: 12, min: 2, max: 30, step: 1, label: "Pictures a second", info: "" },
-      width: { value: 3.4, min: 1, max: 12, step: 0.1, unit: "b", label: "Shows this much of the den", info: "Across." },
-      pixels: { value: 280, min: 80, max: 800, step: 10, unit: "px", label: "Picture size", info: "Across. Bigger is sharper, and takes more room." },
-      keep: { value: 20, min: 1, max: 100, step: 1, label: "Replays kept", info: "The oldest go first." },
-      most: { value: 4, min: 1, max: 20, step: 1, label: "Films at once, at most", info: "" },
-    },
-  },
-
   time: {
     group: "life",
     label: "Time",
@@ -846,7 +825,6 @@ export const schema = {
       night: { value: 1, min: 0, max: 2, step: 0.05, unit: "×", label: "Night darkness", info: "How dim and blue everything gets by moonlight." },
       golden: { value: 1, min: 0, max: 2, step: 0.05, unit: "×", label: "Sunrise and sunset glow", info: "" },
       warm: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Warm daylight", info: "" },
-      rays: { value: 0.35, min: 0, max: 1, step: 0.01, unit: "×", label: "Sunbeams", info: "" },
       flare: { value: 0.6, min: 0, max: 2, step: 0.05, unit: "×", label: "Lens flare", info: "" },
       fireflies: { value: 14, min: 0, max: 60, step: 1, label: "Fireflies at night", info: "" },
     },

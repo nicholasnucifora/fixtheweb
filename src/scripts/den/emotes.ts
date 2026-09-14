@@ -1,8 +1,8 @@
 import { den } from "./config";
 
 /**
- * Little symbols that pop up over a Spider Den spider as it feels something: a heart (courting and
- * laying eggs), an angry mark, a !, a ?, a sweat drop, a tear, a trail of dots, or a skull (a pirate
+ * Little symbols that pop up over a Spider Den spider as it feels something: a heart (saved from
+ * something that was about to eat it), an angry mark, a !, a ?, a sweat drop, a tear, a trail of dots, or a skull (a pirate
  * spider). Each pops in, drifts up and fades. Drawn flat, in the site's colours, like everything else on the canvas.
  */
 

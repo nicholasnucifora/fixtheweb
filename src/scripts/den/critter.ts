@@ -196,8 +196,10 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     listen: false,
     blink: () => animations.play("blink"),
     feelings: () => ({ temper: trait("temper"), thrill: trait("thrill"), nerve: trait("nerve") }),
+    cursor: false,
   });
-  const spider = createSpider(bob, rope, animations.state, mood.face, shown);
+  // In the den, the cursor's just part of the scenery: no flinching legs, no eyes following it about.
+  const spider = createSpider(bob, rope, animations.state, mood.face, shown, { cursor: false });
   const zees = createZees();
   const wind = new Particles();
   const speedLines = createSpeedLines(wind);
@@ -812,7 +814,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     }
     if (Math.random() > den.babies.solo) return false;
     world.layEggs(me, null);
-    emote("heart", true);
     mood.feel("content", 2);
     return true;
   };
@@ -942,14 +943,10 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
           else rest(between(1.5, 3));
         }
         break;
-      case "nap": {
+      case "nap":
         timer -= dt;
-        const p = world.pointer;
-        const c = center();
-        const near = p && Math.hypot(p[0] - c[0], p[1] - c[1]) - radius() < den.habits.wakeRadius * world.unit;
-        if (timer <= 0 || near) wake();
+        if (timer <= 0) wake();
         break;
-      }
       case "mend":
         if (!web.isAlive(work)) {
           rest(0.5);
@@ -1163,14 +1160,12 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
           }
           break;
         }
-        // A little dance, and hearts.
+        // A little dance.
         walkPhase += dt * 10;
         walking = 0.8;
         lean = Math.sin(time * 5) * 10 * DEG;
-        if (Math.random() < dt * 1.5) emote("heart", true);
         if (timer <= 0.05) {
           world.layEggs(me, partner);
-          partner.emote("heart", true);
           rest(between(2, 4));
         }
         break;
@@ -1765,10 +1760,10 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     grab(px: number, py: number) {
       held = true;
       if (mode === "carried") {
-        // Snatched back from a bird or a frog.
+        // Snatched back from a bird or a frog: saved!
         carriedBy = null;
-        mood.feel("panicked", 1.5);
-        emote("sweat", true);
+        mood.feel("excited", 1.5);
+        emote("heart", true);
       }
       hand.x = px;
       hand.y = py;
@@ -1908,7 +1903,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     /** Lay eggs: a proud moment. */
     proud() {
       mood.feel("excited", 1.5);
-      emote("heart", true);
     },
 
     // ── Other spiders and danger (called by world.ts) ──
@@ -2008,7 +2002,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
       partner = suitor;
       toward = -1;
       timer = den.babies.court + 8;
-      emote("heart");
     },
 
     /** It's in a fight: world.ts moves it about until it's over. */

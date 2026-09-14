@@ -6,7 +6,6 @@ import { drawString, threadStyle } from "../spider-string/render";
 import { Rope } from "../spider-string/rope";
 import { blankLook, type Look } from "../spider-string/wardrobe";
 import { type Bug, createBugs } from "./bugs";
-import { createReplays } from "./replays";
 import {
   COLONY_EVENT,
   DIED_EVENT,
@@ -24,7 +23,6 @@ import {
   hurry,
   kill,
   layEggs,
-  lifespan,
   mainSpider,
   makeOld,
   members,
@@ -219,8 +217,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const colors = { ink: "#1b1e29", accent: "#2b8666", surface: "#ffffff", bg: "#f7f5ef" };
   /** Spiders, bugs and predators, drawn on their own at dusk and by night so the light can tint just them. */
   const sprites = document.createElement("canvas");
-  /** Films of spiders in danger, kept if they die (for the deaths log). */
-  const replays = createReplays();
   const sky = createSky();
   /** Seconds of movement last frame, for the sky's twinkling and drifting. */
   let moved = 0;
@@ -452,17 +448,20 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
           null,
         );
       node = middle?.node ?? -1;
-    } else if (parent) {
-      const [px, py] = parent.position;
-      node = web.nodeNear(px, py, world.unit * 0.5, world.unit * 1.6);
     }
-    if (node < 0 && web.hubs.length) {
+    /** Nobody's already sitting there. */
+    const clear = (n: number) => world.critters.every((c) => c === critter || Math.hypot(c.position[0] - web.x(n), c.position[1] - web.y(n)) > world.unit * 0.6);
+    if (node < 0 && parent) {
+      // Near whoever laid it, but not on top of anyone.
+      const [px, py] = parent.position;
+      node = web.nodeNear(px, py, world.unit * 0.5, world.unit * 2.5, clear);
+    }
+    if ((node < 0 || !clear(node)) && web.hubs.length) {
       // Somewhere on a web, not on top of anyone.
-      for (let tries = 0; tries < 12; tries++) {
+      for (let tries = 0; tries < 16; tries++) {
         const hub = web.hubs[Math.floor(Math.random() * web.hubs.length)];
-        node = web.nodeNear(web.x(hub.node), web.y(hub.node), hub.radius * 0.2, hub.radius);
-        const clear = node >= 0 && world.critters.every((c) => c === critter || Math.hypot(c.position[0] - web.x(node), c.position[1] - web.y(node)) > world.unit * 0.6);
-        if (clear) break;
+        node = web.nodeNear(web.x(hub.node), web.y(hub.node), hub.radius * 0.2, hub.radius, clear);
+        if (node >= 0) break;
       }
     }
     critter.placeNear(node >= 0 ? web.x(node) : web.width / 2, node >= 0 ? web.y(node) : web.height / 3);
@@ -505,7 +504,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     const { id, cause } = (e as CustomEvent).detail as { id: string; cause: "starved" | "old" };
     const critter = world.critters.find((c) => c.member.id === id && c.alive);
     if (critter && active) critter.die(cause);
-    replays.died(id, den.replays.after + 1);
     const m = critter?.member ?? byId(id);
     if (!m) return;
     const name = escape(nameOf(m));
@@ -516,8 +514,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const died = (victim: Critter, cause: "eaten" | "bird" | "frog" | "pirate", killer?: string) => {
     if (victim.pirate) return;
     const name = escape(nameOf(victim.member));
-    // Carried off, the bird's already off the edge: no need to film the empty sky for long.
-    replays.died(victim.member.id, cause === "bird" ? 0.3 : cause === "frog" ? 1 : den.replays.after);
     kill(victim.member.id, cause, { killer });
     const how = {
       eaten: `was eaten by ${escape(killer ?? "another spider")}`,
@@ -746,43 +742,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       const name = escape(nameOf(target.member));
       hooks.say(kind === "bird" ? `<strong>A bird's got ${name}!</strong> Grab it back!` : `<strong>The frog's got ${name}!</strong> Quick, grab it!`);
     },
-  };
-
-  /** Keeps a camera on every spider in danger, so if it dies there's a replay. */
-  const filmDanger = () => {
-    if (!den.replays.enabled) return;
-    const film = (c: Critter | null | undefined) => {
-      if (c && !c.pirate && mortal(c.member)) replays.watch(c.member.id);
-    };
-    for (const h of hunters) {
-      // Only once it's close to going for someone: a bird circling, a frog with someone in reach.
-      if (h.hunting || h.holding) film(h.holding ?? h.target);
-    }
-    for (const c of carried.keys()) {
-      film(c);
-      replays.hold(c.member.id);
-    }
-    for (const f of fights) {
-      film(f.a);
-      film(f.b);
-    }
-    const lifeRate = Math.max(1e-6, den.pace.speed * settings.speed);
-    for (const c of world.critters) {
-      if (c.quarry) {
-        film(c.quarry);
-        film(c);
-      }
-      if (!c.alive || c.pirate || !mortal(c.member)) continue;
-      // About to starve, or die of old age.
-      const m = c.member;
-      const hours = Math.min(den.dying.enabled && m.fullness <= 0 ? den.dying.after - m.starving : Infinity, den.aging.enabled ? lifespan(m) - m.age : Infinity);
-      if ((hours * 3600) / lifeRate < den.replays.before + 1) film(c);
-    }
-  };
-  /** Where a filmed spider is, den px (or null, once it's gone). */
-  const filmSubject = (id: string): Vec | null => {
-    const c = world.critters.find((k) => k.member.id === id);
-    return c ? c.center() : null;
   };
 
   /** A bird flew off with it, or a frog swallowed it: it's gone. */
@@ -1090,9 +1049,15 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       bugs.grab(bug);
       holding = { bug, pointerId: e.pointerId, offset: [bug.x - x, bug.y - y] };
     } else if (critter) {
+      // Picked up out of harm's way: something was stalking it, or it was fighting for its life.
+      const attacker = critter.pirate ? null : (world.critters.find((c) => c !== critter && c.quarry === critter) ?? fights.find((f) => f.b === critter)?.a ?? null);
       holding = { critter, pointerId: e.pointerId, offset: [0, 0] };
       critter.grab(x, y);
       if (!critter.pirate) hooks.pick(critter.member.id);
+      if (attacker) {
+        critter.emote("heart", true);
+        hooks.say(`<strong>Saved!</strong> ${escape(nameOf(critter.member))} got away from ${attacker.pirate ? "the pirate spider" : escape(nameOf(attacker.member))}.`);
+      }
     }
   });
 
@@ -1314,7 +1279,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     for (const c of world.critters) c.think(dt);
     updateFights(dt);
     updateDanger(dt);
-    filmDanger();
     greetIn -= dt;
     if (greetIn <= 0) {
       greetIn = 1.5;
@@ -1378,7 +1342,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
 
     if (Date.now() - webSavedAt > 15_000) saveWeb();
     draw();
-    replays.capture(canvas, dpr, world.unit, filmSubject, colors.bg);
     frameMs += (performance.now() - began - frameMs) * 0.05;
   };
 
@@ -1459,15 +1422,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       }
       boxes.push(...bugs.boxes());
       for (const h of hunters) boxes.push(h.bounds());
-      g.save();
-      g.beginPath();
-      for (const [x, y, w, h] of boxes) g.rect(x, y, w, h);
-      g.clip();
-      g.globalCompositeOperation = "source-atop";
-      g.fillStyle = tint.css;
-      g.fillRect(0, 0, web.width, web.height);
-      g.restore();
-      // Onto the den: just the tiles with something in them, not the whole (mostly empty) layer.
+      // Just the tiles with something in them: tinted, and put onto the den (not the whole, mostly empty, layer).
       const tile = 192;
       const cols = Math.ceil(canvas.width / tile);
       const rows = Math.ceil(canvas.height / tile);
@@ -1479,14 +1434,19 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
         const y1 = Math.min(rows - 1, Math.floor(((y + h) * dpr) / tile));
         for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) used.add(ty * cols + tx);
       }
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      for (const i of used) {
+      const tiles = [...used].map((i) => {
         const sx = (i % cols) * tile;
         const sy = Math.floor(i / cols) * tile;
-        const w = Math.min(tile, canvas.width - sx);
-        const h = Math.min(tile, canvas.height - sy);
-        ctx.drawImage(sprites, sx, sy, w, h, sx, sy, w, h);
-      }
+        return [sx, sy, Math.min(tile, canvas.width - sx), Math.min(tile, canvas.height - sy)] as const;
+      });
+      // All the tinting first, then all the drawing across (so the layer isn't finished off tile by tile).
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalCompositeOperation = "source-atop";
+      g.fillStyle = tint.css;
+      for (const [sx, sy, w, h] of tiles) g.fillRect(sx, sy, w, h);
+      g.globalCompositeOperation = "source-over";
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (const [sx, sy, w, h] of tiles) ctx.drawImage(sprites, sx, sy, w, h, sx, sy, w, h);
     }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1567,7 +1527,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
         cancelAnimationFrame(raf);
         raf = 0;
         for (const [c, h] of carried) carriedOff(c, h);
-        replays.stop();
         if (holding?.critter) holding.critter.release(null);
         holding = null;
         html.classList.remove("spider-held");

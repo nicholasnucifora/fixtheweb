@@ -254,7 +254,14 @@ export function createMood(
     listen = true,
     blink = () => document.dispatchEvent(new CustomEvent("spider:play", { detail: { id: "blink" } })),
     feelings = () => ORDINARY,
-  }: { listen?: boolean; blink?: () => void; feelings?: () => Feelings } = {},
+    cursor = true,
+  }: {
+    listen?: boolean;
+    blink?: () => void;
+    feelings?: () => Feelings;
+    /** Whether it notices the cursor at all: coming at it, lurking, circling, going away, and a still one letting it doze off. */
+    cursor?: boolean;
+  } = {},
 ) {
   /** How much annoyance a thing adds, for its temper (1 for an ordinary spider). */
   const annoys = () => 0.3 + 1.4 * feelings().temper;
@@ -337,7 +344,7 @@ export function createMood(
 
   const docPoint = (e: PointerEvent): Vec => [e.clientX + window.scrollX, e.clientY + window.scrollY];
 
-  window.addEventListener(
+  if (cursor) window.addEventListener(
     "pointermove",
     (e) => {
       const p = docPoint(e);
@@ -356,7 +363,7 @@ export function createMood(
   );
 
   // Bubbling, so a press that grabbed the spider has already been claimed by the time this sees it.
-  window.addEventListener(
+  if (cursor) window.addEventListener(
     "pointerdown",
     (e) => {
       stir();
@@ -374,7 +381,7 @@ export function createMood(
     goneAt = now;
     exit = pointer;
   };
-  document.documentElement.addEventListener("pointerleave", left, { signal });
+  if (cursor) document.documentElement.addEventListener("pointerleave", left, { signal });
 
   const grabbed = () => {
     grabAt = now;
@@ -676,6 +683,8 @@ export function createMood(
         }
 
         // ── Nothing going on ──
+        // (Taking no notice of the cursor, it's never left alone long enough to doze off over it.)
+        if (!cursor) lastActive = now;
         const idle = now - lastActive;
         if (on("asleep") && idle > config.faceAsleep.after) trigger("asleep", 0.2);
         else if (on("sleepy") && idle > config.faceSleepy.after) {

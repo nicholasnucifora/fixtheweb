@@ -103,7 +103,15 @@ interface Pose {
   face: DOMMatrix;
 }
 
-export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationState, face: Face, look: Look) {
+export function createSpider(
+  bob: HTMLElement,
+  rope: Rope,
+  animation: AnimationState,
+  face: Face,
+  look: Look,
+  /** `cursor`: whether its legs and eyes notice the cursor. */
+  { cursor = true }: { cursor?: boolean } = {},
+) {
   const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
   const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
   const pct = W / 100;
@@ -445,11 +453,13 @@ export function createSpider(bob: HTMLElement, rope: Rope, animation: AnimationS
   // ── Pupils look at the cursor ──────────────────────────────────────────────
   let pointer: { x: number; y: number } | null = null;
   const events = new AbortController();
-  window.addEventListener("pointermove", (e) => (pointer = { x: e.clientX, y: e.clientY }), {
-    passive: true,
-    signal: events.signal,
-  });
-  document.documentElement.addEventListener("pointerleave", () => (pointer = null), { signal: events.signal });
+  if (cursor) {
+    window.addEventListener("pointermove", (e) => (pointer = { x: e.clientX, y: e.clientY }), {
+      passive: true,
+      signal: events.signal,
+    });
+    document.documentElement.addEventListener("pointerleave", () => (pointer = null), { signal: events.signal });
+  }
 
   /** `faceToDoc` maps the face's coordinates to document px, so tilt, breathing and face sliders all count. */
   const lookAround = (dt: number, faceToDoc: DOMMatrix) => {

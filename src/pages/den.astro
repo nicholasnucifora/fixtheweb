@@ -94,7 +94,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
 ---
 
 <Base title="Spider Den · Fix the Web" page="den">
-  <main class="den" data-den-view="dress" data-wardrobe="open" data-tuner>
+  <main class="den" data-den-view="dress" data-wardrobe="open" data-info="closed" data-tuner>
     <div class="den-bar" data-spider-ignore>
       <div class="view-switch" role="group" aria-label="View">
         <button type="button" data-den-show="dress" aria-pressed="true">Dress up</button>
@@ -361,8 +361,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       <canvas></canvas>
     </div>
 
-    <aside class="den-card" data-den-card data-spider-ignore aria-label="Picked spider" hidden>
-      <button class="card-close" type="button" data-card-close aria-label="Close (let go of this spider)">✕</button>
+    <aside class="den-card" data-den-card data-spider-ignore aria-label="About this spider" hidden>
+      <button class="card-close" type="button" data-card-close aria-label="Close">✕</button>
       <canvas class="card-portrait" data-card-portrait aria-hidden="true"></canvas>
       <div class="card-body">
         <p class="card-name">
@@ -403,6 +403,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
         Fling them, dangle them, snap their strings. Drag clothes from the wardrobe onto anyone.
       </p>
     </aside>
+
+    <p class="den-toast" data-den-toast data-spider-ignore aria-live="polite" hidden></p>
 
     <section class="den-settings" id="den-settings" data-den-settings data-spider-ignore aria-label="Den settings" hidden>
       <div class="panel-head">
@@ -961,7 +963,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     height: 100%;
     touch-action: none;
   }
-  /* Floating over the den: the views and your spiders, the picked one's card, and the wardrobe drawer. */
+  /* Floating over the den: the views and your spiders, and on the right the wardrobe or a spider's details. */
   .den[data-den-view="den"] :is(.den-bar, .den-card, .wardrobe) {
     position: fixed;
     z-index: 3;
@@ -979,7 +981,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     border-radius: 18px;
     backdrop-filter: blur(6px);
   }
-  .den[data-den-view="den"][data-wardrobe="open"] .den-bar {
+  .den[data-den-view="den"]:is([data-wardrobe="open"], [data-info="open"]) .den-bar {
     max-width: calc(100vw - min(400px, 100vw - 1.5rem) - 10.25rem);
   }
   .den[data-den-view="den"] .wardrobe {
@@ -1055,21 +1057,81 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
 
   .den[data-den-view="den"] .den-card {
     display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    gap: 0.25rem 0.875rem;
-    left: 0.75rem;
-    bottom: 0.75rem;
-    width: min(380px, calc(100vw - 1.5rem));
-    padding: 0.875rem 1rem;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    align-content: start;
+    gap: 0.25rem 1rem;
+    top: calc(var(--header-height) + 0.75rem);
+    right: 0.75rem;
+    width: min(400px, calc(100vw - 1.5rem));
+    max-height: calc(100svh - var(--header-height) - 1.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.1rem 1.25rem 1.25rem;
     box-sizing: border-box;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: 20px;
+  }
+  .den[data-den-view="den"][data-info="closed"] .den-card {
+    display: none;
   }
   .card-portrait {
     align-self: center;
-    width: 5.5rem;
-    height: 4rem;
+    width: 6.5rem;
+    height: 4.75rem;
+  }
+  /* In the den, a spider in the picker shows it has details to see. */
+  .den[data-den-view="den"] .picker-spider:is(:hover, :focus-visible)::before {
+    content: "i";
+    position: absolute;
+    top: 0;
+    left: 0.2rem;
+    display: grid;
+    place-items: center;
+    width: 0.95rem;
+    height: 0.95rem;
+    font: italic 700 0.625rem/1 Georgia, serif;
+    color: var(--bg);
+    background: var(--accent);
+    border-radius: 50%;
+  }
+  /* A word from the den, when there's nowhere else to put it. */
+  .den-toast {
+    display: none;
+  }
+  .den[data-den-view="den"] .den-toast:not([hidden]) {
+    display: block;
+    position: fixed;
+    z-index: 4;
+    left: 50%;
+    bottom: 1.25rem;
+    max-width: min(460px, calc(100vw - 2rem));
+    margin: 0;
+    padding: 0.6rem 1.1rem;
+    box-sizing: border-box;
+    font-size: 0.875rem;
+    color: var(--muted);
+    text-align: center;
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: 0 10px 34px rgb(0 0 0 / 0.14);
+    transform: translateX(-50%);
+    animation: den-toast-in 0.25s ease;
+  }
+  .den-toast strong {
+    color: var(--ink);
+  }
+  @keyframes den-toast-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 0.5rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .den[data-den-view="den"] .den-toast:not([hidden]) {
+      animation: none;
+    }
   }
   .card-body p {
     margin: 0;
@@ -1327,7 +1389,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     top: calc(var(--header-height) + 0.75rem);
     right: 0.75rem;
   }
-  .den[data-den-view="den"][data-wardrobe="open"] .den-deaths {
+  .den[data-den-view="den"]:is([data-wardrobe="open"], [data-info="open"]) .den-deaths {
     right: calc(min(400px, 100vw - 1.5rem) + 1.5rem);
   }
   .deaths-toggle {
@@ -1477,83 +1539,6 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     font-size: 0.75rem;
     color: var(--muted);
   }
-  .death-replay {
-    margin-top: 0.4rem;
-    padding: 0.3rem 0.65rem;
-    font-size: 0.75rem;
-  }
-  .death-replay[aria-expanded="true"] {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  .replay {
-    grid-column: 1 / -1;
-    margin-top: 0.4rem;
-    font-size: 0.8125rem;
-    color: var(--muted);
-  }
-  .replay canvas {
-    display: block;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 10 / 7;
-    background: var(--fill);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-  }
-  .replay-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin-top: 0.4rem;
-  }
-  .replay-play {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 1.9rem;
-    height: 1.9rem;
-    padding: 0;
-    font: 700 0.6875rem/1 system-ui, sans-serif;
-    color: var(--ink);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 50%;
-    cursor: pointer;
-  }
-  .replay-play:hover {
-    border-color: var(--accent);
-  }
-  .replay-track {
-    position: relative;
-    flex: 1;
-    height: 6px;
-    background: var(--fill);
-    border-radius: 3px;
-    cursor: pointer;
-  }
-  .replay-track::before {
-    content: "";
-    position: absolute;
-    inset: -8px 0;
-  }
-  .replay-done {
-    display: block;
-    width: 0;
-    height: 100%;
-    background: var(--accent);
-    border-radius: inherit;
-  }
-  .replay-mark {
-    position: absolute;
-    top: -4px;
-    width: 2px;
-    height: 14px;
-    margin-left: -1px;
-    background: #d9473f;
-    border-radius: 1px;
-  }
-
   .card-family {
     margin: -0.25rem 0 0.4rem;
     font-size: 0.75rem;
@@ -1652,10 +1637,6 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     padding: 0.35rem 0.6rem;
     font-size: 0.75rem;
   }
-  .den[data-den-view="den"] .den-card {
-    max-height: calc(100svh - var(--header-height) - 5.5rem);
-    overflow-y: auto;
-  }
 
   /* One column: the spider on top, not following you down. */
   @media (max-width: 860px) {
@@ -1677,8 +1658,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
     .tile-art {
       height: 56px;
     }
-    /* The den on a phone: the wardrobe comes up from the bottom, over the card. */
-    .den[data-den-view="den"] .wardrobe {
+    /* The den on a phone: the wardrobe (or a spider's details) comes up from the bottom. */
+    .den[data-den-view="den"] :is(.wardrobe, .den-card) {
       top: auto;
       left: 0.5rem;
       right: 0.5rem;
@@ -1686,25 +1667,21 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       width: auto;
       height: 62svh;
     }
-    .den[data-den-view="den"][data-wardrobe="open"] .den-bar {
+    .den[data-den-view="den"]:is([data-wardrobe="open"], [data-info="open"]) .den-bar {
       max-width: calc(100vw - 9.5rem);
     }
-    .den[data-den-view="den"][data-wardrobe="open"] .den-deaths {
+    .den[data-den-view="den"]:is([data-wardrobe="open"], [data-info="open"]) .den-deaths {
       right: 0.75rem;
     }
-    .den[data-den-view="den"][data-wardrobe="open"] .den-card {
-      display: none;
-    }
     .den[data-den-view="den"] .den-card {
-      left: 0.5rem;
-      bottom: 0.5rem;
-      width: calc(100vw - 1rem);
+      height: auto;
+      max-height: 62svh;
     }
   }
   /* A phone: your spiders get a row of their own. */
   @media (max-width: 700px) {
     .den[data-den-view="den"] .den-bar,
-    .den[data-den-view="den"][data-wardrobe="open"] .den-bar {
+    .den[data-den-view="den"]:is([data-wardrobe="open"], [data-info="open"]) .den-bar {
       flex-wrap: wrap;
       gap: 0.25rem;
       top: calc(var(--header-height) + 0.5rem);
@@ -1713,7 +1690,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       max-width: none;
     }
     .den[data-den-view="den"] .den-deaths,
-    .den[data-den-view="den"][data-wardrobe="open"] .den-deaths {
+    .den[data-den-view="den"]:is([data-wardrobe="open"], [data-info="open"]) .den-deaths {
       top: calc(var(--header-height) + 0.5rem);
       right: 0.5rem;
     }
