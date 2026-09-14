@@ -244,9 +244,36 @@ let dressesMain = true;
 /** Whether the den is on screen (world.ts shows hatching and deaths itself then). */
 let watching = false;
 
-const announce = () => document.dispatchEvent(new CustomEvent(COLONY_EVENT));
+/** Tells the page the spiders have changed: once, however many changes there were just now. */
+let announcing = false;
+const announce = () => {
+  if (announcing) return;
+  announcing = true;
+  queueMicrotask(() => {
+    announcing = false;
+    document.dispatchEvent(new CustomEvent(COLONY_EVENT));
+  });
+};
+
 let savedAt = 0;
-function save() {
+let saveLater = 0;
+/**
+ * Saves the colony in this browser. It changes all the time (every fly eaten), so it's written at
+ * most every couple of seconds, and straight away (`now`) when the page is going.
+ */
+function save(now = false) {
+  const since = Date.now() - savedAt;
+  if (!now && since < 2000) {
+    if (!saveLater) {
+      saveLater = window.setTimeout(() => {
+        saveLater = 0;
+        save(true);
+      }, 2000 - since);
+    }
+    return;
+  }
+  window.clearTimeout(saveLater);
+  saveLater = 0;
   savedAt = Date.now();
   store(COLONY_KEY, JSON.stringify(state));
 }
@@ -453,7 +480,10 @@ save();
 window.setInterval(() => catchUp(), 1000);
 window.addEventListener("pagehide", () => {
   state.savedAt = Date.now();
-  save();
+  save(true);
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") save(true);
 });
 
 // ── Changing things ──────────────────────────────────────────────────────────

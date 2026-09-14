@@ -276,9 +276,15 @@ export function mountDen() {
   };
 
   /** Draws the tiles in the open tab; the rest wait until they're opened. */
-  const drawTiles = () => {
+  let tilesKey = "";
+  /** Draws the tiles in the open tab (unless `force` is false and nothing they show has changed); the rest wait until they're opened. */
+  const drawTiles = (force = true) => {
     const open = tabs.find((t) => t.getAttribute("aria-selected") === "true");
-    if (open) $$<HTMLCanvasElement>("canvas.tile-art", panelOf(open)).forEach(drawTile);
+    if (!open) return;
+    const key = JSON.stringify([open.id, trying, dark.matches, main.dataset.wardrobe]);
+    if (!force && key === tilesKey) return;
+    tilesKey = key;
+    $$<HTMLCanvasElement>("canvas.tile-art", panelOf(open)).forEach(drawTile);
   };
 
   // ── Choosing ──────────────────────────────────────────────────────────────
@@ -782,7 +788,13 @@ export function mountDen() {
       button.setAttribute("aria-pressed", String(m.id === on));
       button.toggleAttribute("data-main", m.main);
       button.title = m.main ? `${nameOf(m)} (main spider)` : nameOf(m);
-      drawSpider(button.querySelector("canvas")!, m.id === on ? trying : m.look, VIEWS.whole, 0.5 + 0.5 * Math.min(1, sizeOf(m)));
+      // Only the spiders whose picture has changed are drawn again.
+      const look = m.id === on ? trying : m.look;
+      const scale = 0.5 + 0.5 * Math.min(1, sizeOf(m));
+      const drawn = JSON.stringify([look, dark.matches, Math.round(scale * 40)]);
+      if (button.dataset.drawn !== drawn) {
+        button.dataset.drawn = drawSpider(button.querySelector("canvas")!, look, VIEWS.whole, Math.round(scale * 40) / 40) ? drawn : "";
+      }
     }
   };
 
@@ -1202,7 +1214,7 @@ export function mountDen() {
     }
     refreshPicker();
     refreshCard();
-    drawTiles();
+    drawTiles(false);
   };
 
   // Whenever the look or the spiders change (here, as it's saved, or in another tab), or the colour
@@ -1216,7 +1228,7 @@ export function mountDen() {
   let resized = 0;
   window.addEventListener("resize", () => {
     cancelAnimationFrame(resized);
-    resized = requestAnimationFrame(drawTiles);
+    resized = requestAnimationFrame(() => drawTiles());
   });
   // Hunger and growing up tick along: keep the card and picker current, and how long ago deaths were.
   window.setInterval(() => {

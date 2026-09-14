@@ -1383,9 +1383,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   };
 
   const draw = () => {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // The background: the sky and the scenery, in the light of the time of day (painted only when it's changed).
+    // The background (it covers the whole canvas): the sky and the scenery, in the light of the time of day.
     const t = timeOfDay();
     const light = lightAt(t);
     const scape = {
@@ -1400,7 +1398,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       light,
       dark: dark.matches,
     };
-    ctx.drawImage(sky.background(scape), 0, 0);
+    sky.draw(ctx, scape);
     const tint = tintOf(light, dark.matches);
     // Most of the day there's hardly any tint: everything's drawn as it always was.
     const tinting = tint.alpha > 0.1;
