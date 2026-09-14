@@ -3,6 +3,7 @@ import Logo from "../assets/brand/fixtheweb-logo.svg";
 import { linkAttrs, type Link } from "../components/links";
 import SpiderString from "../components/SpiderString.astro";
 import Base from "../layouts/Base.astro";
+import { PARTS, lifeOf } from "../scripts/life/model";
 
 const pillars = [
   {
@@ -40,6 +41,10 @@ const ageChecks = {
     ],
   },
 };
+
+/** A taste of Your Life on Screens (/life): the rest of an average 15-year-old Australian's life, worked out the same way. */
+const teen = lifeOf({ age: 15, country: "au", sex: "everyone", screens: null });
+const one = (years: number) => years.toFixed(1);
 
 /** Our work: a taste of Villow. Its own site goes into the detail; give `site` an href once it's live. */
 const villow = {
@@ -85,6 +90,28 @@ const villow = {
       <p class="lede">
         Feeds engineered to keep you scrolling, safeguards nobody's allowed to test, and age checks that stockpile
         our faces and IDs. None of it has to work this way.
+      </p>
+    </section>
+
+    <section class="section life-teaser">
+      <a class="teaser" href="/life">
+        <span class="teaser-warning">
+          <span class="teaser-flag">Warning</span>
+          <span class="teaser-text">
+            An average 15&#8209;year&#8209;old in Australia will spend{" "}
+            <span class="teaser-years">{one(teen.years.screens)} years</span> of the life they have left on screens
+          </span>
+        </span>
+        <span class="teaser-sub">
+          {one(teen.left)} years left. {one(teen.years.free)} of them free time away from a screen.
+        </span>
+        <span class="teaser-bar" aria-hidden="true">
+          {PARTS.map((part) => <span data-part={part} style={`flex-grow: ${teen.years[part]}`} />)}
+        </span>
+        <span class="teaser-cta">See what's left of yours →</span>
+      </a>
+      <p class="teaser-note">
+        From ABS life tables and the American Time Use Survey. <a href="/life#method">How we worked it out</a>.
       </p>
     </section>
 
@@ -338,6 +365,105 @@ const villow = {
     content: "✓";
     content: "✓" / "";
     color: var(--accent);
+  }
+
+  /*
+   * Your Life on Screens, as a warning on a plain pack: Pantone 448 C, the colour Australia's cigarette
+   * packs are (see /life). The bar is the rest of that life: sleep, work, upkeep, screens, free time.
+   */
+  .teaser {
+    display: grid;
+    gap: 1rem;
+    padding: clamp(0.875rem, 2.5vw, 1.25rem);
+    color: #e9e6dc;
+    background: #4a412a;
+    border-radius: 8px;
+    text-decoration: none;
+    box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.45);
+  }
+  .teaser-warning {
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
+    padding: clamp(1.25rem, 4vw, 2.25rem);
+    color: #fff;
+    background: #111;
+  }
+  .teaser-flag {
+    padding: 0.25rem 0.5rem;
+    color: #111;
+    background: #fff;
+    font-size: 0.875rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .teaser-text {
+    max-width: 22ch;
+    font-size: clamp(1.625rem, 4.5vw, 2.75rem);
+    font-weight: 900;
+    line-height: 1.02;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+  .teaser-years {
+    display: block;
+    margin-block: 0.1em;
+    font-size: 1.5em;
+    line-height: 0.95;
+  }
+  .teaser-sub {
+    padding-inline: 0.25rem;
+    font-size: 1.0625rem;
+    font-weight: 600;
+  }
+  .teaser-bar {
+    display: flex;
+    height: 1.25rem;
+    margin-inline: 0.25rem;
+    overflow: hidden;
+    border-radius: 3px;
+  }
+  .teaser-bar span {
+    flex-basis: 0;
+    min-width: 0;
+  }
+  .teaser-bar span + span {
+    box-shadow: inset 2px 0 0 #4a412a;
+  }
+  .teaser-bar [data-part="sleep"] {
+    background: #c9ccd2;
+  }
+  .teaser-bar [data-part="work"] {
+    background: #9fa3ab;
+  }
+  .teaser-bar [data-part="upkeep"] {
+    background: #767a83;
+  }
+  /* Screens: the pack's own colour, picked out in black so it shows against it. */
+  .teaser-bar [data-part="screens"] {
+    background: #111;
+  }
+  .teaser-bar [data-part="free"] {
+    background: #1c9e6d;
+  }
+  .teaser-cta {
+    justify-self: start;
+    padding: 0.25rem;
+    color: #fff;
+    font-weight: 800;
+  }
+  .teaser:hover .teaser-cta,
+  .teaser:focus-visible .teaser-cta {
+    text-decoration: underline;
+  }
+  .section .teaser-note {
+    max-width: none;
+    margin: 0.75rem 0 0;
+    font-size: 0.875rem;
+  }
+  .teaser-note a {
+    color: inherit;
   }
 
   /* Our work: Villow */

@@ -44,6 +44,17 @@ A string hangs from the bottom of the logo's "b" with a draggable spider on the 
 
 The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spider:eat` events and sets `data-spider` / `data-string` (`idle|hover|held`) for styling.
 
+## Your Life on Screens
+
+`/life` (under Campaign in the header, and teased on the home page) takes your age and shows the rest of your life carved up: sleep, work and study, upkeep, screens, and the free time off screens that's left. It's meant to be blunt, like a plain cigarette pack: screen time is drawn in Pantone 448 C, the colour Australia's packs are. Every number is cited, and the sources are listed at the bottom of the page.
+
+- Years left come from each country's latest period life table (Australia, the US, the UK), by single year of age and sex.
+- Each year of that is split by an average day at that age from the American Time Use Survey (2025, by age band), averaged over every day of the year. Screens come out of free time: by default TV, games and computers at each age; put in your own number and it's kept for life.
+- `src/scripts/life/data.ts`: every figure and where it came from (`SOURCES` is the page's numbered reference list). Update the life tables and time use bands here when new releases come out.
+- `src/scripts/life/model.ts`: the sums (a day at an age, years left, a whole life). The home page's teaser uses it too, so its numbers match.
+- `src/scripts/life/grid.ts`: the life drawn in weeks on a canvas, played out part by part the first time it's scrolled into view.
+- `src/pages/life.astro` and `src/scripts/life.ts`: the page and its inputs, remembered in that browser. `src/components/Cite.astro` is the footnote link.
+
 ## Spider Den
 
 `/den` (linked under the header's logo) has two views: **Dress up**, where you dress a spider up, and **The den**, where all your spiders live (below). Dress up has hats, eyewear, face bits, outfits, capes and wings, socks, full-body costumes, body colours and patterns, the thread's colour and a name. Snacks (a fly, ladybird, moth or cookie) are dragged to its mouth, and the tricks and moods play its animations. Whatever the main spider wears is saved in that browser and worn by every spider on the site: the one on the logo, the header's badge and the den's own.

@@ -3,7 +3,7 @@ import { linkAttrs, type Link } from "./links";
 
 interface Props {
   /** The page it's on. The home page's header fades in as you scroll past the big logo, and its logo goes back to the top. */
-  page: "home" | "den";
+  page: "home" | "den" | "life";
 }
 
 const { page } = Astro.props;
@@ -13,7 +13,14 @@ const home = page === "home";
 const nav: (Link & { links: Link[] })[] = [
   {
     label: "Campaign",
-    links: [{ label: "About SKG" }, { label: "Our Work" }, { label: "Statistics" }, { label: "Past Results" }, { label: "FAQ" }],
+    links: [
+      { label: "Your Life on Screens", href: "/life" },
+      { label: "About SKG" },
+      { label: "Our Work" },
+      { label: "Statistics" },
+      { label: "Past Results" },
+      { label: "FAQ" },
+    ],
   },
   { label: "Community", links: [{ label: "How to Help" }, { label: "Discord" }, { label: "Reddit" }] },
   { label: "Press", links: [{ label: "Press Center" }, { label: "Newsletter" }, { label: "Releases" }] },

@@ -1,0 +1,23 @@
+---
+import { SOURCES, sourceNumber, type SourceId } from "../scripts/life/data";
+
+/** Footnote numbers linking to sources in the list at the bottom of the page (each item's id is `source-<id>`). */
+interface Props {
+  ids: SourceId[];
+}
+
+const { ids } = Astro.props;
+---
+
+<sup class="cite">
+  {
+    ids.map((id, i) => (
+      <>
+        {i > 0 && ","}
+        <a href={`#source-${id}`} title={`${SOURCES[id].publisher}: ${SOURCES[id].title}`}>
+          {sourceNumber(id)}
+        </a>
+      </>
+    ))
+  }
+</sup>

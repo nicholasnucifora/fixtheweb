@@ -1,0 +1,1345 @@
+---
+import Cite from "../components/Cite.astro";
+import Base from "../layouts/Base.astro";
+import { COUNTRIES, MEASURED, SOURCES, type CountryId, type SourceId } from "../scripts/life/data";
+import { AGE_MAX, AGE_MIN, PARTS, formatHours, lifeOf, type Inputs, type Part, type Sex } from "../scripts/life/model";
+import { AGES, SCREENS_MAX } from "../scripts/life";
+
+/**
+ * Your Life on Screens: put in your age, and see the rest of your life carved up by sleep, work, upkeep
+ * and screens, down to the free time off screens that's left. Deliberately blunt, like a plain cigarette
+ * pack. The numbers and their sources are in src/scripts/life/data.ts, the sums in life/model.ts, and
+ * src/scripts/life.ts makes the page follow the inputs. The markup is filled in for the default inputs,
+ * so it reads right before (or without) the script.
+ */
+
+const inputs: Inputs = { age: 25, country: "au", sex: "everyone", screens: null };
+const life = lifeOf(inputs);
+const one = (years: number) => years.toFixed(1);
+
+const parts: Record<Part, { label: string; about: string; own?: string }> = {
+  sleep: { label: "Sleep", about: "Including naps and lying awake" },
+  work: { label: "Work and study", about: "Including getting there" },
+  upkeep: { label: "Upkeep", about: "Eating, chores, errands, looking after people, getting ready" },
+  screens: {
+    label: "Screens",
+    about: "TV, games and computers, outside work and school",
+    own: "Your screen time, outside work and school",
+  },
+  free: { label: "Free time off screens", about: "Friends, family, sport, hobbies, rest, volunteering" },
+};
+
+const sexes: { id: Sex; label: string }[] = [
+  { id: "female", label: "Women" },
+  { id: "male", label: "Men" },
+  { id: "everyone", label: "Everyone" },
+];
+
+const ages = AGES.map((age) => lifeOf({ ...inputs, age }));
+const longest = Math.max(...ages.map((other) => other.left));
+
+const measured = [
+  {
+    figure: `${Math.round((MEASURED.freeTimeOnScreens.screens / MEASURED.freeTimeOnScreens.leisure) * 100)}%`,
+    text: "of Americans' free time goes on TV, games and computers. That's before the phone in your hand while you do something else.",
+    source: MEASURED.freeTimeOnScreens.source,
+  },
+  {
+    figure: formatHours(MEASURED.ukAdults.minutes / 60),
+    text: "a day UK adults spend online outside work, tracked on their own phones, tablets and computers. Not counting TV.",
+    source: MEASURED.ukAdults.source,
+  },
+  {
+    figure: formatHours(MEASURED.ukYoungAdults.minutes / 60),
+    text: "a day for 18 to 24 year olds, on the same tracking. Not counting TV either.",
+    source: MEASURED.ukYoungAdults.source,
+  },
+  {
+    figure: formatHours(MEASURED.usTeens.minutes / 60),
+    text: "a day of screens for US teenagers, outside school and homework.",
+    source: MEASURED.usTeens.source,
+  },
+  {
+    figure: `${MEASURED.usTeens.creating} min`,
+    text: "of those hours goes on making anything: art, music or writing. The rest is watching, gaming, scrolling and messaging.",
+    source: MEASURED.usTeens.source,
+  },
+] satisfies { figure: string; text: string; source: SourceId }[];
+
+const asks = [
+  {
+    title: "Years, not minutes",
+    body: "Show what this week's habits add up to over the rest of your life, right beside today's total.",
+  },
+  {
+    title: "Every screen, counted together",
+    body: "Phone, laptop, TV and console as one total, because your life doesn't split its time by device.",
+  },
+  {
+    title: "On by default, every week",
+    body: "A report you'll actually see, not a setting you have to go looking for. Switching it off should take a moment's thought.",
+  },
+  {
+    title: "Honest about the good stuff",
+    body: "Let people mark time that was worth it, like a call with family or a course, so the count is fair and still stark.",
+  },
+  {
+    title: "The same standard everywhere",
+    body: "Required of every operating system, with an open API so apps like Villow can build better tools on top of it.",
+  },
+];
+---
+
+<Base title="Your Life on Screens · Fix the Web" page="life">
+  <main class="life" data-mode="average" data-stage="start">
+    <header class="life-intro life-col">
+      <p class="eyebrow">Your life on screens</p>
+      <h1>You have less life left than you think.</h1>
+      <p class="lede">
+        Tell us your age. We'll take the years you've got left from official life tables, carve them up the way people
+        your age really spend their days, and show you what's left once screens take their share.
+      </p>
+    </header>
+
+    <!-- The inputs -->
+    <section class="controls life-col" id="about-you" aria-label="About you">
+      <div class="control control-age">
+        <label class="control-label" for="life-age">Your age</label>
+        <div class="age-row">
+          <button class="step" type="button" data-life-age-down aria-label="Younger">−</button>
+          <output class="age-out" for="life-age" data-life-age-out>{inputs.age}</output>
+          <button class="step" type="button" data-life-age-up aria-label="Older">+</button>
+        </div>
+        <input id="life-age" type="range" min={AGE_MIN} max={AGE_MAX} step="1" value={inputs.age} data-life-age />
+      </div>
+
+      <div class="control">
+        <p class="control-label" id="life-country-label">Country</p>
+        <div class="switch" role="group" aria-labelledby="life-country-label">
+          {
+            (Object.entries(COUNTRIES) as [CountryId, (typeof COUNTRIES)[CountryId]][]).map(([id, { label, short }]) => (
+              <button type="button" data-life-country={id} aria-pressed={String(id === inputs.country)} aria-label={label}>
+                {short}
+              </button>
+            ))
+          }
+        </div>
+        <p class="control-label" id="life-sex-label">Life expectancy for</p>
+        <div class="switch" role="group" aria-labelledby="life-sex-label">
+          {
+            sexes.map(({ id, label }) => (
+              <button type="button" data-life-sex={id} aria-pressed={String(id === inputs.sex)}>
+                {label}
+              </button>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="control control-screens">
+        <p class="control-label" id="life-screens-label">Screen time outside work and school</p>
+        <div class="switch" role="group" aria-labelledby="life-screens-label">
+          <button type="button" data-life-mode="average" aria-pressed="true">Average for each age</button>
+          <button type="button" data-life-mode="own" aria-pressed="false">My own</button>
+        </div>
+        <div class="screens-row">
+          <input
+            type="range"
+            min="0"
+            max={SCREENS_MAX}
+            step="0.25"
+            value={life.today.averageScreens}
+            aria-labelledby="life-screens-label"
+            data-life-screens
+          />
+          <output class="screens-out" data-life-screens-out>{formatHours(life.today.averageScreens)}</output>
+        </div>
+        <p class="hint only-average">
+          The average at your age is <strong data-life-average>{formatHours(life.today.averageScreens)}</strong> of TV, games
+          and computers, counting only time they were people's main activity.<Cite ids={["atus"]} /> It changes as you get
+          older. Drag to put in your own.
+        </p>
+        <p class="hint only-own">
+          Kept the same for the rest of your life. Find yours in Screen Time (iPhone) or Digital Wellbeing (Android), then add
+          TV and games.
+        </p>
+      </div>
+    </section>
+
+    <!-- The label: the rest of your life, carved up -->
+    <div class="life-col">
+      <section class="label label-life" aria-labelledby="life-left-heading">
+        <div class="label-head">
+          <p class="label-kicker">What's left of your life</p>
+          <h2 id="life-left-heading" class="counter">
+            <span data-life-counter>{one(life.left)}</span> <span class="counter-unit">years</span>
+          </h2>
+          <p class="narration" aria-live="polite" data-life-narration>
+            This is the rest of your life: {one(life.left)} years.
+          </p>
+          <p class="label-sub">
+            You're <span data-life-age-out>{inputs.age}</span>. On average, <span data-life-who>someone</span> your age
+            in <span data-life-country-name>{COUNTRIES[inputs.country].name}</span> lives to{" "}
+            <span data-life-end>{one(life.end)}</span>.<Cite ids={["abs", "cdc", "ons"]} />
+          </p>
+        </div>
+
+        <ol class="legend">
+          {
+            PARTS.map((part) => (
+              <li class="legend-item" data-part={part}>
+                <span class="swatch" data-part={part} />
+                <span class="legend-text">
+                  <span class="legend-label">{parts[part].label}</span>
+                  <span class="legend-about">
+                    {parts[part].own ? (
+                      <>
+                        <span class="only-average">{parts[part].about}</span>
+                        <span class="only-own">{parts[part].own}</span>
+                      </>
+                    ) : (
+                      parts[part].about
+                    )}
+                  </span>
+                </span>
+                <span class="legend-years">
+                  <span data-life-years={part}>{one(life.years[part])}</span> yrs
+                </span>
+              </li>
+            ))
+          }
+        </ol>
+
+        <canvas class="grid" data-life-grid role="img" aria-label="Your life in weeks"></canvas>
+
+        <div class="label-foot">
+          <p><span class="swatch swatch-past"></span>Each square is one week. Hollow ones are already behind you.</p>
+          <button class="chip" type="button" data-life-replay>Play it again</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- The warning, and a day -->
+    <section class="verdict life-col">
+      <figure class="pack">
+        <div class="pack-warning">
+          <p class="pack-flag">Warning</p>
+          <p class="pack-text">
+            Screens will take{" "}
+            <span class="pack-years"><span data-life-screen-years>{one(life.years.screens)}</span> years</span>{" "}
+            of the life you have left
+          </p>
+        </div>
+        <figcaption class="pack-note">
+          Free time away from screens: <span data-life-free-years>{one(life.years.free)} years</span>.{" "}
+          <a href="#built-in">Want it back?</a>
+        </figcaption>
+        <p class="pack-brand" aria-hidden="true">Your Feed<span>Endless</span></p>
+      </figure>
+
+      <div class="day label">
+        <h2 class="day-title" data-life-day-title>An average day at {inputs.age}</h2>
+        <div class="day-bar" aria-hidden="true">
+          {PARTS.map((part) => <span data-part={part} data-life-bar={part} style={`flex-grow: ${life.today.hours[part]}`} />)}
+        </div>
+        <ul class="day-list">
+          {
+            PARTS.map((part) => (
+              <li>
+                <span class="swatch" data-part={part} />
+                <span>{parts[part].label}</span>
+                <strong data-life-hours={part}>{formatHours(life.today.hours[part])}</strong>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="overflow" data-life-overflow hidden></p>
+        <p class="day-note">
+          Averaged over every day of the year, for everyone your age: weekends, holidays, working or not.<Cite
+            ids={["atus"]}
+          />
+          <a href="#about-you" data-life-use-own>Put in your own screen time</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- Other ages -->
+    <section class="life-section life-col">
+      <p class="eyebrow">Every age</p>
+      <h2>The older you are, the less there is to take</h2>
+      <p>
+        The rest of life at {AGES.join(", ").replace(/, (\d+)$/, " and $1")} in{" "}
+        <span data-life-country-name>{COUNTRIES[inputs.country].name}</span>,{" "}
+        <span data-life-ages-how>living like the average person at each age</span>. The bars are to scale.
+      </p>
+      <ol class="ages label">
+        {
+          ages.map((other) => (
+            <li class="ages-row" data-life-age-row data-current={other.inputs.age === inputs.age ? "" : undefined}>
+              <span class="ages-age">{other.inputs.age}</span>
+              <span class="ages-track">
+                <span class="ages-bar" style={`width: ${(other.left / longest) * 100}%`}>
+                  {PARTS.map((part) => (
+                    <span data-part={part} style={`flex-grow: ${other.years[part]}`} />
+                  ))}
+                </span>
+              </span>
+              <span class="ages-stats">
+                <span>
+                  <strong data-left>{one(other.left)}</strong> years left
+                </span>
+                <span>
+                  Screens <strong data-screens>{one(other.years.screens)}</strong>
+                </span>
+                <span class="ages-free">
+                  Off screens <strong data-free>{one(other.years.free)}</strong>
+                </span>
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <!-- What's measured on devices -->
+    <section class="life-section life-col">
+      <p class="eyebrow">Tracked on people's own devices</p>
+      <h2>The real numbers are higher</h2>
+      <p>
+        The averages above only count TV, games and computers when that's what people said they were mainly doing, so the
+        phone in your hand at dinner doesn't count. When screen time is tracked on people's own devices, it's more.
+      </p>
+      <ul class="stats">
+        {
+          measured.map((stat) => (
+            <li class="stat">
+              <strong class="stat-figure">{stat.figure}</strong>
+              <span>
+                {stat.text}
+                <Cite ids={[stat.source]} />
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+      <div class="aside">
+        <p>
+          <strong>Not all screen time is wasted.</strong> A video call with your grandparents, a course, making something: that
+          time is worth it, and a good tracker should let you say so. But look at how little of it that is.
+        </p>
+        <a class="button" href="#about-you" data-life-use-own>Put in your real number</a>
+      </div>
+    </section>
+
+    <!-- Why a cigarette pack -->
+    <section class="life-section life-col split">
+      <div>
+        <p class="eyebrow">Why it looks like a cigarette pack</p>
+        <h2>Ugly packaging works. Australia proved it.</h2>
+        <p>
+          In December 2012, Australia became the first country to sell cigarettes in plain packs: every brand in the same
+          drab olive brown, with graphic health warnings covering most of it. The colour, Pantone 448 C, was chosen because
+          smokers in the government's research found it the least appealing, and associated it with “death”, “dirty” and
+          “tar”.<Cite ids={["gfk"]} />
+        </p>
+        <p>
+          And it worked. The government's review found the new packs cut smoking by 0.55 percentage points in under three
+          years: more than 108,000 people who quit, didn't relapse or never started.<Cite ids={["pir"]} />
+        </p>
+        <p>
+          Screens aren't cigarettes, and plenty of screen time is worth having. But the hours they take are gone just the
+          same, and nothing makes the apps show you. So on this page, screen time is Pantone 448 C.
+        </p>
+      </div>
+      <div class="swatch-card" aria-hidden="true">
+        <span class="swatch-card-name">Pantone 448 C</span>
+        <span class="swatch-card-words">death · dirty · tar</span>
+      </div>
+    </section>
+
+    <!-- The tracker we want -->
+    <section class="life-section life-col" id="built-in">
+      <p class="eyebrow">What we're pushing for</p>
+      <h2>Put the years on every screen</h2>
+      <p>
+        Phones already count your screen time. They show it as hours a day and minutes per app, which is easy to shrug off.
+        None of them show you what it adds up to. Every phone, tablet, computer and TV should come with a tracker that does.
+      </p>
+      <div class="built-in">
+        <ul class="asks">
+          {
+            asks.map((ask) => (
+              <li class="ask">
+                <h3>{ask.title}</h3>
+                <p>{ask.body}</p>
+              </li>
+            ))
+          }
+        </ul>
+        <figure class="phone">
+          <div class="phone-screen">
+            <p class="phone-day">Sunday</p>
+            <div class="notice">
+              <p class="notice-app"><span class="notice-icon" aria-hidden="true"></span>Screen report · this week</p>
+              <p class="notice-title">
+                <span data-life-week-hours>{formatHours(life.today.averageScreens * 7)}</span> on screens
+              </p>
+              <p class="notice-body">
+                That's <span data-life-day-screens>{formatHours(life.today.averageScreens)}</span> a day. At this rate:{" "}
+                <strong><span data-life-screen-years>{one(life.years.screens)}</span> years</strong> of the{" "}
+                <span data-life-left>{one(life.left)}</span> you have left.
+              </p>
+              <div class="notice-actions" aria-hidden="true">
+                <span>Where it went</span>
+                <span>Mark the good bits</span>
+              </div>
+            </div>
+          </div>
+          <figcaption>What it could look like, with your numbers from above.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Method and sources -->
+    <section class="life-section life-col method" id="method">
+      <p class="eyebrow">How we worked it out</p>
+      <h2>The method, and every source</h2>
+      <ol class="method-steps">
+        <li>
+          <strong>Years left</strong> is the average remaining life expectancy for your age in your country's latest official
+          life table.<Cite ids={["abs", "cdc", "ons"]} /> “Everyone” averages women's and men's. It's how long people your age
+          live on average today, not a prediction for you.
+        </li>
+        <li>
+          <strong>Each year of it</strong> is split the way people that age spend an average day, from the US Bureau of Labor
+          Statistics' American Time Use Survey, where thousands of people a year describe everything they did the day
+          before. It's averaged over every day of the year and everyone that age, working or not.<Cite ids={["atus"]} /> It's
+          published every year and broken down by age, so we use it for every country. It starts at 15, so 13 and 14 year olds get the 15 to 19
+          figures.
+        </li>
+        <li>
+          <strong>Sleep</strong> is personal care less the 46 minutes a day people spend getting ready and looking after their health,
+          since the survey doesn't split sleep out by age.<Cite ids={["atusDetail"]} /> <strong>Work and study</strong> is
+          paid work and education, including travel. <strong>Upkeep</strong> is eating, housework, shopping, caring for
+          others, getting ready, calls and admin.
+        </li>
+        <li>
+          <strong>Free time</strong> is leisure and sport, plus volunteering and religious activities.{" "}
+          <strong>Screens</strong> come out of it: by default, the time people your age spend watching TV, gaming and on
+          computers as their main activity, which rises as you get older.<Cite ids={["atus"]} /> Put in your own number and
+          we keep it the same for life. If it's more than the free time people your age have, all of that free time goes, and
+          we don't take any more from sleep or work.
+        </li>
+        <li>
+          <strong>It's an average.</strong> It doesn't know your job, your health or your kids. It's here to show the scale
+          of it, not to predict your life.
+        </li>
+      </ol>
+
+      <h3 class="sources-title">Sources</h3>
+      <ol class="sources">
+        {
+          (Object.entries(SOURCES) as [SourceId, (typeof SOURCES)[SourceId]][]).map(([id, source]) => (
+            <li id={`source-${id}`}>
+              <a href={source.url} rel="noopener" target="_blank">
+                {source.title}
+              </a>
+              <span class="source-meta">
+                {source.publisher}, {source.year}
+              </span>
+              <span class="source-used">{source.used}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { mountLife } from "../scripts/life";
+  mountLife();
+</script>
+
+<style is:global>
+  .life {
+    /* The label's print colours: the same in light and dark, like a pack. Screens are Pantone 448 C. */
+    --life-paper: #f3f1ea;
+    --life-paper-ink: #16171c;
+    --life-paper-muted: #5f5e58;
+    --life-past: #b9b4a6;
+    --life-sleep: #c9ccd2;
+    --life-work: #9fa3ab;
+    --life-upkeep: #767a83;
+    --life-screens: #4a412a;
+    --life-free: #1c9e6d;
+    --life-label: #77756d;
+    --life-now: #16171c;
+    --life-warning: #111111;
+    padding: calc(var(--header-height) + 3rem) 0 6rem;
+  }
+  .life-col {
+    max-width: var(--content-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+    box-sizing: border-box;
+  }
+  .life :is(button, input, a):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .life [hidden] {
+    display: none !important;
+  }
+  .life[data-mode="average"] .only-own,
+  .life[data-mode="own"] .only-average {
+    display: none;
+  }
+  .life .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .life p {
+    margin: 0 0 1rem;
+  }
+  .cite {
+    margin-left: 0.1em;
+    font-size: 0.7em;
+    font-weight: 600;
+    line-height: 0;
+  }
+  .cite a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .cite a:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Intro ── */
+  .life-intro h1 {
+    max-width: 16ch;
+    margin: 0 0 1.25rem;
+    font-size: clamp(2.5rem, 7vw, 4.5rem);
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .life .lede {
+    max-width: 58ch;
+    font-size: 1.25rem;
+    color: var(--muted);
+  }
+
+  /* ── Inputs ── */
+  .controls {
+    display: grid;
+    grid-template-columns: auto 1fr 1.3fr;
+    gap: 1.5rem 2.5rem;
+    margin-block: 2.5rem 2rem;
+  }
+  @media (max-width: 900px) {
+    .controls {
+      grid-template-columns: 1fr 1fr;
+    }
+    .control-screens {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (max-width: 560px) {
+    .controls {
+      grid-template-columns: 1fr;
+    }
+  }
+  .control {
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .control-label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .life .control-label {
+    margin: 0;
+  }
+  .control .switch + .control-label {
+    margin-top: 0.5rem;
+  }
+  .age-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .age-out {
+    min-width: 2.2ch;
+    font-size: 3.5rem;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .step {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--ink);
+    font: 700 1.25rem/1 system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .step:hover {
+    background: var(--fill);
+  }
+  .life input[type="range"] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+  .switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    justify-self: start;
+    padding: 3px;
+    background: var(--fill);
+    border-radius: 999px;
+  }
+  .switch button {
+    padding: 0.5rem 0.9rem;
+    font: 700 0.8125rem/1 system-ui, sans-serif;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .switch button:hover {
+    color: var(--ink);
+  }
+  .switch button[aria-pressed="true"] {
+    color: var(--ink);
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  }
+  .screens-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.25rem;
+  }
+  .screens-out {
+    flex: none;
+    min-width: 5.5ch;
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .life[data-mode="average"] .screens-out {
+    color: var(--muted);
+  }
+  .life .hint {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .hint strong {
+    color: var(--ink);
+  }
+
+  /* ── The label: printed matter, the same in light and dark ── */
+  .label {
+    color: var(--life-paper-ink);
+    background: var(--life-paper);
+    border-radius: 6px;
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.08),
+      0 18px 50px -20px rgb(0 0 0 / 0.35);
+  }
+  .label-life {
+    padding: clamp(1rem, 3vw, 2rem);
+  }
+  .label .cite a {
+    color: inherit;
+  }
+  .label-kicker {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .life .label-kicker {
+    margin: 0 0 0.25rem;
+  }
+  .counter {
+    margin: 0;
+    font-size: clamp(4rem, 14vw, 8.5rem);
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    font-variant-numeric: tabular-nums;
+  }
+  .counter-unit {
+    font-size: 0.35em;
+    letter-spacing: -0.02em;
+  }
+  .life[data-stage="done"] .counter [data-life-counter] {
+    color: var(--life-free);
+  }
+  .narration {
+    min-height: 1.5em;
+    font-size: clamp(1.125rem, 2.4vw, 1.5rem);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .life .narration {
+    margin: 0.75rem 0 0.5rem;
+  }
+  .label-sub {
+    font-size: 0.9375rem;
+    color: var(--life-paper-muted);
+  }
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (max-width: 820px) {
+    .legend {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+  }
+  .legend-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "swatch text" "swatch years";
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    gap: 0.125rem 0.5rem;
+    padding-top: 0.625rem;
+    border-top: 3px solid rgb(0 0 0 / 0.12);
+    transition: border-color 0.2s;
+  }
+  @media (max-width: 820px) {
+    .legend-item {
+      grid-template-columns: auto 1fr auto;
+      grid-template-areas: "swatch text years";
+      grid-template-rows: auto;
+      align-items: center;
+      padding-top: 0.5rem;
+      border-top-width: 1px;
+    }
+  }
+  .life[data-stage="sleep"] .legend-item[data-part="sleep"],
+  .life[data-stage="work"] .legend-item[data-part="work"],
+  .life[data-stage="upkeep"] .legend-item[data-part="upkeep"],
+  .life[data-stage="screens"] .legend-item[data-part="screens"],
+  .life[data-stage="done"] .legend-item[data-part="free"] {
+    border-color: var(--life-paper-ink);
+  }
+  .swatch {
+    display: inline-block;
+    width: 0.875rem;
+    height: 0.875rem;
+    flex: none;
+    border-radius: 2px;
+    background: var(--swatch);
+  }
+  .legend .swatch {
+    grid-area: swatch;
+    margin-top: 0.2rem;
+  }
+  [data-part="sleep"] {
+    --swatch: var(--life-sleep);
+  }
+  [data-part="work"] {
+    --swatch: var(--life-work);
+  }
+  [data-part="upkeep"] {
+    --swatch: var(--life-upkeep);
+  }
+  [data-part="screens"] {
+    --swatch: var(--life-screens);
+  }
+  [data-part="free"] {
+    --swatch: var(--life-free);
+  }
+  .swatch-past {
+    margin-right: 0.5rem;
+    vertical-align: -0.1em;
+    background: none;
+    box-shadow: inset 0 0 0 1px var(--life-past);
+  }
+  .legend-text {
+    grid-area: text;
+    display: grid;
+  }
+  .legend-label {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+  .legend-about {
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--life-paper-muted);
+  }
+  @media (max-width: 820px) {
+    .legend-about {
+      display: none;
+    }
+  }
+  .legend-years {
+    grid-area: years;
+    align-self: end;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--life-paper-muted);
+    white-space: nowrap;
+  }
+  .legend-years [data-life-years] {
+    font-size: 1.625rem;
+    font-weight: 850;
+    letter-spacing: -0.02em;
+    color: var(--life-paper-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 820px) {
+    .legend-years [data-life-years] {
+      font-size: 1.125rem;
+    }
+  }
+  .legend-item[data-part="free"] [data-life-years] {
+    color: var(--life-free);
+  }
+  .grid {
+    display: block;
+    width: 100%;
+    height: 480px;
+  }
+  .label-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-top: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--life-paper-muted);
+  }
+  .life .label-foot p {
+    margin: 0;
+  }
+  .chip {
+    padding: 0.55rem 0.95rem;
+    font: 700 0.8125rem/1 system-ui, sans-serif;
+    color: var(--life-paper-ink);
+    background: transparent;
+    border: 1px solid rgb(0 0 0 / 0.25);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .chip:hover {
+    background: rgb(0 0 0 / 0.06);
+  }
+
+  /* ── The warning pack, and a day ── */
+  .verdict {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 2rem;
+    align-items: start;
+    margin-top: 3rem;
+  }
+  @media (max-width: 760px) {
+    .verdict {
+      grid-template-columns: 1fr;
+    }
+  }
+  .pack {
+    display: flex;
+    flex-direction: column;
+    aspect-ratio: 55 / 85;
+    max-width: 22rem;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+    padding: 0.875rem;
+    color: #e9e6dc;
+    background: var(--life-screens);
+    border-radius: 6px;
+    box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.45);
+  }
+  .pack-warning {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.25rem;
+    color: #fff;
+    background: var(--life-warning);
+  }
+  .life .pack-flag {
+    align-self: flex-start;
+    margin: 0 0 1rem;
+    padding: 0.25rem 0.5rem;
+    color: var(--life-warning);
+    background: #fff;
+    font-size: 0.875rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .life .pack-text {
+    margin: 0;
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+  .pack-years {
+    display: block;
+    margin-block: 0.15em;
+    font-size: 1.6em;
+    line-height: 0.95;
+    color: #fff;
+  }
+  .pack-note {
+    margin: 0.875rem 0.25rem 0;
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+  .pack-note a {
+    color: #fff;
+    font-weight: 700;
+  }
+  .life .pack-brand {
+    display: grid;
+    margin: auto 0 0;
+    padding: 0.875rem 0.25rem 0.25rem;
+    color: #a6a193;
+    font: 400 1rem/1.2 "Lucida Sans", "Lucida Grande", system-ui, sans-serif;
+  }
+  .pack-brand span {
+    font-size: 0.75rem;
+  }
+  .day {
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+  }
+  .day-title {
+    margin: 0 0 1rem;
+    font-size: 1.375rem;
+    line-height: 1.2;
+  }
+  .day-bar {
+    display: flex;
+    height: 3rem;
+    overflow: hidden;
+    border-radius: 3px;
+  }
+  .day-bar span,
+  .ages-bar span {
+    flex-basis: 0;
+    min-width: 0;
+    background: var(--swatch);
+    transition: flex-grow 0.25s ease;
+  }
+  .day-bar span + span {
+    box-shadow: inset 2px 0 0 var(--life-paper);
+  }
+  .day-list {
+    display: grid;
+    gap: 0.375rem;
+    margin: 1rem 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9375rem;
+  }
+  .day-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .day-list strong {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .life .overflow {
+    padding: 0.75rem 0.875rem;
+    color: #fff;
+    background: var(--life-screens);
+    border-radius: 4px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+  .life .day-note {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--life-paper-muted);
+  }
+  .day-note a {
+    display: table;
+    margin-top: 0.5rem;
+    color: var(--life-paper-ink);
+    font-weight: 700;
+  }
+
+  /* ── Sections ── */
+  .life-section {
+    margin-top: 5rem;
+  }
+  .life-section h2 {
+    margin: 0 0 1rem;
+    font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .life-section > p,
+  .split > div > p {
+    max-width: 62ch;
+    color: var(--muted);
+  }
+
+  /* Other ages */
+  .ages {
+    display: grid;
+    gap: 1rem;
+    margin: 1.5rem 0 0;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    list-style: none;
+  }
+  .ages-row {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    grid-template-areas: "age track" ". stats";
+    align-items: center;
+    gap: 0.375rem 0.75rem;
+  }
+  .ages-age {
+    grid-area: age;
+    font-size: 1.375rem;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+  .ages-row[data-current] .ages-age::after {
+    content: "you";
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--life-paper-muted);
+  }
+  .ages-track {
+    grid-area: track;
+  }
+  .ages-bar {
+    display: flex;
+    height: 1.75rem;
+    overflow: hidden;
+    border-radius: 3px;
+    transition: width 0.25s ease;
+  }
+  .ages-stats {
+    grid-area: stats;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--life-paper-muted);
+  }
+  .ages-stats strong {
+    color: var(--life-paper-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .ages-free strong {
+    color: var(--life-free);
+  }
+
+  /* Measured */
+  /* The first figure's the widest claim, so it gets two columns; the rest fill in after it. */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stat:first-child {
+    grid-column: span 2;
+  }
+  @media (max-width: 720px) {
+    .stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 440px) {
+    .stats {
+      grid-template-columns: 1fr;
+    }
+    .stat:first-child {
+      grid-column: auto;
+    }
+  }
+  .stat {
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  .stat-figure {
+    font-size: 2.25rem;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .aside {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    padding: 1.25rem 1.5rem;
+    border-left: 4px solid var(--accent);
+    background: var(--fill);
+    border-radius: 0 12px 12px 0;
+  }
+  .life .aside p {
+    flex: 1 1 32ch;
+    margin: 0;
+    color: var(--muted);
+  }
+  .aside strong {
+    color: var(--ink);
+  }
+  .life .button {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.375rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* Why a pack */
+  .split {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+  @media (max-width: 760px) {
+    .split {
+      grid-template-columns: 1fr;
+    }
+  }
+  .swatch-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    aspect-ratio: 4 / 5;
+    max-width: 18rem;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    background: var(--life-screens);
+    border-radius: 6px;
+    box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.45);
+  }
+  @media (max-width: 760px) {
+    .swatch-card {
+      aspect-ratio: 5 / 2;
+      max-width: none;
+    }
+  }
+  .swatch-card-name {
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 850;
+  }
+  .swatch-card-words {
+    color: #c9c3b1;
+    font-size: 0.9375rem;
+  }
+
+  /* The tracker */
+  .built-in {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 2.5rem;
+    align-items: center;
+    margin-top: 2rem;
+  }
+  @media (max-width: 760px) {
+    .built-in {
+      grid-template-columns: 1fr;
+    }
+  }
+  .asks {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ask {
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .ask h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.0625rem;
+  }
+  .life .ask p {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  .phone {
+    margin: 0;
+  }
+  .phone-screen {
+    max-width: 17rem;
+    aspect-ratio: 9 / 18;
+    margin: 0 auto;
+    padding: 3rem 0.75rem 1rem;
+    box-sizing: border-box;
+    border: 10px solid #111;
+    border-radius: 42px;
+    background: linear-gradient(160deg, #2c3446, #151923 60%);
+    box-shadow: 0 24px 60px -24px rgb(0 0 0 / 0.55);
+  }
+  .life .phone-day {
+    margin: 0 0 1.5rem;
+    color: rgb(255 255 255 / 0.85);
+    font-size: 1.125rem;
+    font-weight: 600;
+    text-align: center;
+  }
+  .notice {
+    padding: 0.875rem 1rem;
+    color: #111;
+    background: rgb(245 244 240 / 0.96);
+    border-radius: 18px;
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+  .life .notice p {
+    margin: 0;
+  }
+  .life .notice-app {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+    color: #666;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .notice-icon {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 4px;
+    background: var(--life-screens);
+  }
+  .life .notice-title {
+    font-size: 1rem;
+    font-weight: 800;
+  }
+  .life .notice-body {
+    margin-top: 0.2rem;
+  }
+  .notice-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+  .notice-actions span {
+    padding: 0.45rem 0.25rem;
+    border-radius: 10px;
+    background: rgb(0 0 0 / 0.07);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+  }
+  .phone figcaption {
+    margin-top: 1rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  /* Method */
+  .method-steps {
+    display: grid;
+    gap: 0.875rem;
+    max-width: 70ch;
+    margin: 1.5rem 0 3rem;
+    padding-left: 1.25rem;
+    color: var(--muted);
+  }
+  .method-steps strong {
+    color: var(--ink);
+  }
+  .sources-title {
+    margin: 0 0 1rem;
+    font-size: 1.125rem;
+  }
+  .sources {
+    display: grid;
+    gap: 0.875rem;
+    margin: 0;
+    padding-left: 1.5rem;
+    font-size: 0.9375rem;
+  }
+  .sources li {
+    scroll-margin-top: calc(var(--header-height) + 1.5rem);
+  }
+  .sources li:target {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border-radius: 6px;
+  }
+  .sources a {
+    color: var(--ink);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .source-meta,
+  .source-used {
+    display: block;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+</style>
