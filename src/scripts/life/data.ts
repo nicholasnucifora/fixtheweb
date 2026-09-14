@@ -41,7 +41,7 @@ export const SOURCES = {
     publisher: "US Bureau of Labor Statistics",
     year: "2026",
     url: "https://www.bls.gov/news.release/atus.toc.htm",
-    used: "How people of each age spend an average day: sleep, work, school, chores, free time, and TV, games and computers.",
+    used: "How people of each age spend an average day: sleep, work, school, chores, free time, and how much of it is TV.",
   },
   atusDetail: {
     title: "American Time Use Survey, 2025: Table A-1 (detailed primary activities)",
@@ -55,14 +55,14 @@ export const SOURCES = {
     publisher: "Ofcom",
     year: "2025",
     url: "https://www.ofcom.org.uk/siteassets/resources/documents/research-and-data/online-research/online-nation/2025/online-nations-report-2025.pdf",
-    used: "Time UK adults spend online outside work, tracked on their own phones, tablets and computers (Ipsos iris panel, May 2025).",
+    used: "Time adults spend on phones, tablets and computers outside work, tracked on their own devices rather than guessed (Ipsos iris panel, May 2025), and the share of it on a smartphone.",
   },
   commonSense: {
     title: "The Common Sense Census: Media Use by Tweens and Teens, 2021",
     publisher: "Common Sense Media",
     year: "2022",
     url: "https://www.commonsensemedia.org/sites/default/files/research/report/8-18-census-integrated-report-final-web_0.pdf",
-    used: "Teenagers' daily screen media outside school and homework, and how much of it goes on making things.",
+    used: "Teenagers' daily time on every kind of screen outside school and homework, and how much of it goes on making things.",
   },
   pir: {
     title: "Post-Implementation Review: Tobacco Plain Packaging",
@@ -77,6 +77,20 @@ export const SOURCES = {
     year: "2011",
     url: "https://www.health.gov.au/resources/collections/market-research-reports-on-tobacco-plain-packaging-and-graphic-health-warnings",
     used: "Why plain packs are Pantone 448 C.",
+  },
+  parry: {
+    title: "A systematic review and meta-analysis of discrepancies between logged and self-reported digital media use (Nature Human Behaviour 5, 1535–1547)",
+    publisher: "Parry, Davidson, Sewall, Fisher, Mieczkowski and Quintana",
+    year: "2021",
+    url: "https://www.nature.com/articles/s41562-021-01117-5",
+    used: "How rarely people's own estimates of their screen time match what their devices logged.",
+  },
+  apple: {
+    title: "iPhone Premieres This Friday Night at Apple Retail Stores",
+    publisher: "Apple",
+    year: "2007",
+    url: "https://www.apple.com/newsroom/2007/06/28iPhone-Premieres-This-Friday-Night-at-Apple-Retail-Stores/",
+    used: "When the first iPhone went on sale: 29 June 2007.",
   },
 } satisfies Record<string, Source>;
 
@@ -181,7 +195,7 @@ export type CountryId = keyof typeof COUNTRIES;
 /**
  * An average day at each age, in hours: everyone that age, over every day of the year (weekends,
  * holidays, working or not, in school or not), so a lifetime is just these added up year by year.
- * American Time Use Survey 2025, Table 3 (and Table 11A for TV and games/computers). It only surveys
+ * American Time Use Survey 2025, Table 3 (and Table 11A for TV). It only surveys
  * people 15 and over; the first band stands in for younger ages. Each band's activities add up to 24.
  */
 export interface Band {
@@ -205,20 +219,18 @@ export interface Band {
   other: number;
   /** Watching TV, as a main activity (part of leisure). */
   tv: number;
-  /** Playing games and computer use for leisure, as a main activity (part of leisure). */
-  gamesComputer: number;
 }
 
 // prettier-ignore
 export const BANDS: Band[] = [
-  { from: 15, personalCare: 10.93, eating: 1.18, household: 0.71, purchasing: 0.38, caringHousehold: 0.07, caringOthers: 0.06, working: 0.71, education: 3.45, civic: 0.51, leisure: 5.66, phoneMail: 0.18, other: 0.16, tv: 1.48, gamesComputer: 1.53 },
-  { from: 20, personalCare: 10.44, eating: 1.13, household: 1.37, purchasing: 0.62, caringHousehold: 0.41, caringOthers: 0.07, working: 3.85, education: 0.88, civic: 0.19, leisure: 4.67, phoneMail: 0.17, other: 0.21, tv: 2.07, gamesComputer: 1.08 },
-  { from: 25, personalCare: 9.82, eating: 1.13, household: 1.58, purchasing: 0.59, caringHousehold: 0.79, caringOthers: 0.04, working: 4.58, education: 0.42, civic: 0.13, leisure: 4.5, phoneMail: 0.11, other: 0.29, tv: 1.89, gamesComputer: 0.91 },
-  { from: 35, personalCare: 9.4, eating: 1.16, household: 1.98, purchasing: 0.72, caringHousehold: 1.23, caringOthers: 0.09, working: 4.83, education: 0.09, civic: 0.17, leisure: 3.89, phoneMail: 0.12, other: 0.32, tv: 1.76, gamesComputer: 0.44 },
-  { from: 45, personalCare: 9.49, eating: 1.22, household: 2.18, purchasing: 0.66, caringHousehold: 0.51, caringOthers: 0.27, working: 4.7, education: 0.03, civic: 0.25, leisure: 4.3, phoneMail: 0.17, other: 0.23, tv: 2.26, gamesComputer: 0.39 },
-  { from: 55, personalCare: 9.67, eating: 1.19, household: 2.18, purchasing: 0.75, caringHousehold: 0.16, caringOthers: 0.24, working: 3.83, education: 0.04, civic: 0.28, leisure: 5.21, phoneMail: 0.19, other: 0.26, tv: 3.06, gamesComputer: 0.26 },
-  { from: 65, personalCare: 9.63, eating: 1.27, household: 2.74, purchasing: 0.88, caringHousehold: 0.13, caringOthers: 0.25, working: 1.14, education: 0.03, civic: 0.46, leisure: 6.9, phoneMail: 0.31, other: 0.28, tv: 4.2, gamesComputer: 0.43 },
-  { from: 75, personalCare: 9.87, eating: 1.49, household: 2.73, purchasing: 0.82, caringHousehold: 0.09, caringOthers: 0.14, working: 0.26, education: 0, civic: 0.42, leisure: 7.39, phoneMail: 0.41, other: 0.37, tv: 4.43, gamesComputer: 0.48 },
+  { from: 15, personalCare: 10.93, eating: 1.18, household: 0.71, purchasing: 0.38, caringHousehold: 0.07, caringOthers: 0.06, working: 0.71, education: 3.45, civic: 0.51, leisure: 5.66, phoneMail: 0.18, other: 0.16, tv: 1.48 },
+  { from: 20, personalCare: 10.44, eating: 1.13, household: 1.37, purchasing: 0.62, caringHousehold: 0.41, caringOthers: 0.07, working: 3.85, education: 0.88, civic: 0.19, leisure: 4.67, phoneMail: 0.17, other: 0.21, tv: 2.07 },
+  { from: 25, personalCare: 9.82, eating: 1.13, household: 1.58, purchasing: 0.59, caringHousehold: 0.79, caringOthers: 0.04, working: 4.58, education: 0.42, civic: 0.13, leisure: 4.5, phoneMail: 0.11, other: 0.29, tv: 1.89 },
+  { from: 35, personalCare: 9.4, eating: 1.16, household: 1.98, purchasing: 0.72, caringHousehold: 1.23, caringOthers: 0.09, working: 4.83, education: 0.09, civic: 0.17, leisure: 3.89, phoneMail: 0.12, other: 0.32, tv: 1.76 },
+  { from: 45, personalCare: 9.49, eating: 1.22, household: 2.18, purchasing: 0.66, caringHousehold: 0.51, caringOthers: 0.27, working: 4.7, education: 0.03, civic: 0.25, leisure: 4.3, phoneMail: 0.17, other: 0.23, tv: 2.26 },
+  { from: 55, personalCare: 9.67, eating: 1.19, household: 2.18, purchasing: 0.75, caringHousehold: 0.16, caringOthers: 0.24, working: 3.83, education: 0.04, civic: 0.28, leisure: 5.21, phoneMail: 0.19, other: 0.26, tv: 3.06 },
+  { from: 65, personalCare: 9.63, eating: 1.27, household: 2.74, purchasing: 0.88, caringHousehold: 0.13, caringOthers: 0.25, working: 1.14, education: 0.03, civic: 0.46, leisure: 6.9, phoneMail: 0.31, other: 0.28, tv: 4.2 },
+  { from: 75, personalCare: 9.87, eating: 1.49, household: 2.73, purchasing: 0.82, caringHousehold: 0.09, caringOthers: 0.14, working: 0.26, education: 0, civic: 0.42, leisure: 7.39, phoneMail: 0.41, other: 0.37, tv: 4.43 },
 ];
 
 /**
@@ -228,13 +240,60 @@ export const BANDS: Band[] = [
  */
 export const GETTING_READY = 0.77;
 
-/** Measured screen time, for the page's "the real numbers are higher" figures. Minutes a day unless noted. */
+/**
+ * Screen time, counted the way it's lived: phones included, whether or not they were the main thing
+ * someone was doing. Time use surveys only record the main activity, so a phone out at dinner, on the
+ * couch or in bed goes missing; these are tracked on people's own devices instead. Hours a day.
+ */
+export const SCREENS = {
+  /**
+   * 13 to 17: every screen (TV, video, gaming, social media, browsing, video calls) outside school and
+   * homework, 8h 39m for 13 to 18 year olds. Already includes TV.
+   */
+  teens: { to: 17, hours: 519 / 60, source: "commonSense" },
+  /**
+   * Adults: online on phones, tablets and computers outside work, tracked (not counting TV sets or
+   * consoles). Ofcom publishes 6h 20m at 18 to 24, 3h 20m at 65 and over, and 4h 30m for adults overall,
+   * which stands in from 25 to 64. TV is added on top, from the time use band for that age.
+   */
+  devices: [
+    { from: 18, hours: 380 / 60 },
+    { from: 25, hours: 270 / 60 },
+    { from: 65, hours: 200 / 60 },
+  ],
+  devicesSource: "ofcom",
+} as const satisfies {
+  teens: { to: number; hours: number; source: SourceId };
+  devices: readonly { from: number; hours: number }[];
+  devicesSource: SourceId;
+};
+
+/**
+ * The share of screen time that's worth it, to start from: US teenagers' video calls (20 minutes a day),
+ * e-reading (15) and making things (14), out of their 8h 39m (Common Sense, Table 2). Nobody has measured
+ * the same for adults, so it's the starting point for everyone, and people can move it.
+ */
+export const WORTH_IT = { minutes: 49, of: 519, source: "commonSense" } as const satisfies {
+  minutes: number;
+  of: number;
+  source: SourceId;
+};
+
+/** When the first iPhone went on sale (29 June 2007), as a year with a fraction: where smartphones start in a life. */
+export const SMARTPHONES = { year: 2007 + 179 / 365, source: "apple" } as const satisfies { year: number; source: SourceId };
+
+/** How far off people's own screen time estimates are, for the page's note about judging it honestly. */
+export const SELF_REPORT = { source: "parry" } as const satisfies { source: SourceId };
+
+/** Other figures the page quotes. */
 export const MEASURED = {
-  /** Of everyone's 5.16 hours of leisure a day, TV (2.61) and games and computers (0.40 + 0.22). Table A-1. */
+  /**
+   * Even counting only main activities, TV (2.61 hours) and games and computers (0.40 + 0.22) are
+   * 3.23 of everyone's 5.16 hours of leisure a day. Table A-1.
+   */
   freeTimeOnScreens: { screens: 3.23, leisure: 5.16, source: "atusDetail" },
-  /** UK adults online outside work, tracked on their own devices, May 2025. */
-  ukAdults: { minutes: 270, source: "ofcom" },
-  ukYoungAdults: { minutes: 380, source: "ofcom" },
-  /** US 13 to 18 year olds' screen media outside school and homework, 2021, and the part spent creating content. */
-  usTeens: { minutes: 519, creating: 14, source: "commonSense" },
+  /** UK adults online outside work, tracked on their own devices, May 2025, and the share of it on a smartphone. */
+  ukAdults: { minutes: 270, smartphone: 77, source: "ofcom" },
+  /** US 13 to 18 year olds' screens outside school and homework, 2021. */
+  usTeens: { minutes: 519, source: "commonSense" },
 } as const;

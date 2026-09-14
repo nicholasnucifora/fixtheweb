@@ -3,7 +3,7 @@ import Logo from "../assets/brand/fixtheweb-logo.svg";
 import { linkAttrs, type Link } from "../components/links";
 import SpiderString from "../components/SpiderString.astro";
 import Base from "../layouts/Base.astro";
-import { PARTS, lifeOf } from "../scripts/life/model";
+import { PARTS, WORTH_DEFAULT, isNone, lifeOf } from "../scripts/life/model";
 
 const pillars = [
   {
@@ -43,7 +43,7 @@ const ageChecks = {
 };
 
 /** A taste of Your Life on Screens (/life): the rest of an average 15-year-old Australian's life, worked out the same way. */
-const teen = lifeOf({ age: 15, country: "au", sex: "everyone", screens: null });
+const teen = lifeOf({ age: 15, country: "au", sex: "everyone", screens: null, worth: WORTH_DEFAULT });
 const one = (years: number) => years.toFixed(1);
 
 /** Our work: a taste of Villow. Its own site goes into the detail; give `site` an href once it's live. */
@@ -103,7 +103,8 @@ const villow = {
           </span>
         </span>
         <span class="teaser-sub">
-          {one(teen.left)} years left. {one(teen.years.free)} of them free time away from a screen.
+          {one(teen.left)} years left, and{" "}
+          {isNone(teen.years.free) ? "no free time away from a screen at all" : `${one(teen.years.free)} years of free time away from a screen`}.
         </span>
         <span class="teaser-bar" aria-hidden="true">
           {PARTS.map((part) => <span data-part={part} style={`flex-grow: ${teen.years[part]}`} />)}
@@ -431,21 +432,22 @@ const villow = {
   .teaser-bar span + span {
     box-shadow: inset 2px 0 0 #4a412a;
   }
+  /* The same colours as /life's. */
   .teaser-bar [data-part="sleep"] {
-    background: #c9ccd2;
+    background: #2a78d6;
   }
   .teaser-bar [data-part="work"] {
-    background: #9fa3ab;
+    background: #4a3aa7;
   }
   .teaser-bar [data-part="upkeep"] {
-    background: #767a83;
+    background: #eda100;
   }
   /* Screens: the pack's own colour, picked out in black so it shows against it. */
   .teaser-bar [data-part="screens"] {
     background: #111;
   }
   .teaser-bar [data-part="free"] {
-    background: #1c9e6d;
+    background: #008300;
   }
   .teaser-cta {
     justify-self: start;

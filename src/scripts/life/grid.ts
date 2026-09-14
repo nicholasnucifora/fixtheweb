@@ -1,9 +1,10 @@
 import { PARTS, type Life, type Part } from "./model";
 
 /**
- * A whole life drawn as weeks on a canvas: the weeks already lived as hollow squares, then the rest of
- * it split into blocks by what it'll go on. Wide, the years run across and the weeks down; narrow, the
- * other way round. Colours come from the canvas's --life-* custom properties.
+ * A whole life drawn as weeks on a canvas. The weeks already lived are hollow: grey before the first iPhone
+ * went on sale, drab brown since. The rest of it is split into blocks by what it'll go on, screen time
+ * last, with the part of it that's worth it in its own colour. Wide, the years run across and the weeks
+ * down; narrow, the other way round. Colours come from the canvas's --life-* custom properties.
  *
  * play() starts with every week left as free time, then takes each part out of it in turn (sleep, work,
  * upkeep, screens) until only the free time off screens is left.
@@ -31,15 +32,26 @@ const HOLD = 700;
 const STAGE = 950;
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
 
-/** Weeks each part takes of the ones left, rounded so they add up. */
+/** The blocks drawn after the weeks lived, in order: screen time is split into the rest and what's worth it. */
+const BLOCKS = ["sleep", "work", "upkeep", "screens", "worth", "free"] as const;
+type Block = (typeof BLOCKS)[number];
+
+/** The weeks lived (and how many were before smartphones), and the weeks each block takes of the rest, rounded so they add up. */
 function weeksOf(life: Life) {
   const past = life.inputs.age * WEEKS;
+  const before = Math.round((life.inputs.age - life.withSmartphones) * WEEKS);
   const future = Math.round(life.end * WEEKS) - past;
-  const exact = PARTS.map((part) => (life.years[part] / life.left) * future);
+  const years: Record<Block, number> = { ...life.years, screens: life.years.screens - life.worth, worth: life.worth };
+  const exact = BLOCKS.map((block) => (years[block] / life.left) * future);
   const counts = exact.map(Math.floor);
   const order = exact.map((value, i) => [value - counts[i], i]).sort((a, b) => b[0] - a[0]);
   for (let k = 0; k < future - counts.reduce((a, b) => a + b, 0); k++) counts[order[k][1]]++;
-  return { past, future, counts: Object.fromEntries(PARTS.map((part, i) => [part, counts[i]])) as Record<Part, number> };
+  return {
+    past,
+    before,
+    future,
+    counts: Object.fromEntries(BLOCKS.map((block, i) => [block, counts[i]])) as Record<Block, number>,
+  };
 }
 
 export function createGrid(canvas: HTMLCanvasElement, { onFrame }: Options = {}): Grid {
@@ -75,29 +87,35 @@ export function createGrid(canvas: HTMLCanvasElement, { onFrame }: Options = {})
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    const { past, future, counts } = weeksOf(life);
+    const { past, before, future, counts } = weeksOf(life);
     // Each part's weeks as far as it's been taken out, in order; whatever's not taken is free.
     const at = TAKEN.indexOf(drawn.stage as (typeof TAKEN)[number]);
     const fills: string[] = [];
     TAKEN.forEach((part, i) => {
       const done = drawn.stage === "done" || (at >= 0 && i < at);
-      const n = done ? counts[part] : at === i ? Math.round(counts[part] * drawn.progress) : 0;
-      const fill = colour(part);
-      for (let k = 0; k < n; k++) fills.push(fill);
+      const blocks: Block[] = part === "screens" ? ["screens", "worth"] : [part];
+      const total = blocks.reduce((sum, block) => sum + counts[block], 0);
+      let n = done ? total : at === i ? Math.round(total * drawn.progress) : 0;
+      for (const block of blocks) {
+        const fill = colour(block);
+        for (let k = 0; k < counts[block] && n > 0; k++, n--) fills.push(fill);
+      }
     });
     const free = colour("free");
-    const pastLine = colour("past");
+    const pastBefore = colour("past");
+    const pastSince = colour("past-phones");
 
     const cell = pitch - gap;
+    const side = Math.max(cell - 1, 0.5);
+    ctx.lineWidth = 1;
     for (let i = 0; i < past + future; i++) {
       const year = Math.floor(i / WEEKS);
       const week = i % WEEKS;
       const x = left + (wide ? year : week) * pitch;
       const y = top + (wide ? week : year) * pitch;
       if (i < past) {
-        ctx.strokeStyle = pastLine;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x + 0.5, y + 0.5, Math.max(cell - 1, 0.5), Math.max(cell - 1, 0.5));
+        ctx.strokeStyle = i < before ? pastBefore : pastSince;
+        ctx.strokeRect(x + 0.5, y + 0.5, side, side);
       } else {
         ctx.fillStyle = fills[i - past] ?? free;
         ctx.fillRect(x, y, cell, cell);
@@ -122,7 +140,9 @@ export function createGrid(canvas: HTMLCanvasElement, { onFrame }: Options = {})
       // Kept inside the canvas when "now" is near the end.
       const label = `▼ ${age}, now`;
       ctx.fillText(label, Math.min(age * pitch, width - ctx.measureText(label).width), 12);
-    } else ctx.fillText(`${age} ▶`, left - 2, age * pitch + pitch / 2);
+    } else {
+      ctx.fillText(`${age} ▶`, left - 2, age * pitch + pitch / 2);
+    }
   };
 
   const stop = () => {

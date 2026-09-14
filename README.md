@@ -49,7 +49,11 @@ The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spid
 `/life` (under Campaign in the header, and teased on the home page) takes your age and shows the rest of your life carved up: sleep, work and study, upkeep, screens, and the free time off screens that's left. It's meant to be blunt, like a plain cigarette pack: screen time is drawn in Pantone 448 C, the colour Australia's packs are. Every number is cited, and the sources are listed at the bottom of the page.
 
 - Years left come from each country's latest period life table (Australia, the US, the UK), by single year of age and sex.
-- Each year of that is split by an average day at that age from the American Time Use Survey (2025, by age band), averaged over every day of the year. Screens come out of free time: by default TV, games and computers at each age; put in your own number and it's kept for life.
+- Each year of that is split by an average day at that age from the American Time Use Survey (2025, by age band), averaged over every day of the year.
+- Screen time counts phones whether or not they were the main thing going on. The slider starts at the average for your age: tracked time on phones, tablets and computers outside work (Ofcom) plus TV at that age, or teenagers' all-screens figure (Common Sense). Left there, later years follow the averages; drag it and your number is kept for life. It comes out of free time first, then out of meals, chores and errands, never sleep or work.
+- "Worth it" (starting at teenagers' measured share on calls, reading and making things) only splits the screens block; it gives no years back.
+- The weeks already lived are split at the first iPhone's release (29 June 2007), and the whole-lives comparison shows how much of each generation's life came before smartphones.
+- The grid's colours were checked with the dataviz palette validator on the label's paper; screens stay Pantone 448 C, which reads dark and grey on purpose.
 - `src/scripts/life/data.ts`: every figure and where it came from (`SOURCES` is the page's numbered reference list). Update the life tables and time use bands here when new releases come out.
 - `src/scripts/life/model.ts`: the sums (a day at an age, years left, a whole life). The home page's teaser uses it too, so its numbers match.
 - `src/scripts/life/grid.ts`: the life drawn in weeks on a canvas, played out part by part the first time it's scrolled into view.
