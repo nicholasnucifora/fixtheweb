@@ -142,6 +142,8 @@ export function createCritter(member: Member, world: DenWorld) {
   let launch: Vec | null = null;
   const recent = new Map<number, number>();
   let airTime = 0;
+  /** Times it's fallen off the bottom and come back in at the top without anything catching it. */
+  let wraps = 0;
   let jump: { x0: number; y0: number; vx: number; vy: number; t: number; T: number; to: Spot } | null = null;
   /** The line of silk left by a jump. */
   let silk: { from: Vec; to: Vec; age: number } | null = null;
@@ -649,46 +651,6 @@ export function createCritter(member: Member, world: DenWorld) {
     return true;
   };
 
-  /**
-   * It's hit a branch, a frame or a post. Slow enough, it clings on; otherwise it bounces off. True
-   * if it's done moving this step.
-   */
-  const hitSupport = (hit: { edge: number; t: number; x: number; y: number }) => {
-    const web = world.web;
-    const [nx, ny] = web.normal(hit.edge);
-    const into = vx * nx + vy * ny;
-    const speed = Math.hypot(vx, vy);
-    if (speed < den.catching.catchSpeed * world.unit * 2.2) {
-      settle({ edge: hit.edge, t: hit.t }, between(0.8, 1.8));
-      seenV = [0, 0];
-      return true;
-    }
-    const tx = vx - into * nx;
-    const ty = vy - into * ny;
-    vx = tx * 0.7 - into * nx * 0.35;
-    vy = ty * 0.7 - into * ny * 0.35;
-    const back = Math.sign(into) || 1;
-    x = hit.x - nx * back * 1.5;
-    y = hit.y - ny * back * 1.5;
-    for (let i = 0; i < 3; i++) {
-      const spread = (Math.random() - 0.5) * 1.6;
-      const kick = world.unit * (0.8 + Math.random());
-      world.particles.spawn({
-        x: hit.x,
-        y: hit.y,
-        vx: (-nx * back * Math.cos(spread) - ny * Math.sin(spread)) * kick,
-        vy: (-ny * back * Math.cos(spread) + nx * Math.sin(spread)) * kick,
-        length: world.unit * 0.05,
-        width: 1.5,
-        life: 0.22,
-        drag: 8,
-        gravity: 0,
-        shrink: 0.6,
-      });
-    }
-    return true;
-  };
-
   const thinkAir = (dt: number) => {
     const web = world.web;
     const g = config.rope.gravity * world.unit;
@@ -722,20 +684,13 @@ export function createCritter(member: Member, world: DenWorld) {
       vy *= keep;
       const nx = x + vx * h;
       const ny = y + vy * h;
-      let stopped = false;
-      for (const hit of web.crossings(x, y, nx, ny)) {
+      // Only silk slows it: branches, frames and posts aren't sticky, so it passes through them.
+      for (const hit of web.crossings(x, y, nx, ny, true)) {
         if ((recent.get(hit.edge) ?? -1) > airTime - 0.15) continue;
         if (launch && Math.hypot(hit.x - launch[0], hit.y - launch[1]) < grace) continue;
         recent.set(hit.edge, airTime);
-        if (web.isSupport(hit.edge)) {
-          hitSupport(hit);
-          if (mode !== "air") return;
-          stopped = true;
-          break;
-        }
         if (crossThread(hit)) return;
       }
-      if (stopped) continue;
       x = nx;
       y = ny;
       const m = radius();
@@ -745,7 +700,18 @@ export function createCritter(member: Member, world: DenWorld) {
         let wrapped = false;
         if (x < -m) (x += W + 2 * m), (wrapped = true);
         else if (x > W + m) (x -= W + 2 * m), (wrapped = true);
-        if (y > H + m) (y -= H + 2 * m), (wrapped = true);
+        if (y > H + m) {
+          y -= H + 2 * m;
+          wrapped = true;
+          // Falling down the same gap again and again: come back in above a web instead. It's out of
+          // sight above the top as it moves, so nobody sees it jump.
+          if (++wraps >= 2 && web.hubs.length) {
+            const hubs = web.hubs.map((hub) => web.x(hub.node));
+            const nearest = hubs.reduce((a, b) => (Math.abs(b - x) < Math.abs(a - x) ? b : a));
+            x = Math.abs(nearest - x) > world.unit * 0.3 ? nearest : hubs[Math.floor(Math.random() * hubs.length)];
+            vx *= 0.2;
+          }
+        }
         if (wrapped) {
           launch = null;
           recent.clear();
@@ -756,9 +722,10 @@ export function createCritter(member: Member, world: DenWorld) {
         if (y < m || y > H - m) (y = clamp(y, m, H - m)), (vy = -vy * bounce), (vx *= 1 - config.edges.friction);
       }
     }
-    // Never caught (falling through a gap forever, say): grab the nearest thread.
-    if (airTime > 12) {
-      const near = web.nearest(x, y, Math.max(web.width, web.height));
+    // Without wrapping, it can come to rest on the bottom with nothing to catch it: then it climbs
+    // onto the nearest thread.
+    if (!den.world.wrap && airTime > 12) {
+      const near = web.nearest(x, y, Math.max(web.width, web.height), true);
       if (near) settle(near);
     }
     // Tumbling as it goes, the faster the more.
@@ -866,6 +833,7 @@ export function createCritter(member: Member, world: DenWorld) {
       vy = pvy;
       launch = [px, py];
       airTime = 0;
+      wraps = 0;
       recent.clear();
       jump = null;
     },
@@ -962,11 +930,22 @@ export function createCritter(member: Member, world: DenWorld) {
       }
       tell("spider:release");
       const c = den.catching;
-      const near = Math.hypot(tvx, tvy) < c.dropSpeed * world.unit ? world.web.nearest(x, y, c.dropCatch * world.unit) : null;
-      if (near) {
-        settle(near, between(0.6, 1.6));
-        world.web.push(near.x, near.y, 0, world.unit * 2);
-      } else me.toss(x, y, tvx, tvy);
+      const gentle = Math.hypot(tvx, tvy) < c.dropSpeed * world.unit;
+      // Put down, it's let go right where the pointer has it, not wherever it had caught up to.
+      if (gentle) {
+        x = hand.x + hand.ox;
+        y = hand.y + hand.oy;
+      }
+      // Right on a thread, it holds on there. Anywhere else it drops from where it is, until a web
+      // catches it; put down gently, with no free zone, so the first thread below will do.
+      const on = gentle ? world.web.nearest(x, y, c.dropCatch * world.unit, true) : null;
+      if (on) {
+        settle(on, between(0.6, 1.6));
+        world.web.push(on.x, on.y, 0, world.unit * 2);
+        return;
+      }
+      me.toss(x, y, tvx, tvy);
+      if (gentle) launch = null;
     },
 
     /** Eats `food`: into its mouth, a moment's chewing, then it's fed. */

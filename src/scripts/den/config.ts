@@ -172,12 +172,12 @@ export const schema = {
   catching: {
     group: "web",
     label: "Catching a flung spider",
-    info: "A spider you let go of flies until the threads stop it. Each thread it crosses slows it down, and once it's slow enough the next one catches it.",
+    info: "A spider you let go of flies (or drops) until the threads stop it. Each thread it crosses slows it down, and once it's slow enough the next one catches it. Branches, frames and posts aren't sticky: it passes straight through them.",
     params: {
       grace: {
         value: 0.9, min: 0, max: 5, step: 0.05, unit: "b",
         label: "Free zone",
-        info: "Threads this close to where you let it go don't touch it at all, so it can leave the web it was on. Past this, threads start to slow it.",
+        info: "Threads this close to where you threw it from don't touch it at all, so it can get away. Past this, threads start to slow it. Put down gently, there's no free zone: it drops onto the first thread below.",
       },
       keep: {
         value: 0.78, min: 0, max: 1, step: 0.01, unit: "×",
@@ -195,14 +195,14 @@ export const schema = {
         info: "Crossing a thread slower than this, it grabs on.",
       },
       dropCatch: {
-        value: 0.35, min: 0, max: 2, step: 0.05, unit: "b",
-        label: "Put down within",
-        info: "Let go gently this close to a thread and it takes hold of it, rather than dropping.",
+        value: 0.04, min: 0, max: 0.5, step: 0.01, unit: "b",
+        label: "Put down on a thread within",
+        info: "Let go gently this close to a thread and it holds on right there. Anywhere else it drops from where you let go.",
       },
       dropSpeed: {
         value: 1.5, min: 0, max: 10, step: 0.1, unit: "b/s",
         label: "Gently is below",
-        info: "How slowly it has to be moving when let go to count as putting it down.",
+        info: "How slowly it has to be moving when let go to count as putting it down, rather than throwing it.",
       },
     },
   },

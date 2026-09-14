@@ -506,10 +506,6 @@ export class Web {
   isPinned(n: number) {
     return this.pinned[n];
   }
-  /** Is edge `e` part of the scenery (a branch, a frame, a post) rather than silk? */
-  isSupport(e: number) {
-    return this.kind[e] === Kind.Support;
-  }
   linksOf(n: number) {
     return this.links[n];
   }
