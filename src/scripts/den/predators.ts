@@ -41,6 +41,8 @@ export interface Hunter {
   draw(ctx: CanvasRenderingContext2D, colors: { ink: string; surface: string; outline: boolean }): void;
   /** Is (x, y) on it? */
   hit(x: number, y: number): boolean;
+  /** A box round it, den px [x, y, w, h]. */
+  bounds(): [number, number, number, number];
   /** Pressed: it may leave. True if it does. */
   shoo(): boolean;
   /** The spider it's holding was snatched back: it's lost its catch. */
@@ -246,6 +248,11 @@ export function createBird(world: HuntWorld): Hunter {
 
     hit(px, py) {
       return Math.hypot(px - x, py - y) < size() * 0.6;
+    },
+
+    bounds() {
+      const s = size();
+      return [x - s, y - s, s * 2, s * 2];
     },
 
     shoo() {
@@ -507,6 +514,11 @@ export function createFrog(world: HuntWorld): Hunter {
 
     hit(px, py) {
       return Math.hypot(px - x, py - (y - size() * 0.3)) < size() * 0.55;
+    },
+
+    bounds() {
+      const reach = den.frog.tongue * u() + size();
+      return [x - reach, y - reach, reach * 2, reach * 2];
     },
 
     shoo() {

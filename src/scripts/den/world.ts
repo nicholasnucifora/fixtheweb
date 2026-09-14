@@ -49,7 +49,7 @@ import { type Hunter, type HuntWorld, createBird, createFrog } from "./predators
 import { SCENES, type Palette, type Scene, type SceneId, buildScene } from "./scenes";
 import { clockText, lightAt, setTimeOfDay, timeOfDay } from "./daytime";
 import { eventRate, fliesAmount, motion, predatorsAmount, settings } from "./settings";
-import { createSky } from "./sky";
+import { createSky, tintOf, tinted } from "./sky";
 import { type Spot, type Vec, Web, random } from "./web";
 
 /**
@@ -204,9 +204,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   let seed = readSeed();
   let sceneId = readScene();
   let scene: Scene | null = null;
-  /** The scenery, painted once per build (and theme) rather than every frame. */
-  const scenery = document.createElement("canvas");
-  let paintedKey = "";
   let builtKey = "";
   let dpr = 1;
   let active = false;
@@ -220,6 +217,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   let cutting = false;
   const skipped = new Map<Critter, number>();
   const colors = { ink: "#1b1e29", accent: "#2b8666", surface: "#ffffff", bg: "#f7f5ef" };
+  /** Spiders, bugs and predators, drawn on their own at dusk and by night so the light can tint just them. */
+  const sprites = document.createElement("canvas");
   /** Films of spiders in danger, kept if they die (for the deaths log). */
   const replays = createReplays();
   const sky = createSky();
@@ -419,7 +418,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       web.takeBreaks();
       claims.clear();
       debris.clear();
-      paintedKey = "";
       for (const sac of sacs.values()) sac.spot = null;
       strands = [];
       if (!first) {
@@ -622,23 +620,23 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     }
   };
 
-  const drawSacs = () => {
+  const drawSacs = (ink = colors.ink, g: CanvasRenderingContext2D = ctx) => {
     for (const sac of sacs.values()) {
       const { anchor, ball, r } = sacPoint(sac);
       const left = sac.egg.hatchIn;
       const pulse = left < 5 ? 1 + Math.sin(performance.now() / 60) * 0.04 : 1;
       const size = r * pulse * (1 + sac.wiggle * 0.12);
-      ctx.save();
+      g.save();
       if (!sac.fall) {
-        ctx.strokeStyle = colors.ink;
-        ctx.globalAlpha = 0.55;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(anchor[0], anchor[1]);
-        ctx.lineTo(ball[0], ball[1] - size * 0.8);
-        ctx.stroke();
+        g.strokeStyle = ink;
+        g.globalAlpha = 0.55;
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(anchor[0], anchor[1]);
+        g.lineTo(ball[0], ball[1] - size * 0.8);
+        g.stroke();
       }
-      ctx.globalAlpha = 1;
+      g.globalAlpha = 1;
       // A fluffy ball of silk: little puffs round a middle, with the eggs showing through.
       const puffs = new Path2D();
       for (let i = 0; i < 9; i++) {
@@ -648,21 +646,21 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       }
       puffs.moveTo(ball[0] + size * 0.7, ball[1]);
       puffs.arc(ball[0], ball[1], size * 0.7, 0, Math.PI * 2);
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = colors.ink;
-      ctx.globalAlpha = 0.45;
-      ctx.stroke(puffs);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#f4efe1";
-      ctx.fill(puffs, "nonzero");
-      ctx.fillStyle = "#d8c9a6";
+      g.lineWidth = 1.5;
+      g.strokeStyle = ink;
+      g.globalAlpha = 0.45;
+      g.stroke(puffs);
+      g.globalAlpha = 1;
+      g.fillStyle = "#f4efe1";
+      g.fill(puffs, "nonzero");
+      g.fillStyle = "#d8c9a6";
       for (let i = 0; i < sac.egg.count; i++) {
         const a = (i / sac.egg.count) * Math.PI * 2 + 0.6;
-        ctx.beginPath();
-        ctx.arc(ball[0] + Math.cos(a) * size * 0.35, ball[1] + Math.sin(a) * size * 0.3, size * 0.14, 0, Math.PI * 2);
-        ctx.fill();
+        g.beginPath();
+        g.arc(ball[0] + Math.cos(a) * size * 0.35, ball[1] + Math.sin(a) * size * 0.3, size * 0.14, 0, Math.PI * 2);
+        g.fill();
       }
-      ctx.restore();
+      g.restore();
     }
   };
 
@@ -690,12 +688,12 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     strands = strands.filter((s) => s.age < den.snapping.fade);
   };
 
-  const drawStrands = () => {
+  const drawStrands = (ink = colors.ink) => {
     for (const s of strands) {
       const pts = s.rope.points.map((p) => ({ x: p.x, y: p.y }));
       ctx.save();
       ctx.globalAlpha = Math.max(0, 1 - s.age / Math.max(0.1, den.snapping.fade));
-      ctx.strokeStyle = threadStyle(ctx, s.thread, pts, colors.ink);
+      ctx.strokeStyle = threadStyle(ctx, s.thread, pts, ink);
       drawString(ctx, pts, 1.25);
       ctx.restore();
     }
@@ -1384,52 +1382,117 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     frameMs += (performance.now() - began - frameMs) * 0.05;
   };
 
-  const paintScenery = () => {
-    const key = JSON.stringify([builtKey, dark.matches, dpr, den.webs.scenery]);
-    if (key === paintedKey || !scene) return;
-    paintedKey = key;
-    scenery.width = canvas.width;
-    scenery.height = canvas.height;
-    const sctx = scenery.getContext("2d")!;
-    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    sctx.clearRect(0, 0, web.width, web.height);
-    scene.paint(sctx, PALETTES[dark.matches ? "dark" : "light"]);
-  };
-
   const draw = () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    paintScenery();
-    if (den.webs.scenery > 0) {
-      ctx.globalAlpha = den.webs.scenery;
-      ctx.drawImage(scenery, 0, 0);
-      ctx.globalAlpha = 1;
-    }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    web.draw(ctx, colors.ink);
-    debris.draw(ctx, colors.ink);
-    drawStrands();
-    drawSacs();
-    bugs.draw(ctx, false);
-    for (const h of hunters) if (h.kind === "frog") h.draw(ctx, { ink: colors.ink, surface: colors.surface, outline: dark.matches });
-    ctx.strokeStyle = colors.ink;
-    particles.draw(ctx);
-    // Silk fluff from a hatching egg sac: cream, dark enough to show on a light page.
-    ctx.strokeStyle = "#d8c9a6";
-    fluff.draw(ctx);
-    ctx.strokeStyle = dark.matches ? "rgba(242, 242, 238, 0.5)" : "rgba(27, 30, 41, 0.35)";
-    dust.draw(ctx);
-
+    // The background: the sky and the scenery, in the light of the time of day (painted only when it's changed).
+    const t = timeOfDay();
+    const light = lightAt(t);
+    const scape = {
+      canvas,
+      dpr,
+      unit: world.unit,
+      scene,
+      sceneKey: builtKey,
+      palette: PALETTES[dark.matches ? "dark" : "light"],
+      room: colors.bg,
+      t,
+      light,
+      dark: dark.matches,
+    };
+    ctx.drawImage(sky.background(scape), 0, 0);
+    const tint = tintOf(light, dark.matches);
+    // Most of the day there's hardly any tint: everything's drawn as it always was.
+    const tinting = tint.alpha > 0.1;
+    const shade = (color: string) => (tinting ? tinted(color, tint) : color);
+    const ink = shade(colors.ink);
     const [ox, oy] = world.origin;
-    ctx.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr);
     // The picked one and anything in your hand go in front.
     const order = [...world.critters].sort((a, b) => rank(a) - rank(b));
-    for (const c of order) c.drawBehind(ctx, colors.ink, colors.accent);
-    for (const c of order) c.draw(ctx, colors.ink);
+
+    // Threads, strings and specks of silk and dust take the light by their colour.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    for (const h of hunters) if (h.kind === "bird") h.draw(ctx, { ink: colors.ink, surface: colors.surface, outline: dark.matches });
-    bugs.draw(ctx, true);
-    drawDaylight();
+    web.draw(ctx, ink);
+    debris.draw(ctx, ink);
+    drawStrands(ink);
+    ctx.strokeStyle = ink;
+    particles.draw(ctx);
+    // Silk fluff from a hatching egg sac: cream, dark enough to show on a light page.
+    ctx.strokeStyle = shade("#d8c9a6");
+    fluff.draw(ctx);
+    ctx.strokeStyle = shade(dark.matches ? "rgba(242, 242, 238, 0.5)" : "rgba(27, 30, 41, 0.35)");
+    dust.draw(ctx);
+    ctx.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr);
+    for (const c of order) c.drawBehind(ctx, ink, colors.accent);
+
+    // Egg sacs, bugs, predators and spiders. When there's a tint, they're drawn on a layer of their own
+    // and tinted in the boxes round them, rather than laying colour over the whole den.
+    let g = ctx;
+    if (tinting) {
+      if (sprites.width !== canvas.width || sprites.height !== canvas.height) {
+        sprites.width = canvas.width;
+        sprites.height = canvas.height;
+      }
+      g = sprites.getContext("2d")!;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, sprites.width, sprites.height);
+    }
+    const huntColors = { ink, surface: colors.surface, outline: dark.matches };
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawSacs(ink, g);
+    bugs.draw(g, false);
+    for (const h of hunters) if (h.kind === "frog") h.draw(g, huntColors);
+    g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr);
+    for (const c of order) c.draw(g, ink);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const h of hunters) if (h.kind === "bird") h.draw(g, huntColors);
+    bugs.draw(g, true);
+    if (tinting) {
+      // The boxes round everything on the layer (den px).
+      const boxes: [number, number, number, number][] = [];
+      for (const c of order) {
+        const [cx, cy] = c.center();
+        const r = c.radius();
+        boxes.push([cx - r * 3, cy - r * 4, r * 6, r * 7]);
+      }
+      for (const sac of sacs.values()) {
+        const { anchor, ball, r } = sacPoint(sac);
+        boxes.push([Math.min(anchor[0], ball[0]) - r * 2, Math.min(anchor[1], ball[1]) - r * 2, Math.abs(ball[0] - anchor[0]) + r * 4, Math.abs(ball[1] - anchor[1]) + r * 4]);
+      }
+      boxes.push(...bugs.boxes());
+      for (const h of hunters) boxes.push(h.bounds());
+      g.save();
+      g.beginPath();
+      for (const [x, y, w, h] of boxes) g.rect(x, y, w, h);
+      g.clip();
+      g.globalCompositeOperation = "source-atop";
+      g.fillStyle = tint.css;
+      g.fillRect(0, 0, web.width, web.height);
+      g.restore();
+      // Onto the den: just the tiles with something in them, not the whole (mostly empty) layer.
+      const tile = 192;
+      const cols = Math.ceil(canvas.width / tile);
+      const rows = Math.ceil(canvas.height / tile);
+      const used = new Set<number>();
+      for (const [x, y, w, h] of boxes) {
+        const x0 = Math.max(0, Math.floor((x * dpr) / tile));
+        const x1 = Math.min(cols - 1, Math.floor(((x + w) * dpr) / tile));
+        const y0 = Math.max(0, Math.floor((y * dpr) / tile));
+        const y1 = Math.min(rows - 1, Math.floor(((y + h) * dpr) / tile));
+        for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) used.add(ty * cols + tx);
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (const i of used) {
+        const sx = (i % cols) * tile;
+        const sy = Math.floor(i / cols) * tile;
+        const w = Math.min(tile, canvas.width - sx);
+        const h = Math.min(tile, canvas.height - sy);
+        ctx.drawImage(sprites, sx, sy, w, h, sx, sy, w, h);
+      }
+    }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sky.fireflies(ctx, scape, moved);
     if (cutMarks.length) {
       ctx.save();
       ctx.strokeStyle = colors.accent;
@@ -1469,26 +1532,6 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       });
     }
   };
-  /**
-   * The time of day: everything drawn so far takes on its light, the sky goes in behind it all, and
-   * sunbeams, lens flare and fireflies go on top.
-   */
-  const drawDaylight = () => {
-    const t = timeOfDay();
-    const light = lightAt(t);
-    const view = scene?.sky ?? { l: 0, t: 0, r: web.width, b: web.height, horizon: web.height * 0.92 };
-    const indoors = !!scene?.indoors;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    sky.tint(ctx, web.width, web.height, light, dark.matches);
-    const layer = sky.paint(canvas, dpr, world.unit, view, indoors, colors.bg, t, light, dark.matches, moved);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = "destination-over";
-    ctx.drawImage(layer, 0, 0);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    sky.glow(ctx, world.unit, view, indoors, t, light, dark.matches, moved);
-  };
-
   const rank = (c: Critter) => (c.held ? 3 : c.member.id === world.pickedId ? 2 : c.member.main ? 1 : 0);
 
   readColors();

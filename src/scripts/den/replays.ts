@@ -46,6 +46,8 @@ interface Film {
   held: boolean;
   last: number;
   canvas: HTMLCanvasElement;
+  /** Pictures are made one after another, in order. */
+  queue: Promise<void>;
 }
 
 /** Height of a film, next to its width. */
@@ -97,7 +99,7 @@ export function createReplays() {
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(r.pixels);
         canvas.height = Math.round(r.pixels * ASPECT);
-        film = { id, frames: [], cam: null, until: 0, died: null, diedAt: 0, after: 0, held: false, last: 0, canvas };
+        film = { id, frames: [], cam: null, until: 0, died: null, diedAt: 0, after: 0, held: false, last: 0, canvas, queue: Promise.resolve() };
         films.set(id, film);
       }
       if (film.died === null) film.until = Math.max(film.until, now + seconds * 1000);
@@ -150,22 +152,43 @@ export function createReplays() {
         const sx = Math.max(0, Math.min(source.width - sw, film.cam[0] * dpr - sw / 2));
         const sy = Math.max(0, Math.min(source.height - sh, film.cam[1] * dpr - sh / 2));
         const { canvas } = film;
-        const ctx = canvas.getContext("2d")!;
-        ctx.fillStyle = background;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-        // The picture's taken now; it's made into an image file in the background.
+        // The picture's taken now, as a snapshot (so the den's canvas is never read back, which would
+        // slow its drawing down), and made into an image file in the background.
+        let snapshot: Promise<ImageBitmap> | null = null;
+        try {
+          snapshot = createImageBitmap(source, sx, sy, sw, sh, { resizeWidth: canvas.width, resizeHeight: canvas.height, resizeQuality: "medium" });
+        } catch {
+          snapshot = null;
+        }
         const frame = { blob: null } as Frame;
-        frame.done = new Promise<void>((resolve) =>
-          canvas.toBlob(
-            (blob) => {
-              frame.blob = blob;
-              resolve();
-            },
-            typeOfPictures(),
-            0.78,
-          ),
-        );
+        const picture = (image: CanvasImageSource, fromCrop: boolean) =>
+          new Promise<void>((resolve) => {
+            const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+            ctx.fillStyle = background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (fromCrop) ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            else ctx.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(
+              (blob) => {
+                frame.blob = blob;
+                resolve();
+              },
+              typeOfPictures(),
+              0.78,
+            );
+          });
+        if (snapshot) {
+          const taken = snapshot;
+          frame.done = film.queue = film.queue.then(() =>
+            taken.then(
+              (bitmap) => picture(bitmap, true).then(() => bitmap.close()),
+              () => undefined,
+            ),
+          );
+        } else {
+          // No snapshots here: draw it straight across, now.
+          frame.done = picture(source, false);
+        }
         film.frames.push(frame);
         const most = (film.died !== null || film.held ? r.before + 10 : r.before) * r.fps;
         if (film.frames.length > most) film.frames.shift();

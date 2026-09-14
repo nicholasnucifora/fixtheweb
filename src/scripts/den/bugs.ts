@@ -294,6 +294,17 @@ export function createBugs(den_: { web: Web; unit: number }) {
     },
 
     /** Den px. `over` draws only the ones that belong on top of the spiders (held, being eaten); otherwise the rest. */
+    /** A box round each bug that's showing, den px [x, y, w, h] (for tinting them). */
+    boxes() {
+      const out: [number, number, number, number][] = [];
+      for (const bug of list) {
+        if (bug.state === "gone" || bug.fade <= 0) continue;
+        const s = size(bug) * 1.4;
+        out.push([bug.x - s, bug.y - s, s * 2, s * 2]);
+      }
+      return out;
+    },
+
     draw(ctx: CanvasRenderingContext2D, over: boolean) {
       for (const bug of list) {
         const top = bug.state === "held" || bug.state === "eaten";
