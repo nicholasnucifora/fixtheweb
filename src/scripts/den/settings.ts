@@ -1,10 +1,15 @@
+import { den } from "./config";
+
 /**
  * The den's settings you choose in the den itself (the ⚙ in its bar): how fast time runs, how many
  * flies and predators come, and whether spiders fight. Saved in this browser. These go on top of
  * what's tuned in den/config.ts.
+ *
+ * Time speed is the den's day and life (hunger, growing up, how often things happen), not how fast
+ * everyone moves: that only picks up a little (`motion`), so it's still nice to watch.
  */
 
-export const SPEEDS = [0.25, 0.5, 1, 2, 4] as const;
+export const SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
 export const AMOUNTS = {
   none: { label: "None", value: 0 },
   few: { label: "Few", value: 0.4 },
@@ -52,4 +57,9 @@ export function change(patch: Partial<DenSettings>) {
 }
 
 export const fliesAmount = () => AMOUNTS[settings.flies].value;
+
+/** How fast spiders, flies and predators move at the den's time speed: a little quicker when time's sped up, nowhere near as much. */
+export const motion = () => Math.pow(settings.speed, den.time.motion);
+/** How much more often things happen than moving about at `motion` alone would have them. */
+export const eventRate = () => settings.speed / motion();
 export const predatorsAmount = () => AMOUNTS[settings.predators].value;

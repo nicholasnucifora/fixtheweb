@@ -420,7 +420,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
             ))
           }
         </div>
-        <p class="setting-note">Speeds up (or slows down) everything: spiders, flies, predators, growing up.</p>
+        <p class="setting-note">Speeds up (or slows down) the den's day, and life with it: hunger, growing up, flies and predators coming by. Everyone still moves about at nearly their usual pace.</p>
+        <p class="setting-clock" data-den-clock></p>
       </div>
       <div class="setting">
         <span class="setting-label" id="den-set-flies">Flies</span>
@@ -1223,6 +1224,14 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
   }
   .setting .view-switch {
     flex-wrap: wrap;
+  }
+  .setting-clock {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .setting-clock:empty {
+    display: none;
   }
   .setting .view-switch button {
     padding: 0.45rem 0.75rem;

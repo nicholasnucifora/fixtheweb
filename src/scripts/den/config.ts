@@ -29,6 +29,10 @@ export const groups = {
     label: "Life",
     info: "Hunger, growing up, babies and dying. Times are real time; speed life up to watch it happen.",
   },
+  day: {
+    label: "Day",
+    info: "The den's day and night: how long a day lasts, the sky and the light, and what spiders, flies and predators do by day and by night.",
+  },
   genes: {
     label: "Genes",
     info: "What spiders are born with: how quick, hungry, strong and long-lived they are, their silk, colours and personality, and how much they take after their parents. Pick a spider in the den to see (and, with ?tune, change) its genes on its card.",
@@ -788,8 +792,13 @@ export const schema = {
   time: {
     group: "life",
     label: "Time",
-    info: "The den's time speed (in the den's settings) speeds up or slows down everything: the spiders, flies, predators and life itself. Time away from the page runs at ordinary speed.",
+    info: "The den's time speed (in the den's settings) speeds up or slows down the den's day and life: hunger, growing up, hatching, how often flies and predators come and eggs get laid, and webs fraying. Everyone still moves about at nearly their usual pace, so it's still nice to watch. Time away from the page runs at ordinary speed.",
     params: {
+      motion: {
+        value: 0.12, min: 0, max: 1, step: 0.01, unit: "×",
+        label: "Moving faster with time",
+        info: "How much quicker spiders, flies and predators move when time's sped up: they move at the time speed to this power. 0 = always their usual pace, 1 = as fast as time (at 4×, 0.12 is about 1.2× as fast).",
+      },
       awayMost: {
         value: 72, min: 0, max: 720, step: 1, unit: "h",
         label: "Time away counts, at most",
@@ -800,6 +809,68 @@ export const schema = {
         label: "Predators while you're away",
         info: "Chance each hour away that a predator takes a spider (shown in the log).",
       },
+    },
+  },
+
+  // ── Day and night ─────────────────────────────────────────────────────────
+
+  day: {
+    group: "day",
+    label: "Day",
+    info: "A day in the den, from midnight round to midnight. It goes by faster or slower with the den's time speed, and carries on while you're away.",
+    params: {
+      enabled: { value: true, label: "Day and night", info: "Off: it's always a sunny day." },
+      minutes: {
+        value: 20, min: 0.5, max: 1440, step: 0.5, unit: "min",
+        label: "A day lasts",
+        info: "At ordinary speed. 1440 = a real day.",
+      },
+      freeze: { value: false, label: "Stop the clock", info: "For looking at a time of day." },
+      dawn: { value: 0, kind: "action", label: "Sunrise", info: "" },
+      noon: { value: 0, kind: "action", label: "Midday", info: "" },
+      dusk: { value: 0, kind: "action", label: "Sunset", info: "" },
+      midnight: { value: 0, kind: "action", label: "Midnight", info: "" },
+    },
+  },
+
+  sky: {
+    group: "day",
+    label: "Sky and light",
+    info: "The sky behind the scene (or through the window), and how the time of day lights everything.",
+    params: {
+      sun: { value: true, label: "Sun", info: "" },
+      moon: { value: true, label: "Moon", info: "" },
+      stars: { value: 90, min: 0, max: 400, step: 5, label: "Stars", info: "Across a 1200 px wide den." },
+      clouds: { value: 4, min: 0, max: 12, step: 1, label: "Clouds", info: "" },
+      drift: { value: 3, min: 0, max: 20, step: 0.5, label: "Clouds cross the sky", info: "Times a day, so they hurry along when time does." },
+      night: { value: 1, min: 0, max: 2, step: 0.05, unit: "×", label: "Night darkness", info: "How dim and blue everything gets by moonlight." },
+      golden: { value: 1, min: 0, max: 2, step: 0.05, unit: "×", label: "Sunrise and sunset glow", info: "" },
+      warm: { value: 1, min: 0, max: 3, step: 0.05, unit: "×", label: "Warm daylight", info: "" },
+      rays: { value: 0.35, min: 0, max: 1, step: 0.01, unit: "×", label: "Sunbeams", info: "" },
+      flare: { value: 0.6, min: 0, max: 2, step: 0.05, unit: "×", label: "Lens flare", info: "" },
+      fireflies: { value: 14, min: 0, max: 60, step: 1, label: "Fireflies at night", info: "" },
+    },
+  },
+
+  schedule: {
+    group: "day",
+    label: "By day and by night",
+    info: "Orb weavers are night owls: they mostly rest by day and get busy from dusk, building, mending and hunting. More moths come out at night, birds hunt by day, and frogs and pirate spiders mostly after dark. Each is how much more (or less) likely, next to usual.",
+    params: {
+      dayNaps: { value: 3, min: 0, max: 10, step: 0.1, unit: "×", label: "Napping by day", info: "" },
+      nightNaps: { value: 0.3, min: 0, max: 10, step: 0.1, unit: "×", label: "Napping by night", info: "" },
+      dayNapLength: { value: 1.8, min: 0.2, max: 5, step: 0.1, unit: "×", label: "Naps by day last", info: "" },
+      dayWork: { value: 0.5, min: 0, max: 5, step: 0.1, unit: "×", label: "Building and mending by day", info: "" },
+      nightWork: { value: 1.8, min: 0, max: 5, step: 0.1, unit: "×", label: "Building and mending by night", info: "" },
+      dayRoam: { value: 0.7, min: 0, max: 5, step: 0.1, unit: "×", label: "Getting about by day", info: "Wandering and jumping." },
+      nightRoam: { value: 1.2, min: 0, max: 5, step: 0.1, unit: "×", label: "Getting about by night", info: "" },
+      nightFlies: { value: 0.55, min: 0, max: 3, step: 0.05, unit: "×", label: "Flies at night", info: "" },
+      nightMoths: { value: 0.7, min: 0, max: 1, step: 0.01, unit: "×", label: "Share that are moths at night", info: "" },
+      nightBirds: { value: 0, min: 0, max: 2, step: 0.05, unit: "×", label: "Birds at night", info: "" },
+      nightFrogs: { value: 1.6, min: 0, max: 5, step: 0.1, unit: "×", label: "Frogs at night", info: "" },
+      dayFrogs: { value: 0.6, min: 0, max: 5, step: 0.1, unit: "×", label: "Frogs by day", info: "" },
+      nightPirates: { value: 1.6, min: 0, max: 5, step: 0.1, unit: "×", label: "Pirate spiders at night", info: "" },
+      dayPirates: { value: 0.4, min: 0, max: 5, step: 0.1, unit: "×", label: "Pirate spiders by day", info: "" },
     },
   },
 

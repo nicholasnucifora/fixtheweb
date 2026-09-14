@@ -86,7 +86,7 @@ export function createReplays() {
   };
 
   return {
-    /** Spider \`id\` is in danger: film it (if there's room) for at least the next \`seconds\`. */
+    /** Spider `id` is in danger: film it (if there's room) for at least the next `seconds`. */
     watch(id: string, seconds = 3) {
       const r = den.replays;
       if (!r.enabled) return;
@@ -103,7 +103,7 @@ export function createReplays() {
       if (film.died === null) film.until = Math.max(film.until, now + seconds * 1000);
     },
 
-    /** It died: film a moment more (\`after\` seconds, or the usual), then save it. */
+    /** It died: film a moment more (`after` seconds, or the usual), then save it. */
     died(id: string, after = den.replays.after) {
       const film = films.get(id);
       if (!film || film.died !== null) return;
@@ -123,9 +123,9 @@ export function createReplays() {
     },
 
     /**
-     * After the den's drawn: a picture for each film that's due one, of \`source\` (the den's canvas,
-     * \`dpr\` device px to a den px) around where its spider is (\`where\`, den px, or null once it's gone),
-     * on \`background\`.
+     * After the den's drawn: a picture for each film that's due one, of `source` (the den's canvas,
+     * `dpr` device px to a den px) around where its spider is (`where`, den px, or null once it's gone),
+     * on `background`.
      */
     capture(source: HTMLCanvasElement, dpr: number, unit: number, where: (id: string) => Vec | null, background: string) {
       if (!films.size) return;
@@ -253,12 +253,12 @@ async function save(replay: Replay) {
   storeList();
 }
 
-/** Whether there's a replay of spider \`id\`'s death. */
+/** Whether there's a replay of spider `id`'s death. */
 export const hasReplay = (id: string) => list.includes(id);
 
 export const loadReplay = (id: string) => run<Replay | undefined>("readonly", (store) => store.get(id));
 
-/** Forgets every replay except those of \`ids\` (all of them, with none given). */
+/** Forgets every replay except those of `ids` (all of them, with none given). */
 export function forgetReplays(ids: Set<string> = new Set()) {
   const gone = list.filter((id) => !ids.has(id));
   if (!gone.length) return;

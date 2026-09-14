@@ -1,5 +1,6 @@
 import { drawSnack, type Snack } from "../spider-string/food";
 import { den } from "./config";
+import { daylight } from "./daytime";
 import type { Critter } from "./critter";
 import type { Spot, Vec, Web } from "./web";
 
@@ -78,7 +79,10 @@ export function createBugs(den_: { web: Web; unit: number }) {
     const { width: w, height: h } = den_.web;
     const f = den.flies;
     const roll = Math.random();
-    const kind: Snack = roll < f.ladybirds ? "ladybird" : roll < f.ladybirds + f.moths ? "moth" : "fly";
+    const day = daylight();
+    const moths = den.schedule.nightMoths + (f.moths - den.schedule.nightMoths) * day;
+    const ladybirds = f.ladybirds * day;
+    const kind: Snack = roll < ladybirds ? "ladybird" : roll < ladybirds + moths ? "moth" : "fly";
     const side = Math.floor(Math.random() * 3);
     const margin = 30;
     const [x, y, toward] =
@@ -196,16 +200,17 @@ export function createBugs(den_: { web: Web; unit: number }) {
     },
 
     /** `amount` is how many flies come in, next to normal (0: none). */
-    update(dt: number, amount: number) {
+    /** `dt`: seconds of movement; `amount`: how many flies come, next to usual; `rate`: how much faster than moving time goes. */
+    update(dt: number, amount: number, rate = 1) {
       const web = den_.web;
       const f = den.flies;
       time += dt;
 
-      nextIn -= dt * amount;
+      nextIn -= dt * amount * rate;
       if (nextIn <= 0) {
         nextIn = between(f.everyFrom, f.everyTo);
         const about = list.filter((b) => b.state !== "gone" && b.state !== "eaten").length;
-        if (amount > 0 && f.enabled && about < Math.ceil(f.most * Math.max(1, amount))) flyIn();
+        if (amount > 0 && f.enabled && about < Math.ceil(f.most * Math.max(1, amount) * Math.sqrt(Math.max(1, rate)))) flyIn();
       }
 
       for (const bug of list) {
@@ -251,7 +256,7 @@ export function createBugs(den_: { web: Web; unit: number }) {
             continue;
           }
           const [px, py] = web.point(bug.spot);
-          bug.stuckFor += dt;
+          bug.stuckFor += dt * rate;
           if (bug.struggle > 0) {
             bug.struggle -= dt;
             web.wear(bug.spot.edge, den.health.flyWear * dt, bug.spot.t);

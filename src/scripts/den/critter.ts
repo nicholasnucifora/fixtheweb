@@ -14,7 +14,8 @@ import { type Member, canLay, elderness, grownUp, lifeDone, nameOf, sizeOf } fro
 import { den } from "./config";
 import { type Emote, type EmoteColors, createEmotes } from "./emotes";
 import { type Feeling, effect, feel } from "./genes";
-import { settings } from "./settings";
+import { daylight } from "./daytime";
+import { eventRate, settings } from "./settings";
 import type { Spot, Vec, Web } from "./web";
 
 /**
@@ -535,7 +536,8 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     // Not in a pile.
     if (crowdAt(x, y)) return false;
     task = "nap";
-    timer = between(den.habits.napFrom, den.habits.napTo) * (1 + elder());
+    const day = daylight();
+    timer = between(den.habits.napFrom, den.habits.napTo) * (1 + elder()) * (1 + (den.schedule.dayNapLength - 1) * day);
     toward = -1;
     return true;
   };
@@ -842,16 +844,25 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     const energy = trait("energy");
     const tidy = trait("tidiness");
     const baby = member.growth < 1 && member.parent;
+    // Orb weavers are night owls: resting by day, building and getting about after dark.
+    const day = daylight();
+    const s = den.schedule;
+    const byDay = (atNight: number, atDay: number) => atNight + (atDay - atNight) * day;
+    const naps = byDay(s.nightNaps, s.dayNaps);
+    const building = byDay(s.nightWork, s.dayWork);
+    const roam = byDay(s.nightRoam, s.dayRoam);
+    // With time sped up, eggs come round sooner too.
+    const often = Math.sqrt(Math.max(1, eventRate()));
     const choices: [number, () => boolean][] = [
-      [h.wander * (0.4 + 1.2 * energy), wander],
+      [h.wander * (0.4 + 1.2 * energy) * roam, wander],
       [h.hub, goHub],
-      [h.dangle, startDangle],
-      [h.jump * (0.6 + 0.8 * energy), startJump],
-      [h.nap * (1.6 - 1.2 * energy) * (1 + elder()), startNap],
+      [h.dangle * roam, startDangle],
+      [h.jump * (0.6 + 0.8 * energy) * roam, startJump],
+      [h.nap * (1.6 - 1.2 * energy) * (1 + elder()) * naps, startNap],
       [baby ? h.family : 0, goFamily],
-      [grownUp(member) ? r.mend * (0.2 + 1.6 * tidy) : 0, startMend],
-      [grownUp(member) ? r.spin * (0.2 + 1.6 * tidy) * (1 + r.rebuild * wreckNear()) : 0, startSpin],
-      [grownUp(member) ? den.babies.nest * effect(member.genes, "fertility") * (0.5 + energy) : 0, tryNest],
+      [grownUp(member) ? r.mend * (0.2 + 1.6 * tidy) * building : 0, startMend],
+      [grownUp(member) ? r.spin * (0.2 + 1.6 * tidy) * (1 + r.rebuild * wreckNear()) * building : 0, startSpin],
+      [grownUp(member) ? den.babies.nest * effect(member.genes, "fertility") * (0.5 + energy) * often : 0, tryNest],
     ];
     let roll = Math.random() * choices.reduce((sum, [w]) => sum + Math.max(0, w), 0);
     for (const [weight, act] of choices) {
@@ -958,7 +969,7 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
           timer += dt;
           const len = Math.max(1, web.length(work));
           spot.t = clamp(0.5 + (Math.sin(timer * 2.4) * world.unit * 0.08) / len, 0.02, 0.98);
-          web.mend(work, den.repair.rate * silkStrength() * quickness() * dt, silkStrength());
+          web.mend(work, den.repair.rate * silkStrength() * quickness() * dt * eventRate(), silkStrength());
           silkDust(web.point(spot));
           if (web.healthOf(work) >= 0.99) {
             const next = web.frayedNear(x, y, world.unit * 1.2, den.repair.below, (e) => e !== work && world.claim(e, me) && (world.unclaim(e, me), true));

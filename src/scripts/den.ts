@@ -23,6 +23,7 @@ import {
 } from "./den/colony";
 import { den, groups as denGroups, schema as denSchema } from "./den/config";
 import { DEATHS_EVENT, causeText, clearLog, deaths, markSeen, unseen, type Death } from "./den/deaths";
+import { clockText } from "./den/daytime";
 import { REPLAYS_EVENT, hasReplay, loadReplay } from "./den/replays";
 import { FEELINGS, LIMITS, TRAITS, patternRarity, skinRarity, traitWords, type Feeling, type Trait } from "./den/genes";
 import type { SceneId } from "./den/scenes";
@@ -792,7 +793,10 @@ export function mountDen() {
   const showSettings = (open: boolean) => {
     settingsPanel.hidden = !open;
     settingsToggle.setAttribute("aria-expanded", String(open));
-    if (open) showDeaths(false);
+    if (open) {
+      showDeaths(false);
+      refreshClock();
+    }
   };
   const refreshSettings = () => {
     const press = (attr: string, on: (value: string) => boolean) => {
@@ -816,7 +820,13 @@ export function mountDen() {
     if (!b) return;
     if (b.dataset.denSpeed) {
       change({ speed: Number(b.dataset.denSpeed) as DenSettings["speed"] });
-      say(settings.speed === 1 ? "Time's back to normal." : `<strong>Time's running at ${settings.speed}×.</strong> Everything, from flies to growing up.`);
+      say(
+        settings.speed === 1
+          ? "Time's back to normal."
+          : settings.speed > 1
+            ? `<strong>Time's running at ${settings.speed}×.</strong> Days go by faster: more flies, more visitors, hungrier spiders.`
+            : `<strong>Time's running at ${settings.speed}×.</strong> Long, lazy days.`,
+      );
     } else if (b.dataset.denFlies) {
       change({ flies: b.dataset.denFlies as Amount });
     } else if (b.dataset.denPredators) {
@@ -827,6 +837,17 @@ export function mountDen() {
   fightsBox.addEventListener("change", () => change({ fights: fightsBox.checked }));
   document.addEventListener(SETTINGS_EVENT, refreshSettings);
   refreshSettings();
+  /** What time it is in the den, in the settings. */
+  const clock = settingsPanel.querySelector<HTMLElement>("[data-den-clock]")!;
+  const refreshClock = () => {
+    if (!den.day.enabled) {
+      clock.textContent = "";
+      return;
+    }
+    const minutes = den.day.minutes / settings.speed;
+    const length = minutes >= 1 ? `${Math.round(minutes * 10) / 10} minutes` : `${Math.round(minutes * 60)} seconds`;
+    clock.textContent = `It's ${clockText()} in the den. A day takes ${length}.`;
+  };
 
   // With ?tune, a pair of scissors for the webs.
   const cutButton = document.querySelector<HTMLButtonElement>("[data-den-cut]")!;
@@ -1204,6 +1225,7 @@ export function mountDen() {
       refreshPicker();
     }
     if (!deathsPanel.hidden) for (const when of deathsList.querySelectorAll<HTMLElement>(".death-when")) when.textContent = ago(Number(when.dataset.at));
+    if (!settingsPanel.hidden) refreshClock();
   }, 1000);
 
   let saved: string | null = null;

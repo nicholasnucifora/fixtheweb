@@ -1,3 +1,4 @@
+import type { SkyView } from "./sky";
 import type { Vec } from "./web";
 
 /**
@@ -61,6 +62,10 @@ export interface Palette {
 export interface Scene {
   supports: Support[];
   nooks: Nook[];
+  /** Where the sky shows, and where the sun sets. */
+  sky: SkyView;
+  /** Indoors: the sky's only through the window (`sky`), and the rest is the room. */
+  indoors?: boolean;
   /** Is there open air at (x, y) for a web, clear of anything solid? */
   open(x: number, y: number): boolean;
   /** Draws the scenery, in den px. */
@@ -240,6 +245,7 @@ function treeScene(w: number, h: number, unit: number, rand: Rand): Scene {
   return {
     supports,
     nooks,
+    sky: { l: 0, t: 0, r: w, b: h, horizon: h * 0.92 },
     open: (x, y) => x > 2 && x < w - 2 && y > 2 && y < h - 2 && !nearSupport(supports, x, y, 6),
     paint: (ctx, c) => paints.forEach((p) => p(ctx, c)),
   };
@@ -313,7 +319,7 @@ function windowScene(w: number, h: number, unit: number, rand: Rand): Scene {
     }
   }
 
-  // Outside: sky, a sun, clouds, hills and a couple of trees.
+  // Outside: hills and a couple of trees (the sky's drawn by sky.ts).
   const hillFar = wavy(inner.l, inner.r, inner.t + (inner.b - inner.t) * 0.62, unit * 0.25, inner.b, rand);
   const hillNear = wavy(inner.l, inner.r, inner.t + (inner.b - inner.t) * 0.78, unit * 0.18, inner.b, rand);
   const trees = new Path2D();
@@ -325,17 +331,6 @@ function windowScene(w: number, h: number, unit: number, rand: Rand): Scene {
     trees.moveTo(x + r, y);
     trees.arc(x, y, r, 0, Math.PI * 2);
   }
-  const clouds = new Path2D();
-  for (let i = 0; i < 3; i++) {
-    const x = between(inner.l, inner.r);
-    const y = inner.t + (inner.b - inner.t) * between(0.08, 0.35);
-    const r = unit * between(0.12, 0.2);
-    for (const [dx, dy, s] of [[0, 0, 1], [r * 1.1, r * 0.2, 0.8], [-r * 1.05, r * 0.25, 0.75]]) {
-      clouds.moveTo(x + dx + r * s, y + dy);
-      clouds.arc(x + dx, y + dy, r * s, 0, Math.PI * 2);
-    }
-  }
-  const sun: Vec = [inner.l + (inner.r - inner.l) * between(0.6, 0.9), inner.t + (inner.b - inner.t) * between(0.12, 0.25)];
 
   const frame = new Path2D();
   frame.rect(left, top, right - left, bottom - top);
@@ -379,6 +374,8 @@ function windowScene(w: number, h: number, unit: number, rand: Rand): Scene {
   return {
     supports,
     nooks,
+    sky: { l: inner.l, t: inner.t, r: inner.r, b: inner.b, horizon: inner.t + (inner.b - inner.t) * 0.7 },
+    indoors: true,
     open: (x, y) =>
       openings.some(([x0, y0, x1, y1]) => x > x0 + 3 && x < x1 - 3 && y > y0 + 3 && y < y1 - 3) &&
       !(x > potX - potWidth && x < potX + potWidth && y > potTop - 6) &&
@@ -388,14 +385,6 @@ function windowScene(w: number, h: number, unit: number, rand: Rand): Scene {
       ctx.beginPath();
       ctx.rect(inner.l, inner.t, inner.r - inner.l, inner.b - inner.t);
       ctx.clip();
-      ctx.fillStyle = c.sky;
-      ctx.fillRect(inner.l, inner.t, inner.r - inner.l, inner.b - inner.t);
-      ctx.fillStyle = c.sun;
-      ctx.beginPath();
-      ctx.arc(sun[0], sun[1], unit * 0.28, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = c.cloud;
-      ctx.fill(clouds);
       ctx.fillStyle = c.hillFar;
       ctx.fill(hillFar);
       ctx.fill(trees);
@@ -558,6 +547,7 @@ function fenceScene(w: number, h: number, unit: number, rand: Rand): Scene {
   return {
     supports,
     nooks,
+    sky: { l: 0, t: 0, r: w, b: h, horizon: ground },
     open: (x, y) =>
       x > 2 && x < w - 2 && y > 2 && y < ground - 8 && !nearSupport(supports, x, y, 6) && !heads.some(([hx, hy, r]) => Math.hypot(x - hx, y - hy) < r * 1.9),
     paint(ctx, c) {

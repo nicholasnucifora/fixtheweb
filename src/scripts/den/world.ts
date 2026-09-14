@@ -47,7 +47,9 @@ import { createDebris } from "./debris";
 import { effect, randomGenes } from "./genes";
 import { type Hunter, type HuntWorld, createBird, createFrog } from "./predators";
 import { SCENES, type Palette, type Scene, type SceneId, buildScene } from "./scenes";
-import { fliesAmount, predatorsAmount, settings } from "./settings";
+import { clockText, lightAt, setTimeOfDay, timeOfDay } from "./daytime";
+import { eventRate, fliesAmount, motion, predatorsAmount, settings } from "./settings";
+import { createSky } from "./sky";
 import { type Spot, type Vec, Web, random } from "./web";
 
 /**
@@ -220,6 +222,9 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const colors = { ink: "#1b1e29", accent: "#2b8666", surface: "#ffffff", bg: "#f7f5ef" };
   /** Films of spiders in danger, kept if they die (for the deaths log). */
   const replays = createReplays();
+  const sky = createSky();
+  /** Seconds of movement last frame, for the sky's twinkling and drifting. */
+  let moved = 0;
 
   const world: DenWorld = {
     web,
@@ -838,12 +843,20 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const updateDanger = (dt: number) => {
     const p = den.predators;
     const amount = predatorsAmount();
-    huntIn -= dt * amount;
+    huntIn -= dt * amount * eventRate();
     if (huntIn <= 0) {
       huntIn = between(p.everyFrom, p.everyTo);
       const busy = hunters.length > 0 || pirates.size > 0;
       if (p.enabled && amount > 0 && !busy && members().length >= p.atLeast) {
-        const kinds: ["bird" | "frog" | "pirate", number][] = [["bird", p.bird], ["frog", p.frog], ["pirate", p.pirate]];
+        // Birds hunt by day; frogs and pirate spiders mostly after dark.
+        const day = lightAt().day;
+        const s = den.schedule;
+        const byDay = (atNight: number, atDay: number) => atNight + (atDay - atNight) * day;
+        const kinds: ["bird" | "frog" | "pirate", number][] = [
+          ["bird", p.bird * byDay(s.nightBirds, 1)],
+          ["frog", p.frog * byDay(s.nightFrogs, s.dayFrogs)],
+          ["pirate", p.pirate * byDay(s.nightPirates, s.dayPirates)],
+        ];
         let roll = Math.random() * kinds.reduce((s, [, w]) => s + w, 0);
         const kind = kinds.find(([, w]) => (roll -= w) <= 0)?.[0];
         if (kind) spawnHunter(kind);
@@ -1187,6 +1200,10 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       const m = picked();
       if (m) reroll(m.id, true);
     },
+    "day.dawn": () => setTimeOfDay(0.25),
+    "day.noon": () => setTimeOfDay(0.5),
+    "day.dusk": () => setTimeOfDay(0.75),
+    "day.midnight": () => setTimeOfDay(0),
     "tools.spawnFly": () => bugs.flyIn(),
     "tools.bird": () => spawnHunter("bird"),
     "tools.frog": () => spawnHunter("frog"),
@@ -1281,7 +1298,9 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     const began = performance.now();
     const real = Math.max(0, Math.min((now - last) / 1000, config.sim.maxFrame));
     last = now;
-    const dt = real * config.sim.timeScale * settings.speed;
+    // Everyone moves at nearly their usual pace; it's the den's day and life that speed up.
+    const dt = real * config.sim.timeScale * motion();
+    moved = dt;
     fit();
     if (!web.width) return;
     frames++;
@@ -1292,7 +1311,8 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     web.decay((real * den.pace.speed * settings.speed) / 3600);
     updateSacs(dt);
     web.step(dt);
-    bugs.update(dt, fliesAmount());
+    const day = lightAt().day;
+    bugs.update(dt, fliesAmount() * (den.schedule.nightFlies + (1 - den.schedule.nightFlies) * day), eventRate());
     for (const c of world.critters) c.think(dt);
     updateFights(dt);
     updateDanger(dt);
@@ -1409,6 +1429,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (const h of hunters) if (h.kind === "bird") h.draw(ctx, { ink: colors.ink, surface: colors.surface, outline: dark.matches });
     bugs.draw(ctx, true);
+    drawDaylight();
     if (cutMarks.length) {
       ctx.save();
       ctx.strokeStyle = colors.accent;
@@ -1434,7 +1455,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       const lines = [
         `${world.critters.filter((c) => !c.pirate).length} spiders · ${pirates.size} pirates · ${hunters.length} predators · ${fights.length} fights`,
         `web ${Math.round((1 - health.dead / Math.max(1, health.silk)) * 100)}% whole · health ${Math.round(health.health * 100)}% · ${debris.count} pieces`,
-        `${frameMs.toFixed(1)} ms a frame · time ${settings.speed}× · life ${den.pace.speed}×`,
+        `${frameMs.toFixed(1)} ms a frame · time ${settings.speed}× (moving ${motion().toFixed(2)}×) · life ${den.pace.speed}× · ${clockText()}`,
       ];
       ctx.font = "11px ui-monospace, monospace";
       ctx.textAlign = "right";
@@ -1448,6 +1469,26 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
       });
     }
   };
+  /**
+   * The time of day: everything drawn so far takes on its light, the sky goes in behind it all, and
+   * sunbeams, lens flare and fireflies go on top.
+   */
+  const drawDaylight = () => {
+    const t = timeOfDay();
+    const light = lightAt(t);
+    const view = scene?.sky ?? { l: 0, t: 0, r: web.width, b: web.height, horizon: web.height * 0.92 };
+    const indoors = !!scene?.indoors;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sky.tint(ctx, web.width, web.height, light, dark.matches);
+    const layer = sky.paint(canvas, dpr, world.unit, view, indoors, colors.bg, t, light, dark.matches, moved);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.drawImage(layer, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sky.glow(ctx, world.unit, view, indoors, t, light, dark.matches, moved);
+  };
+
   const rank = (c: Critter) => (c.held ? 3 : c.member.id === world.pickedId ? 2 : c.member.main ? 1 : 0);
 
   readColors();
