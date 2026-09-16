@@ -3,48 +3,21 @@ import Logo from "../assets/brand/fixtheweb-logo.svg";
 import { linkAttrs, type Link } from "../components/links";
 import SpiderString from "../components/SpiderString.astro";
 import Base from "../layouts/Base.astro";
-import { PARTS, WORTH_DEFAULT, isNone, lifeOf } from "../scripts/life/model";
+import { WORTH_DEFAULT, isNone, lifeOf } from "../scripts/life/model";
 
-const pillars = [
-  {
-    kicker: "Algorithmic Autonomy",
-    headline: "Reclaim Your Feed",
-    body: "Doomscrolling and outrage loops aren't accidents; they're business models. Platforms should give people native control over how their apps work, and switch the defaults to ones built for wellbeing, not engagement.",
-  },
-  {
-    kicker: "Sandboxes for Independent Safety Labs",
-    headline: "Evidence-Based Regulation",
-    body: "Regulators shouldn't have to guess what works, or take Big Tech's word for it. Give researchers and policy teams direct API sandbox access to test UX safeguards in live environments, so decisions rest on evidence and benefit everyone.",
-  },
-  {
-    kicker: "Building Real Proofs (Villow)",
-    headline: "Tools, Not Just Talk",
-    body: "We use public APIs to build working alternatives like Villow, showing exactly how platforms can put user control, intentional viewing and sanity back into the front-end experience.",
-  },
-];
-
-const ageChecks = {
-  today: {
-    title: "Upload-your-ID checks",
-    points: [
-      "A passport, licence or face scan for every site",
-      "Stored on servers you'll never see",
-      "One breach, and it's out there for good",
-    ],
-  },
-  better: {
-    title: "On-device age checks",
-    points: [
-      "Checked once, then kept on your own device",
-      "Unlocked with your passkey, fingerprint or face",
-      "Sites only learn “old enough”: nothing to leak",
-    ],
-  },
-};
+/**
+ * The home page, while Fix the Web is still being built: what the web costs an average life (a taste of
+ * /life), a placeholder where the asks will go once they're written, and Villow, the app we're building
+ * first.
+ */
 
 /** A taste of Your Life on Screens (/life): the rest of an average 15-year-old Australian's life, worked out the same way. */
 const teen = lifeOf({ age: 15, country: "au", sex: "everyone", screens: null, worth: WORTH_DEFAULT });
 const one = (years: number) => years.toFixed(1);
+const percent = (share: number) => `${Math.round(share * 100)}%`;
+/** Screens as a share of the years that are left, and of the waking ones. */
+const ofLife = percent(teen.years.screens / teen.left);
+const ofWaking = percent(teen.years.screens / (teen.left - teen.years.sleep));
 
 /** Our work: a taste of Villow. Its own site goes into the detail; give `site` an href once it's live. */
 const villow = {
@@ -78,96 +51,60 @@ const villow = {
 };
 ---
 
-<Base title="Fix the Web" page="home">
+<Base title="Fix the Web · In development" page="home">
   <main>
     <section class="hero" id="top">
       <h1><Logo class="logo" role="img" aria-label="Fix the Web" /></h1>
-      <p>Coming soon.</p>
+      <p class="status">In development · not launched yet</p>
+      <p class="hero-note">We're building Villow first. Fix the Web comes after it.</p>
     </section>
 
     <section class="section intro">
       <h2 class="punchline">The web isn't broken by accident. <em>Let's fix it on purpose.</em></h2>
       <p class="lede">
-        Feeds engineered to keep you scrolling, safeguards nobody's allowed to test, and age checks that stockpile
-        our faces and IDs. None of it has to work this way.
+        It's built to take as much of your time as it can get. That's the part we can already measure, so that's
+        where this starts.
       </p>
     </section>
 
-    <section class="section life-teaser">
-      <a class="teaser" href="/life">
-        <span class="teaser-warning">
-          <span class="teaser-flag">Warning</span>
-          <span class="teaser-text">
-            An average 15&#8209;year&#8209;old in Australia will spend{" "}
-            <span class="teaser-years">{one(teen.years.screens)} years</span> of the life they have left on screens
-          </span>
-        </span>
-        <span class="teaser-sub">
-          {one(teen.left)} years left, and{" "}
-          {isNone(teen.years.free) ? "no free time away from a screen at all" : `${one(teen.years.free)} years of free time away from a screen`}.
-        </span>
-        <span class="teaser-bar" aria-hidden="true">
-          {PARTS.map((part) => <span data-part={part} style={`flex-grow: ${teen.years[part]}`} />)}
-        </span>
-        <span class="teaser-cta">See what's left of yours →</span>
-      </a>
-      <p class="teaser-note">
+    <!-- What the web costs an average life, in plain type. The page it links to does the confronting part. -->
+    <section class="section screens">
+      <p class="eyebrow">Your life on screens</p>
+      <h2 class="figure">
+        An average 15&#8209;year&#8209;old in Australia has {one(teen.left)} years of life left.{" "}
+        <em>{one(teen.years.screens)} of them go on a screen.</em>
+      </h2>
+      <p class="lede">
+        That's {ofLife} of everything they have left, and {ofWaking} of the hours they'll be awake for. Once sleep,
+        school, work and keeping a life running have taken their share,{" "}
+        {
+          isNone(teen.years.free)
+            ? "there's no free time away from a screen left at all"
+            : `${one(teen.years.free)} years of free time away from a screen are left`
+        }.
+      </p>
+      <p class="screens-cta"><a href="/life">See what's left of yours →</a></p>
+      <p class="note">
         From ABS life tables and the American Time Use Survey. <a href="/life#method">How we worked it out</a>.
       </p>
     </section>
 
-    <section class="section">
+    <!-- The asks go here once they're written. Until then it says so, rather than standing for anything yet. -->
+    <section class="section pending">
       <p class="eyebrow">What we're pushing for</p>
-      <h2>Three ways to fix it</h2>
-      <div class="cards">
-        {
-          pillars.map((pillar) => (
-            <article class="card">
-              <p class="card-kicker">{pillar.kicker}</p>
-              <h3>{pillar.headline}</h3>
-              <p>{pillar.body}</p>
-            </article>
-          ))
-        }
-      </div>
-    </section>
-
-    <section class="section split">
-      <div>
-        <p class="eyebrow">Age checks</p>
-        <h2>Prove your age, not your identity</h2>
-        <p>
-          Countries are rushing to require age checks online, and most end the same way: upload your ID or scan your
-          face, and trust it's stored safely until the next data breach.
-        </p>
-        <p>
-          There's a better way. Verify once, then keep your age as a credential on your own phone or computer,
-          unlocked by the passkey, fingerprint or face unlock you already use. Sites get a simple yes or no, and
-          never see your ID or your face, so there's nothing of yours to leak.
-        </p>
-      </div>
-      <div class="compare">
-        <div class="compare-card">
-          <h3>{ageChecks.today.title}</h3>
-          <ul>{ageChecks.today.points.map((point) => <li>{point}</li>)}</ul>
-        </div>
-        <div class="compare-card better">
-          <h3>{ageChecks.better.title}</h3>
-          <ul>{ageChecks.better.points.map((point) => <li>{point}</li>)}</ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <p class="eyebrow">Where we stand</p>
-      <h2>Open by default. Better by design.</h2>
+      <h2>To be decided.</h2>
       <p>
-        Fix the Web stands for an open internet that isn't built on surveillance. We're not asking for the web to be
-        locked down. We're asking platforms to hand people real tools, and then give them every reason to use them:
-        recommending healthier features at the right moment, putting controls where people will actually find them,
-        and making the better choice the easy one.
+        Fix the Web hasn't launched, and none of its asks are settled. When they are, each one will be a specific
+        change we can point at, with the evidence behind it and its sources in the open. Nothing goes up here until
+        it can be defended line by line.
       </p>
+      <ul class="tbd">
+        <li>TBD</li>
+        <li>TBD</li>
+        <li>TBD</li>
+      </ul>
     </section>
+
     <section class="section work">
       <p class="eyebrow">Our work</p>
       <h2>Villow: proof it can be better</h2>
@@ -187,7 +124,7 @@ const villow = {
       </div>
       <div class="cta">
         <a class="button" {...linkAttrs(villow.site)}>{villow.site.label}</a>
-        <p class="cta-note">That's just a taste. Villow's own site goes into everything.</p>
+        <p class="cta-note">Villow is what we're building first. Its own site isn't up yet either.</p>
       </div>
     </section>
   </main>
@@ -227,6 +164,33 @@ const villow = {
     width: min(80vw, 640px);
     height: auto;
   }
+  /* None of this is live yet, and the page says so before anything else. */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1.75rem 0 0;
+    padding: 0.375rem 0.875rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--fill);
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .status::before {
+    content: "";
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .hero-note {
+    margin: 0.875rem 0 0;
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
 
   /* ── Content ── */
   .section {
@@ -249,8 +213,7 @@ const villow = {
     margin: 0 0 1rem;
     color: var(--muted);
   }
-  .eyebrow,
-  .card-kicker {
+  .eyebrow {
     font-size: 0.8125rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -281,191 +244,72 @@ const villow = {
     font-size: 1.25rem;
   }
 
-  /* The three pillars */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.25rem;
-    margin-top: 2.5rem;
-  }
-  .card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 1.5rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-  }
-  .section .card-kicker {
-    margin: 0;
-    color: var(--accent);
-    font-size: 0.75rem;
-  }
-  .card h3 {
-    margin: 0 0 0.25rem;
-    font-size: 1.375rem;
-    line-height: 1.2;
-  }
-  .section .card p:last-child {
-    margin: 0;
-    font-size: 1rem;
-  }
-
-  /* Age checks: the idea beside the two ways side by side */
-  .split {
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    gap: 3rem;
-    align-items: center;
-  }
-  @media (max-width: 820px) {
-    .split {
-      grid-template-columns: 1fr;
-    }
-  }
-  .compare {
-    display: grid;
-    gap: 1rem;
-  }
-  .compare-card {
-    padding: 1.25rem 1.5rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-  }
-  .compare-card.better {
-    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  }
-  .compare-card h3 {
-    margin: 0 0 0.75rem;
-    font-size: 1rem;
-  }
-  .compare-card ul {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    font-size: 0.9375rem;
-    color: var(--muted);
-  }
-  .compare-card li {
-    display: flex;
-    gap: 0.625rem;
-  }
-  .compare-card li::before {
-    content: "✕";
-    content: "✕" / "";
-    flex: none;
-    width: 1em;
-    font-weight: 700;
-    color: #d9534f;
-  }
-  .compare-card.better li::before {
-    content: "✓";
-    content: "✓" / "";
-    color: var(--accent);
-  }
-
   /*
-   * Your Life on Screens, as a warning on a plain pack: Pantone 448 C, the colour Australia's cigarette
-   * packs are (see /life). The bar is the rest of that life: sleep, work, upkeep, screens, free time.
+   * Your Life on Screens, as plain type: the sentence set back, the years on screens in front of it. The
+   * figures come from the same sums as /life, and the note under them says where they're from.
    */
-  .teaser {
-    display: grid;
-    gap: 1rem;
-    padding: clamp(0.875rem, 2.5vw, 1.25rem);
-    color: #e9e6dc;
-    background: #4a412a;
-    border-radius: 8px;
-    text-decoration: none;
-    box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.45);
-  }
-  .teaser-warning {
-    display: grid;
-    justify-items: start;
-    gap: 1rem;
-    padding: clamp(1.25rem, 4vw, 2.25rem);
-    color: #fff;
-    background: #111;
-  }
-  .teaser-flag {
-    padding: 0.25rem 0.5rem;
-    color: #111;
-    background: #fff;
-    font-size: 0.875rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .teaser-text {
-    max-width: 22ch;
-    font-size: clamp(1.625rem, 4.5vw, 2.75rem);
-    font-weight: 900;
-    line-height: 1.02;
-    text-transform: uppercase;
-    text-wrap: balance;
-  }
-  .teaser-years {
-    display: block;
-    margin-block: 0.1em;
-    font-size: 1.5em;
-    line-height: 0.95;
-  }
-  .teaser-sub {
-    padding-inline: 0.25rem;
-    font-size: 1.0625rem;
+  .section .figure {
+    max-width: 26ch;
+    margin-bottom: 1.5rem;
+    color: var(--muted);
+    font-size: clamp(1.625rem, 4vw, 2.375rem);
     font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
-  .teaser-bar {
-    display: flex;
-    height: 1.25rem;
-    margin-inline: 0.25rem;
-    overflow: hidden;
-    border-radius: 3px;
-  }
-  .teaser-bar span {
-    flex-basis: 0;
-    min-width: 0;
-  }
-  .teaser-bar span + span {
-    box-shadow: inset 2px 0 0 #4a412a;
-  }
-  /* The same colours as /life's. */
-  .teaser-bar [data-part="sleep"] {
-    background: #2a78d6;
-  }
-  .teaser-bar [data-part="work"] {
-    background: #4a3aa7;
-  }
-  .teaser-bar [data-part="upkeep"] {
-    background: #eda100;
-  }
-  /* Screens: the pack's own colour, picked out in black so it shows against it. */
-  .teaser-bar [data-part="screens"] {
-    background: #111;
-  }
-  .teaser-bar [data-part="free"] {
-    background: #008300;
-  }
-  .teaser-cta {
-    justify-self: start;
-    padding: 0.25rem;
-    color: #fff;
+  .figure em {
+    display: block;
+    margin-top: 0.3em;
+    color: var(--ink);
+    font-style: normal;
     font-weight: 800;
   }
-  .teaser:hover .teaser-cta,
-  .teaser:focus-visible .teaser-cta {
+  .section .screens-cta {
+    margin: 1.5rem 0 0;
+  }
+  .screens-cta a {
+    color: var(--accent);
+    font-size: 1.1875rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .screens-cta a:hover,
+  .screens-cta a:focus-visible {
     text-decoration: underline;
   }
-  .section .teaser-note {
+  .section .note {
     max-width: none;
-    margin: 0.75rem 0 0;
+    margin: 1.75rem 0 0;
     font-size: 0.875rem;
   }
-  .teaser-note a {
+  .note a {
     color: inherit;
+  }
+
+  /* What we're pushing for: three spaces waiting for it. */
+  .tbd {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin: 2.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tbd li {
+    display: grid;
+    place-items: center;
+    min-height: 7.5rem;
+    border: 1px dashed color-mix(in srgb, var(--ink) 20%, transparent);
+    border-radius: 16px;
+    color: var(--unbuilt);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  @media (max-width: 560px) {
+    .tbd li {
+      min-height: 4.5rem;
+    }
   }
 
   /* Our work: Villow */
