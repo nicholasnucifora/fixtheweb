@@ -28,6 +28,7 @@ Static assets only for now; config is in `wrangler.jsonc`.
 - `design/spider/parts/` — the spider drawn as separate parts (body, each eye, each pupil, mouth, six legs). `design/spider/reference/` holds the traced full spider they were cut from.
 - `src/assets/spider/spider.svg` — the parts assembled into one SVG. Generated: after changing a part, run `npm run build:spider`. Parts exported cropped are lined up with the reference automatically; a redrawn part should be exported on the full 596×401 canvas. Legs are numbered top to bottom (`L1`–`L3`, `R1`–`R3`, left/right as you look at it) and carry their hip pivot.
 - Each letter path in the logo has a `data-glyph` attribute (`f`, `i`, `i-dot`, `x`, `the`, `w`, `e`, `b`) so effects can target a letter by selector.
+- `src/assets/brand/villow-mark-on-light.svg`, `-on-dark.svg` — Villow's mark, beside "Our work" on the home page. Villow's kit is the untracked `villow-icons/` folder; these two are copied out of its `svg/`, unchanged. `src/components/VillowMark.astro` picks between them with `prefers-color-scheme`, the same setting the page's own colours follow, since the site has no theme toggle of its own. Villow's `fixed` and `mono` versions aren't in the site; nor is the `micro` cut, which its mark needs below 24px.
 
 ## Spider string
 

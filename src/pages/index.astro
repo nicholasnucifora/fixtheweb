@@ -2,6 +2,7 @@
 import Logo from "../assets/brand/fixtheweb-logo.svg";
 import { linkAttrs, type Link } from "../components/links";
 import SpiderString from "../components/SpiderString.astro";
+import VillowMark from "../components/VillowMark.astro";
 import Base from "../layouts/Base.astro";
 import { WORTH_DEFAULT, isNone, lifeOf } from "../scripts/life/model";
 
@@ -105,8 +106,13 @@ const villow = {
     </section>
 
     <section class="section work">
-      <p class="eyebrow">Our work</p>
-      <h2>Villow: proof it can be better</h2>
+      <div class="work-head">
+        <VillowMark size={72} alt="" class="work-mark" />
+        <div>
+          <p class="eyebrow">Our work</p>
+          <h2>Villow: proof it can be better</h2>
+        </div>
+      </div>
       <p class="lede">
         Villow is our app for watching YouTube, on desktop and mobile. It doesn't take the algorithm away. It hands you the
         controls platforms won't, and makes them fun enough that you'll actually use them.
@@ -286,6 +292,26 @@ const villow = {
   /* Our work: Villow */
   .work {
     padding-bottom: 7rem;
+  }
+  /* Villow's own mark beside the section's name, rather than above it, so it reads as whose work this is. */
+  .work-head {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .work-head h2 {
+    margin-bottom: 0;
+  }
+  @media (max-width: 560px) {
+    .work-head {
+      gap: 1rem;
+    }
+    /* A little smaller, so the heading still gets two lines; the width follows its own ratio. */
+    .work-mark img {
+      height: 56px;
+      width: auto;
+    }
   }
   .features {
     display: grid;

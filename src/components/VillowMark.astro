@@ -1,0 +1,39 @@
+---
+// no-inline: kept as files, so the browser only fetches the palette it's showing.
+import onDark from "../assets/brand/villow-mark-on-dark.svg?url&no-inline";
+import onLight from "../assets/brand/villow-mark-on-light.svg?url&no-inline";
+
+/**
+ * The Villow mark. It comes in two palettes, one for light backgrounds and one for dark, and the
+ * one that shows has to match the surface it sits on. This site has no theme of its own — it
+ * follows the OS, like its colours do — so the browser picks, and both files are named up front so
+ * there's no flash of the wrong one.
+ *
+ * The mark is portrait (712 × 798): `size` is its height and the width follows, so it's never
+ * stretched. Below 24px it needs Villow's `micro` cut instead (a wider gap between the halves, so
+ * it doesn't blur shut), which isn't in the site yet.
+ */
+interface Props {
+  /** The mark's height in px. */
+  size: number;
+  /** "Villow" where the mark stands alone; "" where the word is already next to it. */
+  alt?: string;
+  class?: string;
+}
+
+const { size, alt = "Villow", class: className } = Astro.props;
+const width = Math.round((size * 712) / 798);
+---
+
+<picture class:list={["villow-mark", className]}>
+  <source srcset={onDark} media="(prefers-color-scheme: dark)" />
+  <img src={onLight} alt={alt} height={size} width={width} />
+</picture>
+
+<style>
+  /* No baseline gap under it, so it lines up with whatever it sits beside. */
+  .villow-mark,
+  .villow-mark img {
+    display: block;
+  }
+</style>
