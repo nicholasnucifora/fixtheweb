@@ -1,17 +1,27 @@
 ---
-// no-inline: kept as files, so the browser only fetches the palette it's showing.
+// no-inline: kept as files, so the browser only fetches the one palette it's showing.
+import microOnDark from "../assets/brand/villow-mark-micro-on-dark.svg?url&no-inline";
+import microOnLight from "../assets/brand/villow-mark-micro-on-light.svg?url&no-inline";
 import onDark from "../assets/brand/villow-mark-on-dark.svg?url&no-inline";
 import onLight from "../assets/brand/villow-mark-on-light.svg?url&no-inline";
+import smallOnDark from "../assets/brand/villow-mark-small-on-dark.svg?url&no-inline";
+import smallOnLight from "../assets/brand/villow-mark-small-on-light.svg?url&no-inline";
 
 /**
- * The Villow mark. It comes in two palettes, one for light backgrounds and one for dark, and the
- * one that shows has to match the surface it sits on. This site has no theme of its own — it
- * follows the OS, like its colours do — so the browser picks, and both files are named up front so
- * there's no flash of the wrong one.
+ * The Villow mark, from Villow's own icon kit (version 3). Not ours to redraw: the files are used
+ * as they came, and a new size or palette has to come from the kit rather than be made here.
  *
- * The mark is portrait (712 × 798): `size` is its height and the width follows, so it's never
- * stretched. Below 24px it needs Villow's `micro` cut instead (a wider gap between the halves, so
- * it doesn't blur shut), which isn't in the site yet.
+ * It comes in two palettes, one for light grounds and one for dark, and the one that shows has to
+ * match what it sits on. This site has no theme of its own — it follows the OS, like its colours
+ * do — so the browser picks, and both files are named up front so there's no flash of the wrong one.
+ *
+ * The mark is a sail and a swoosh with a gap between them. Drawn small, that gap would blur shut,
+ * so the kit cuts it three ways and the right one goes by the height the mark is DRAWN at:
+ * 33px and up it tapers to a point as drawn, 21–32px and 20px-and-under hold the gap open as an
+ * even lane. `size` picks between them, so pass the height it actually renders at — the smallest
+ * one, if CSS shrinks it on narrow screens.
+ *
+ * The mark is portrait (712 × 798): the width follows `size`, so it's never stretched.
  */
 interface Props {
   /** The mark's height in px. */
@@ -22,12 +32,18 @@ interface Props {
 }
 
 const { size, alt = "Villow", class: className } = Astro.props;
+const cut =
+  size >= 33
+    ? { light: onLight, dark: onDark }
+    : size >= 21
+      ? { light: smallOnLight, dark: smallOnDark }
+      : { light: microOnLight, dark: microOnDark };
 const width = Math.round((size * 712) / 798);
 ---
 
 <picture class:list={["villow-mark", className]}>
-  <source srcset={onDark} media="(prefers-color-scheme: dark)" />
-  <img src={onLight} alt={alt} height={size} width={width} />
+  <source srcset={cut.dark} media="(prefers-color-scheme: dark)" />
+  <img src={cut.light} alt={alt} height={size} width={width} />
 </picture>
 
 <style>
