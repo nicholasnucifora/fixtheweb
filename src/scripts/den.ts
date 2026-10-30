@@ -22,6 +22,7 @@ import {
   type Member,
 } from "./den/colony";
 import { den, groups as denGroups, schema as denSchema } from "./den/config";
+import { ACCESS_EVENT, hasDenAccess, redeemDenCoupon, startDenAccess } from "./den/access";
 import { DEATHS_EVENT, causeText, clearLog, deaths, markSeen, unseen, type Death } from "./den/deaths";
 import { clockText } from "./den/daytime";
 import { FEELINGS, LIMITS, TRAITS, patternRarity, skinRarity, traitWords, type Feeling, type Trait } from "./den/genes";
@@ -93,7 +94,7 @@ export function mountDen() {
   const wardrobe = document.querySelector<HTMLElement>(".wardrobe");
   if (!main || !wardrobe) return;
 
-  if (new URLSearchParams(location.search).has("tune")) {
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has("tune")) {
     import("./spider-string/tune").then((m) =>
       m.mountTuner({
         values: den as unknown as Record<string, Record<string, number | boolean | string>>,
@@ -143,6 +144,54 @@ export function mountDen() {
   const play = (id: string, detail: object = {}) =>
     document.dispatchEvent(new CustomEvent("spider:play", { detail: { id, ...detail } }));
 
+  // Both paid features use the same server-verified coupon entitlement.
+  const unlockDialog = document.querySelector<HTMLDialogElement>("[data-den-unlock]")!;
+  const couponForm = unlockDialog.querySelector<HTMLFormElement>("[data-den-coupon]")!;
+  const couponInput = couponForm.querySelector<HTMLInputElement>("input")!;
+  const couponNote = couponForm.querySelector<HTMLElement>("[data-coupon-note]")!;
+  const couponSubmit = couponForm.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  let afterUnlock: (() => void) | null = null;
+  const requireAccess = (resume: () => void) => {
+    if (hasDenAccess()) return true;
+    afterUnlock = resume;
+    couponNote.textContent = "";
+    couponInput.removeAttribute("aria-invalid");
+    if (!unlockDialog.open) unlockDialog.showModal();
+    couponInput.focus();
+    return false;
+  };
+  for (const close of unlockDialog.querySelectorAll("[data-unlock-close]")) {
+    close.addEventListener("click", () => unlockDialog.close());
+  }
+  unlockDialog.addEventListener("close", () => {
+    afterUnlock = null;
+    couponInput.value = "";
+  });
+  couponInput.addEventListener("input", () => {
+    couponInput.removeAttribute("aria-invalid");
+    couponNote.textContent = "";
+  });
+  couponForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (couponSubmit.disabled) return;
+    couponSubmit.disabled = true;
+    couponInput.readOnly = true;
+    couponNote.textContent = "Checking your coupon…";
+    const result = await redeemDenCoupon(couponInput.value);
+    couponSubmit.disabled = false;
+    couponInput.readOnly = false;
+    if (!result.ok) {
+      couponNote.textContent = result.why;
+      couponInput.setAttribute("aria-invalid", "true");
+      couponInput.focus();
+      return;
+    }
+    const resume = afterUnlock;
+    unlockDialog.close();
+    resume?.();
+    say("<strong>Den settings and spider dress-up unlocked.</strong> Saved securely in this browser.");
+  });
+
   const world = createWorld(document.querySelector<HTMLElement>("[data-den-world]")!, {
     pick: (id) => {
       if ((picked()?.id ?? null) !== id) pickSpider(id);
@@ -153,6 +202,7 @@ export function mountDen() {
   // ── The two views ─────────────────────────────────────────────────────────
   let view: DenView = "dress";
   const showView = (to: DenView, remember = true) => {
+    if (to === "dress" && !requireAccess(() => showView(to, remember))) return;
     view = to;
     main.dataset.denView = to;
     document.documentElement.dataset.denView = to;
@@ -196,6 +246,7 @@ export function mountDen() {
   showScene();
 
   const setDrawer = (open: boolean, remember = true) => {
+    if (open && !requireAccess(() => setDrawer(open, remember))) return;
     main.dataset.wardrobe = open ? "open" : "closed";
     // The wardrobe and a spider's details share the right-hand side.
     if (open && infoOpen()) {
@@ -342,6 +393,7 @@ export function mountDen() {
 
   /** A tile clicked: dresses the spider being dressed. */
   const apply = (tile: HTMLElement) => {
+    if (!requireAccess(() => apply(tile))) return;
     const m = dressing();
     if (!m) return nobody();
     if (isColour(tile) && coloursLocked(m)) return lockedColours(m);
@@ -362,6 +414,7 @@ export function mountDen() {
 
   /** A tile dropped onto spider `id` in the den: it wears it, picked or not. */
   const dropOn = (tile: HTMLElement, id: string) => {
+    if (!requireAccess(() => dropOn(tile, id))) return;
     const m = byId(id);
     if (!m) return;
     if (isColour(tile) && coloursLocked(m)) return lockedColours(m);
@@ -390,6 +443,7 @@ export function mountDen() {
   }
   for (const swatch of $$<HTMLButtonElement>(".swatch")) {
     swatch.addEventListener("click", () => {
+      if (!hasDenAccess()) return;
       if (!dressing()) return nobody();
       trying.tints[swatch.dataset.slot as Slot] = swatch.dataset.tint as Tint;
       wear();
@@ -461,7 +515,7 @@ export function mountDen() {
   };
 
   const startTileDrag = (tile: HTMLElement, down: PointerEvent) => {
-    if (view !== "den" || down.button !== 0) return;
+    if (!hasDenAccess() || view !== "den" || down.button !== 0) return;
     dragged = false;
     let ghost: HTMLCanvasElement | null = null;
     let over: string | null = null;
@@ -514,6 +568,7 @@ export function mountDen() {
   };
 
   nameInput.addEventListener("input", () => {
+    if (!hasDenAccess()) return;
     if (!dressing()) return;
     trying.name = nameInput.value.slice(0, 24);
     wear();
@@ -521,6 +576,7 @@ export function mountDen() {
 
   const pick = <T>(list: T[]) => list[Math.floor(Math.random() * list.length)];
   wardrobe.querySelector("[data-den-surprise]")?.addEventListener("click", () => {
+    if (!hasDenAccess()) return;
     if (!dressing()) return say("Pick a spider to surprise.");
     for (const slot of Object.keys(SLOTS) as Slot[]) {
       const open = SLOTS[slot].items.filter((item) => isUnlocked(slot, item.id));
@@ -538,6 +594,7 @@ export function mountDen() {
     playFor("faceExcited");
   });
   wardrobe.querySelector("[data-den-undress]")?.addEventListener("click", () => {
+    if (!hasDenAccess()) return;
     if (!dressing()) return say("Pick a spider to undress.");
     setLook(trying, { ...blankLook(), name: trying.name, skin: trying.skin, pattern: trying.pattern, thread: trying.thread });
     wear();
@@ -619,14 +676,16 @@ export function mountDen() {
   document.addEventListener("keydown", (e) => {
     const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, select");
     const popover = !settingsPanel.hidden || !deathsPanel.hidden;
-    if (e.key !== "Escape" || view !== "den" || typing || popover) return;
+    if (e.key !== "Escape" || view !== "den" || typing || popover || unlockDialog.open) return;
     if (infoOpen()) showInfo(false);
     else if (picked()) pickSpider(null);
   });
-  $card("[data-card-dress]").addEventListener("click", () => {
+  const dressFromCard = () => {
+    if (!requireAccess(dressFromCard)) return;
     setDrawer(true);
     wardrobe.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
-  });
+  };
+  $card("[data-card-dress]").addEventListener("click", dressFromCard);
   $card("[data-card-feed]").addEventListener("click", () => {
     const m = picked();
     if (!m) return;
@@ -845,6 +904,7 @@ export function mountDen() {
   const settingsToggle = document.querySelector<HTMLButtonElement>("[data-den-settings-toggle]")!;
   const fightsBox = settingsPanel.querySelector<HTMLInputElement>("[data-den-fights]")!;
   const showSettings = (open: boolean) => {
+    if (open && !requireAccess(() => showSettings(open))) return;
     settingsPanel.hidden = !open;
     settingsToggle.setAttribute("aria-expanded", String(open));
     if (open) {
@@ -862,7 +922,8 @@ export function mountDen() {
     fightsBox.checked = settings.fights;
     // Time's not at its usual speed: the bar says so.
     settingsToggle.toggleAttribute("data-changed", settings.speed !== 1);
-    settingsToggle.title = settings.speed === 1 ? "Den settings" : `Den settings (time at ${settings.speed}×)`;
+    settingsToggle.title = !hasDenAccess() ? "Den settings (paid feature, coupon required)"
+      : settings.speed === 1 ? "Den settings" : `Den settings (time at ${settings.speed}×)`;
   };
   settingsToggle.addEventListener("click", () => showSettings(settingsPanel.hidden));
   settingsPanel.querySelector("[data-den-settings-close]")!.addEventListener("click", () => {
@@ -870,6 +931,7 @@ export function mountDen() {
     settingsToggle.focus();
   });
   settingsPanel.addEventListener("click", (e) => {
+    if (!hasDenAccess()) return;
     const b = (e.target as Element).closest<HTMLButtonElement>("button");
     if (!b) return;
     if (b.dataset.denSpeed) {
@@ -1061,7 +1123,7 @@ export function mountDen() {
     if (!deathsPanel.hidden && !deathsBox.contains(target)) showDeaths(false);
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || unlockDialog.open) return;
     if (!settingsPanel.hidden) {
       showSettings(false);
       settingsToggle.focus();
@@ -1136,6 +1198,29 @@ export function mountDen() {
   // scheme flips (pictures have a dark-mode outline).
   document.addEventListener(LOOK_EVENT, refresh);
   document.addEventListener(COLONY_EVENT, refresh);
+  const refreshAccess = () => {
+    const unlocked = hasDenAccess();
+    main.dataset.denAccess = unlocked ? "unlocked" : "locked";
+    wardrobe.inert = !unlocked;
+    settingsPanel.inert = !unlocked;
+    cardNote.textContent = unlocked
+      ? "Fling them, dangle them, snap their strings. Drag clothes from the wardrobe onto anyone."
+      : "Fling them, dangle them, snap their strings. Unlock dress-up with a coupon to give them a new look.";
+    for (const button of document.querySelectorAll<HTMLElement>("[data-den-paid]")) {
+      if (unlocked) button.removeAttribute("aria-haspopup");
+      else button.setAttribute("aria-haspopup", "dialog");
+    }
+    if (!unlocked) {
+      showSettings(false);
+      setDrawer(false, false);
+      if (view === "dress") showView("den", false);
+      // Discard any unsaved preview if access was cleared in another tab.
+      setLook(trying, dressing()?.look ?? blankLook());
+    }
+    refreshSettings();
+    refresh();
+  };
+  document.addEventListener(ACCESS_EVENT, refreshAccess);
   dark.addEventListener("change", () => {
     pickerKey = portraitKey = "";
     refresh();
@@ -1164,6 +1249,12 @@ export function mountDen() {
     // ignore
   }
   // The den starts with the wardrobe tucked away, so you can see everyone.
-  setDrawer(drawer === "open", false);
-  showView(saved === "den" || location.hash === "#den" ? "den" : "dress", false);
+  refreshAccess();
+  setDrawer(hasDenAccess() && drawer === "open", false);
+  showView(!hasDenAccess() || saved === "den" || location.hash === "#den" ? "den" : "dress", false);
+  void startDenAccess().then((unlocked) => {
+    if (!unlocked || unlockDialog.open) return;
+    setDrawer(drawer === "open", false);
+    showView(saved === "den" || location.hash === "#den" ? "den" : "dress", false);
+  });
 }

@@ -55,11 +55,11 @@ export function parseLook(raw: string | null): Look {
     const id = saved.items?.[slot];
     if (typeof id === "string" && itemOf(slot, id)) look.items[slot] = id;
     const tint = saved.tints?.[slot];
-    if (typeof tint === "string" && tint in PALETTE) look.tints[slot] = tint as Tint;
+    if (typeof tint === "string" && Object.hasOwn(PALETTE, tint)) look.tints[slot] = tint as Tint;
   }
-  if (typeof saved.skin === "string" && saved.skin in SKINS) look.skin = saved.skin as Look["skin"];
-  if (typeof saved.pattern === "string" && saved.pattern in PATTERNS) look.pattern = saved.pattern as Look["pattern"];
-  if (typeof saved.thread === "string" && saved.thread in THREADS) look.thread = saved.thread as Look["thread"];
+  if (typeof saved.skin === "string" && Object.hasOwn(SKINS, saved.skin)) look.skin = saved.skin as Look["skin"];
+  if (typeof saved.pattern === "string" && Object.hasOwn(PATTERNS, saved.pattern)) look.pattern = saved.pattern as Look["pattern"];
+  if (typeof saved.thread === "string" && Object.hasOwn(THREADS, saved.thread)) look.thread = saved.thread as Look["thread"];
   if (typeof saved.name === "string") look.name = saved.name.slice(0, 24);
   return look;
 }
@@ -168,7 +168,7 @@ window.addEventListener("storage", (e) => {
 
 // For trying out locked items before there's a real way to earn them: ?unlock-all on any page
 // unlocks everything in this browser, and ?lock-all locks it all again.
-{
+if (import.meta.env.DEV) {
   const params = new URLSearchParams(location.search);
   if (params.has("unlock-all")) unlocked.add("all");
   if (params.has("lock-all")) unlocked.clear();

@@ -1236,14 +1236,6 @@ export function createCritter(member: Member, world: DenWorld, { pirate = false 
     tension = give > 0 ? extra / give : 0;
     const out = Math.hypot(point.x - head.x, point.y - head.y);
     stretch = span > 0 ? Math.max(0, (out - span) / span) : 0;
-    if (pull.shake > 0 && tension > pull.shakeStart) {
-      const over = (tension - pull.shakeStart) / Math.max(1e-6, 1 - pull.shakeStart);
-      const t = performance.now() / 1000;
-      const wobble = 0.7 * Math.sin(t * pull.shakeSpeed * Math.PI * 2) + 0.3 * Math.sin(t * pull.shakeSpeed * 3.1 * Math.PI * 2 + 1.3);
-      const amount = over * pull.shake * world.unit * wobble;
-      const len = out || 1;
-      point = { x: point.x - ((point.y - head.y) / len) * amount, y: point.y + ((point.x - head.x) / len) * amount };
-    }
     return point;
   };
 

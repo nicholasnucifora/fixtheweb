@@ -1,4 +1,5 @@
 import { config } from "./config";
+import { followAmount, smooth01 } from "./feel";
 import { type Face, type FaceLook, easeFace, faceFor, neutralFace } from "./face";
 import { isIgnored } from "./ignore";
 import type { Rope } from "./rope";
@@ -711,14 +712,23 @@ export function createMood(
         impactAxis,
       };
       const target = faceFor(selected ? looks[selected](context) : null, amount);
-      // Wound up past the string's reach, it's pulled long along the string, and springs back when let go.
-      const long = config.pull.bodyStretch * clamp01(frame.windUp);
-      if (long > 0 && target.squash === 0) {
-        const before = rope.points[rope.points.length - 2] ?? tail;
-        const along: Vec = [tail.x - before.x, tail.y - before.y];
-        const d = Math.hypot(along[0], along[1]);
-        target.squash = -long;
-        if (d > 0) target.squashAxis = [along[0] / d, along[1] / d];
+      // Pulling is a restrained, non-oscillating deformation. Use the whole tether direction:
+      // the last tiny rope segment is too noisy to steer the body's shape.
+      const pull = config.pull;
+      const pullTarget = pull.style === "off" || target.squash !== 0 ? 0 : smooth01(frame.windUp);
+      const pullEase = followAmount(1 / Math.max(0.04, pull.ease), dt);
+      face.pull += (pullTarget - face.pull) * pullEase;
+      if (pullTarget > 0) {
+        const along: Vec = [tail.x - frame.anchor[0], tail.y - frame.anchor[1]];
+        const d = Math.hypot(...along);
+        if (d > 0.001) {
+          // Smooth the unoriented axis (a pull has the same shape in either direction).
+          const sign = along[0] * face.pullAxis[0] + along[1] * face.pullAxis[1] < 0 ? -1 : 1;
+          const x = face.pullAxis[0] + (sign * along[0] / d - face.pullAxis[0]) * pullEase;
+          const y = face.pullAxis[1] + (sign * along[1] / d - face.pullAxis[1]) * pullEase;
+          const length = Math.hypot(x, y) || 1;
+          face.pullAxis = [x / length, y / length];
+        }
       }
       const snappy = selected && (SNAPPY.has(selected) || (selected === "wake" && config.faceWake.style === "startled"));
       const pace = config.faceMotion.speed * (snappy ? 3 : 1);

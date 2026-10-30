@@ -2,6 +2,7 @@ import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
 import type { AnimationState } from "./animation";
 import { config } from "./config";
+import { cursorAttention, followAmount, pullScale, smooth01 } from "./feel";
 import { type Fit, type Pen, dressBack, dressBody, dressFace, dressFeet, dressHat } from "./dress";
 import { type Face, drawEyes, drawMouth } from "./face";
 import { stringDeviceWidth } from "./render";
@@ -452,6 +453,7 @@ export function createSpider(
 
   // ── Pupils look at the cursor ──────────────────────────────────────────────
   let pointer: { x: number; y: number } | null = null;
+  let attention = 0;
   const events = new AbortController();
   if (cursor) {
     window.addEventListener("pointermove", (e) => (pointer = { x: e.clientX, y: e.clientY }), {
@@ -478,9 +480,11 @@ export function createSpider(
     const between: Vec = [avg(eyes.map((e) => e.center[0])), avg(eyes.map((e) => e.center[1]))];
     const distance = at ? Math.hypot(at.x - between[0], at.y - between[1]) / artPerB : Infinity;
     // Idle animations played from the panel get a moment with the eyes to themselves.
-    const noticed = at !== null && distance < p.radius && animation.idleLook <= 0;
+    const close = smooth01(1 - distance / Math.max(0.001, p.closeRadius));
+    const notice = at && animation.idleLook <= 0 ? cursorAttention(distance, p.radius, p.falloff) : 0;
+    attention += (notice - attention) * followAmount((1 + 3 * close) / Math.max(0.05, p.attentionTime), dt);
     const reach = Math.max(0.001, p.reach);
-    const k = 1 - Math.exp(-p.speed * dt);
+    const k = followAmount(p.speed + (p.closeSpeed - p.speed) * close, dt);
     for (const eye of eyes) {
       // Everything here is measured from the middle of the eye, so the two eyes travel alike.
       // "Inward" is toward the other eye, which is +x for the left one.
@@ -491,7 +495,7 @@ export function createSpider(
         (p.restY + animation.gazeY) * eye.room,
       ];
       let look = idle;
-      if (noticed && at) {
+      if (at && attention > 0.00001) {
         const room = eye.room * p.range;
         // Where this eye aims from: the point between the eyes, its own middle, or further out
         // still. Its own middle is what crosses them, because each eye then sees a close cursor
@@ -516,7 +520,7 @@ export function createSpider(
         // an eye and one a pixel below point the pupil to opposite rims. So near the eye — or near
         // whatever point it's aiming from — the look eases back to resting instead of flipping.
         const near = Math.min(dist, Math.hypot(at.x - eye.center[0], at.y - eye.center[1]));
-        const ease = Math.min(1, near / Math.max(0.001, p.settle * eye.radius));
+        const ease = smooth01(near / Math.max(0.001, p.settle * eye.radius)) * attention;
         look = [idle[0] + (aimed[0] - idle[0]) * ease, idle[1] + (aimed[1] - idle[1]) * ease];
       }
       // Where the pupil wants to be, still from the middle of the eye…
@@ -605,6 +609,7 @@ export function createSpider(
   let stillFor = 0;
   let snap = 0;
   let stringShift = 0;
+  const neutralPull = new DOMMatrix();
   /** What hats and dangly clothes wobble by (rad), and how fast. */
   let swing = 0;
   let swingSpeed = 0;
@@ -741,11 +746,17 @@ export function createSpider(
       // on the string rather than shrinking away from it.
       const hitAxis = rotate(face.squashAxis, -(tilt + animation.tilt));
       const hitAngle = Math.atan2(hitAxis[1], hitAxis[0]) / DEG;
+      const pullAxis = rotate(face.pullAxis, -(tilt + animation.tilt));
+      const pullAngle = Math.atan2(pullAxis[1], pullAxis[0]) / DEG;
+      const pulling = face.pull > 0.0001 && config.pull.style !== "off" && config.pull.bodyStretch > 0;
+      const stretch = pullScale(face.pull, config.pull.bodyStretch);
+      const pullMatrix = pulling ? new DOMMatrix().rotate(pullAngle).scale(stretch.along, stretch.across).rotate(-pullAngle) : neutralPull;
       const torso = new DOMMatrix()
         .translate(attach[0], attach[1])
         .rotate(hitAngle)
         .scale(Math.max(0.2, 1 - face.squash), Math.max(0.2, 1 + face.squash * config.faceImpact.bulge))
         .rotate(-hitAngle)
+        .multiply(pullMatrix)
         .translate(-attach[0], -attach[1])
         .scale(torsoScale[0], torsoScale[1], 1, bodyCenter[0], bodyCenter[1]);
       const torsoPoint = (q: Vec): Vec => {
@@ -807,9 +818,15 @@ export function createSpider(
           : null;
         reactToCursor(dt, at ? [at.x, at.y] : null);
         poseLegs(torsoPoint, (along) => threadAt(art, alpha, width, attach, along));
-        lookAround(dt, art.multiply(torso).multiply(faceMatrix));
       }
-      pose = { art, box, width, height, artPerPx: 1 / kx, outline, torso, face: faceMatrix };
+      // Cancel only the pull's shape change around the face's centre, keeping it seated on the
+      // stretching body. Impact and expression animation still affect it exactly as before.
+      const faceAt = faceMatrix.transformPoint(new DOMPoint(...faceCenter));
+      const facePose = pulling && config.pull.style === "body"
+        ? new DOMMatrix().translate(faceAt.x, faceAt.y).multiply(pullMatrix.inverse()).translate(-faceAt.x, -faceAt.y).multiply(faceMatrix)
+        : faceMatrix;
+      if (!fav) lookAround(dt, art.multiply(torso).multiply(facePose));
+      pose = { art, box, width, height, artPerPx: 1 / kx, outline, torso, face: facePose };
 
       const sx = window.scrollX;
       const sy = window.scrollY;

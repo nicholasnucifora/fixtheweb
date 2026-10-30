@@ -94,13 +94,17 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
 ---
 
 <Base title="Spider Den · Fix the Web" page="den">
-  <main class="den" data-den-view="dress" data-wardrobe="open" data-info="closed" data-tuner>
+  <main class="den" data-den-view="den" data-wardrobe="closed" data-info="closed" data-den-access="locked" data-tuner>
     <div class="den-bar" data-spider-ignore>
       <div class="view-switch" role="group" aria-label="View">
-        <button type="button" data-den-show="dress" aria-pressed="true">Dress up</button>
-        <button type="button" data-den-show="den" aria-pressed="false">The den</button>
+        <button type="button" data-den-show="dress" data-den-paid aria-haspopup="dialog" aria-pressed="false">
+          Dress up <span class="paid-lock"><Fragment set:html={lock} /><span class="visually-hidden"> (paid feature, coupon required)</span></span>
+        </button>
+        <button type="button" data-den-show="den" aria-pressed="true">The den</button>
       </div>
-      <button class="chip bar-button" type="button" data-den-wardrobe-toggle aria-expanded="false">Wardrobe</button>
+      <button class="chip bar-button" type="button" data-den-wardrobe-toggle data-den-paid aria-haspopup="dialog" aria-expanded="false">
+        Wardrobe <span class="paid-lock"><Fragment set:html={lock} /><span class="visually-hidden"> (paid feature, coupon required)</span></span>
+      </button>
       <div class="view-switch scene-switch" role="group" aria-label="Scene">
         {
           Object.entries(SCENES).map(([id, { label }]) => (
@@ -114,12 +118,15 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
         class="chip bar-button bar-icon"
         type="button"
         data-den-settings-toggle
+        data-den-paid
+        aria-haspopup="dialog"
         aria-expanded="false"
         aria-controls="den-settings"
         title="Den settings"
       >
         <Fragment set:html={gear} />
         <span class="visually-hidden">Den settings</span>
+        <span class="paid-lock"><Fragment set:html={lock} /><span class="visually-hidden"> (paid feature, coupon required)</span></span>
       </button>
       <button class="chip bar-button bar-icon" type="button" data-den-cut aria-pressed="false" title="Cut threads: drag across the den" hidden>
         <span aria-hidden="true">✂</span>
@@ -159,7 +166,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       </div>
     </div>
 
-    <section class="wardrobe" data-spider-ignore aria-label="Wardrobe">
+    <section class="wardrobe" data-spider-ignore aria-label="Wardrobe" inert>
       <div class="wardrobe-head">
         <label class="name-field">
           <span>Name</span>
@@ -394,19 +401,21 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
         </div>
       </details>
       <div class="card-actions">
-        <button class="chip" type="button" data-card-dress>Dress up</button>
+        <button class="chip" type="button" data-card-dress data-den-paid aria-haspopup="dialog">
+          Dress up <span class="paid-lock"><Fragment set:html={lock} /><span class="visually-hidden"> (paid feature, coupon required)</span></span>
+        </button>
         <button class="chip" type="button" data-card-feed>Feed</button>
         <button class="chip" type="button" data-card-lay>Lay eggs</button>
         <button class="chip" type="button" data-card-make-main>Make main spider</button>
       </div>
       <p class="card-note" data-card-note aria-live="polite">
-        Fling them, dangle them, snap their strings. Drag clothes from the wardrobe onto anyone.
+        Fling them, dangle them, snap their strings. Unlock dress-up with a coupon to give them a new look.
       </p>
     </aside>
 
     <p class="den-toast" data-den-toast data-spider-ignore aria-live="polite" hidden></p>
 
-    <section class="den-settings" id="den-settings" data-den-settings data-spider-ignore aria-label="Den settings" hidden>
+    <section class="den-settings" id="den-settings" data-den-settings data-spider-ignore aria-label="Den settings" hidden inert>
       <div class="panel-head">
         <strong>The den</strong>
         <button class="card-close" type="button" data-den-settings-close aria-label="Close den settings">✕</button>
@@ -467,6 +476,27 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       </form>
     </section>
 
+    <dialog class="den-unlock" data-den-unlock data-spider-ignore aria-labelledby="den-unlock-title" aria-describedby="den-unlock-description">
+      <button class="card-close" type="button" data-unlock-close aria-label="Close coupon prompt">✕</button>
+      <p class="eyebrow">Paid features</p>
+      <h2 id="den-unlock-title">Make the den your own</h2>
+      <p id="den-unlock-description">Unlock den settings and spider dress-up together with your coupon code.</p>
+      <ul class="unlock-features">
+        <li><strong>Den settings</strong><span>Choose the pace, flies, predators and fights.</span></li>
+        <li><strong>Spider dress-up</strong><span>Pick outfits, colours and accessories for your spiders.</span></li>
+      </ul>
+      <form class="code-form" data-den-coupon novalidate>
+        <label for="den-coupon">Coupon code</label>
+        <div class="code-row">
+          <input id="den-coupon" name="coupon" maxlength="128" placeholder="Enter your coupon" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="den-coupon-note" autofocus />
+          <button class="chip" type="submit">Unlock both</button>
+        </div>
+        <p class="code-note" id="den-coupon-note" data-coupon-note aria-live="polite"></p>
+      </form>
+      <p class="unlock-footnote">Once redeemed, your unlock is saved in this browser.</p>
+      <button class="chip" type="button" data-unlock-close>Keep exploring the den</button>
+    </dialog>
+
     <div class="den-deaths" data-den-deaths data-spider-ignore>
       <button class="deaths-toggle" type="button" data-deaths-toggle aria-expanded="false" aria-controls="den-deaths-panel">
         <Fragment set:html={ghost} />
@@ -516,6 +546,90 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
   .den :is(button, input):focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+
+  .den[data-den-access="locked"] :is(.wardrobe, .den-settings) {
+    display: none;
+  }
+  .paid-lock {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.2rem;
+    color: var(--accent);
+  }
+  .den[data-den-access="unlocked"] .paid-lock {
+    display: none;
+  }
+  .bar-icon[data-den-paid] {
+    position: relative;
+  }
+  .bar-icon .paid-lock {
+    position: absolute;
+    right: 0.15rem;
+    bottom: 0.15rem;
+    padding: 1px;
+    background: var(--surface);
+    border-radius: 3px;
+  }
+  .den-unlock {
+    width: min(440px, calc(100vw - 2rem));
+    max-height: calc(100svh - 2rem);
+    padding: 2rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: 0 16px 60px rgb(0 0 0 / 0.25);
+  }
+  .den-unlock::backdrop {
+    background: rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(4px);
+  }
+  .den-unlock .eyebrow {
+    margin-bottom: 0.5rem;
+    padding-right: 1rem;
+  }
+  .den-unlock h2 {
+    margin: 0 0 0.75rem;
+    font-size: clamp(1.4rem, 5vw, 1.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+  #den-unlock-description {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+  .unlock-features {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+    padding: 0;
+    list-style: none;
+  }
+  .unlock-features li {
+    display: grid;
+    gap: 0.1rem;
+    font-size: 0.875rem;
+  }
+  .unlock-features span,
+  .unlock-footnote {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+  .unlock-footnote {
+    margin: 0.75rem 0 1.25rem;
+  }
+  .den-unlock .code-row {
+    flex-wrap: wrap;
+  }
+  .den-unlock .code-row input {
+    flex-basis: 10rem;
+  }
+  .den-unlock .code-note:not([data-ok]) {
+    color: light-dark(#a53333, #f2a0a0);
   }
 
   /* ── The spider, hanging from its web ── */

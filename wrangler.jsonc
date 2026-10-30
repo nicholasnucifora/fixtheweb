@@ -1,8 +1,18 @@
 {
   "name": "fixtheweb",
   "compatibility_date": "2026-09-01",
-  // Static site: Cloudflare serves the Astro build output directly, no Worker script.
+  "main": "worker/index.mjs",
+  // Public assets stay static; only coupon verification runs through the Worker.
   "assets": {
-    "directory": "./dist"
-  }
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "ratelimits": [
+    {
+      "name": "DEN_COUPON_RATE_LIMITER",
+      "namespace_id": "1737289419",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ]
 }

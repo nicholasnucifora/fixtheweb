@@ -1,4 +1,5 @@
 import { den } from "./config";
+import { ACCESS_EVENT, hasDenAccess } from "./access";
 
 /**
  * The den's settings you choose in the den itself (the ⚙ in its bar): how fast time runs, how many
@@ -30,14 +31,22 @@ export const SETTINGS_EVENT = "den:settings";
 
 const defaults = (): DenSettings => ({ speed: 1, flies: "normal", predators: "normal", fights: true });
 
+function validPatch(raw: unknown): Partial<DenSettings> {
+  const patch: Partial<DenSettings> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return patch;
+  const value = raw as Record<string, unknown>;
+  if (typeof value.speed === "number" && SPEEDS.includes(value.speed as DenSettings["speed"])) patch.speed = value.speed as DenSettings["speed"];
+  if (typeof value.flies === "string" && Object.hasOwn(AMOUNTS, value.flies)) patch.flies = value.flies as Amount;
+  if (typeof value.predators === "string" && Object.hasOwn(AMOUNTS, value.predators)) patch.predators = value.predators as Amount;
+  if (typeof value.fights === "boolean") patch.fights = value.fights;
+  return patch;
+}
+
 function load(): DenSettings {
   const s = defaults();
+  if (!hasDenAccess()) return s;
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-    if (SPEEDS.includes(raw.speed)) s.speed = raw.speed;
-    if (raw.flies in AMOUNTS) s.flies = raw.flies;
-    if (raw.predators in AMOUNTS) s.predators = raw.predators;
-    if (typeof raw.fights === "boolean") s.fights = raw.fights;
+    Object.assign(s, validPatch(JSON.parse(localStorage.getItem(KEY) ?? "{}")));
   } catch {
     // ignore
   }
@@ -47,13 +56,21 @@ function load(): DenSettings {
 export const settings = load();
 
 export function change(patch: Partial<DenSettings>) {
-  Object.assign(settings, patch);
+  if (!hasDenAccess()) return;
+  Object.assign(settings, validPatch(patch));
   try {
     localStorage.setItem(KEY, JSON.stringify(settings));
   } catch {
     // ignore
   }
   document.dispatchEvent(new CustomEvent(SETTINGS_EVENT));
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener(ACCESS_EVENT, () => {
+    Object.assign(settings, load());
+    document.dispatchEvent(new CustomEvent(SETTINGS_EVENT));
+  });
 }
 
 export const fliesAmount = () => AMOUNTS[settings.flies].value;

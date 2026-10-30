@@ -65,6 +65,9 @@ export interface Face {
   squash: number;
   /** Which way the squash goes, as a direction on screen: [0, 1] squashes it flat, [1, 0] squashes it thin. */
   squashAxis: Vec;
+  /** Smooth pull deformation, separate from the approved impact/yawn squash. */
+  pull: number;
+  pullAxis: Vec;
   /** Legs curl in, and fan out, as fractions of Face motion's maximums. */
   tuck: number;
   spread: number;
@@ -128,6 +131,8 @@ export const neutralFace = (): Face => ({
   mouth: neutralMouth(),
   squash: 0,
   squashAxis: [0, 1],
+  pull: 0,
+  pullAxis: [0, 1],
   tuck: 0,
   spread: 0,
   sag: 0,
@@ -224,8 +229,8 @@ export function drawEyes(
     return {
       eye,
       f,
-      open: Math.max(0.001, clamp01(f.open) * (1 - shut)),
-      closed: Math.max(f.closed, lidsBlink ? smooth(0.35, 0.9, shut) : 0),
+      open: Math.max(0.001, clamp01(f.open) * (lidsBlink ? 1 : 1 - shut)),
+      closed: f.closed,
     };
   });
 
@@ -295,7 +300,48 @@ export function drawEyes(
     ctx.restore();
   }
 
-  // The stroked shapes. Each one grows in as it arrives, so swapping between them reads as a morph.
+  // A blink closes actual curved lids over intact eyes, instead of flattening the pupils.
+  if (lidsBlink && shut > 0.001) {
+    for (const { eye, f, open } of parts) {
+      const [cx, cy] = eye.center;
+      const r = eye.radius;
+      const upper = cy - r + 1.64 * r * shut;
+      const lower = cy + r - 0.36 * r * shut;
+      const bow = config.eyelids.curve * r * shut;
+      ctx.save();
+      around(eye, f, open);
+      ctx.clip(eye.white);
+      ctx.fillStyle = colors.body;
+      ctx.beginPath();
+      ctx.moveTo(cx - 2 * r, cy - 3 * r);
+      ctx.lineTo(cx + 2 * r, cy - 3 * r);
+      ctx.lineTo(cx + 2 * r, upper);
+      ctx.quadraticCurveTo(cx, upper + bow, cx - 2 * r, upper);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - 2 * r, cy + 3 * r);
+      ctx.lineTo(cx + 2 * r, cy + 3 * r);
+      ctx.lineTo(cx + 2 * r, lower);
+      ctx.quadraticCurveTo(cx, lower + bow, cx - 2 * r, lower);
+      ctx.closePath();
+      ctx.fill();
+      if (config.eyelids.finish !== "none") {
+        // A tapered filled ribbon has substance at small sizes, without an outlined eyelid.
+        const weight = config.eyelids.finish === "bold" ? 0.34 : 0.17;
+        ctx.globalAlpha *= smooth(0.6, 1, shut);
+        ctx.fillStyle = colors.eyes;
+        ctx.beginPath();
+        ctx.moveTo(cx - 0.72 * r, upper);
+        ctx.quadraticCurveTo(cx, upper + bow, cx + 0.72 * r, upper);
+        ctx.quadraticCurveTo(cx, upper + bow + weight * r, cx - 0.72 * r, upper);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // The approved expression shapes stay separate from blink lids.
   ctx.strokeStyle = colors.eyes;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";

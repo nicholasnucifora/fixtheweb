@@ -179,7 +179,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const ctx = canvas.getContext("2d")!;
   const html = document.documentElement;
   const dark = matchMedia("(prefers-color-scheme: dark)");
-  const tuning = new URLSearchParams(location.search).has("tune");
+  const tuning = import.meta.env.DEV && new URLSearchParams(location.search).has("tune");
   const web = new Web();
   const particles = new Particles();
   const fluff = new Particles();

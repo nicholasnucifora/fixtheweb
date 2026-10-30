@@ -9,9 +9,47 @@ npm install
 npm run dev
 ```
 
+## Den coupon
+
+Den settings and spider dress-up share one paid-feature unlock. The den, spider details and feeding
+remain available without it. The coupon prompt is accessible from Dress up, Wardrobe and the settings
+gear. Existing item-specific wardrobe unlocks still apply.
+
+The Cloudflare Worker (`worker/index.mjs`) verifies coupons at `/api/den/access`. It issues a signed,
+host-only, Secure, HttpOnly, SameSite=Strict cookie, valid for one year. Browser storage never grants
+access, and neither the coupon digest nor signing key is included in the public JavaScript. The
+client rechecks access on load, focus and every minute while visible. Cookies must be enabled.
+
+No coupon is active until these **Cloudflare Worker secrets** are configured:
+
+- `DEN_COUPON_SHA256`: SHA-256 hex digest of the coupon after trimming, uppercasing and removing
+  whitespace and dashes (`/[\s-]/g`). Use a long, randomly generated coupon.
+- `DEN_SESSION_SECRET`: an independently generated random secret of at least 32 bytes, encoded as
+  hex or base64. Keep it out of Git, public environment variables and build output.
+
+Set these through Cloudflare's encrypted secret settings or `wrangler secret put`. Changing either
+invalidates previous cookies. Five redemption attempts per minute per IP are allowed by the Worker
+rate-limit binding; unavailable verification or rate limiting leaves access locked. Request bodies
+are bounded, cross-site redemption is rejected and session responses must never be cached.
+
+`npm run dev` serves the frontend only; without the Worker API, paid features stay locked. To test
+the full backend locally, build and run `npx wrangler dev`, with local secrets in an ignored
+`.dev.vars` file. Never add real secrets to a test or example file. The automated tests use isolated,
+test-only secrets without changing the site's configuration.
+
+Production builds exclude `?tune`, `?unlock-all` and `?lock-all` debug behavior. `npm run build` also
+generates `dist/_headers`, including exact hashes for Astro's inline scripts. This restricts scripts,
+embedding, form destinations and browser permissions while preserving the site's dynamic CSS.
+
+The simulation and wardrobe still run in the visitor's browser. Server verification prevents forged
+cookies and the old localStorage shortcut; it is not DRM against someone rewriting their own client.
+There is no payment processor, purchase ledger, per-customer coupon or single-use redemption system.
+
+Run `npm test` for server/client access, forgery, expiry, rotation, CSRF, rate limiting and CSP checks.
+
 ## Deploy (Cloudflare Workers)
 
-Static assets only for now; config is in `wrangler.jsonc`.
+Static assets plus the coupon-verification Worker; config is in `wrangler.jsonc`.
 
 - Workers & Pages → Create → Import a repository
 - Build command: `npm run build`
@@ -35,10 +73,14 @@ Static assets only for now; config is in `wrangler.jsonc`.
 A string hangs from the bottom of the logo's "b" with a draggable spider on the end. The spider is `src/assets/spider/spider.svg`, brought to life by `spider.ts`; the favicon can be swapped in (`look.showFavicon`) to compare. `src/components/SpiderString.astro` takes an `anchor` selector for the glyph to hang from; the logic is in `src/scripts/spider-string/`:
 
 - `config.ts`: every feel value with its default, range and description (length, weight, swing, sway, drag, pluck, particles…). Sizes are in multiples of the anchor glyph's height, so it all scales with the logo.
-- `tune.ts`: live tuning panel built from `config.ts`, with String and Spidey tabs. Open the page with `?tune` (e.g. `http://localhost:4321/?tune`). Tweaks are saved in that browser and only apply with `?tune`; "Copy changes" gives JSON to bake into `config.ts`.
+- `tune.ts`: development-only tuning panel at `/?tune`. The homepage shortlist (`tune-schema.ts`) has **String & pull**, **Eyes & lids**, and **Motion lines**; settled face, animation and geometry settings stay in `config.ts`. Old saved overrides outside that shortlist are ignored. "Copy changes" includes actual tuning changes, excluding test positions and actions.
+- **Snap-distance test:** choose a jump size/direction and press **Test layout jump**. The logo actually moves, and the result says whether the string was carried or kept its inertia. Repeat to return, or use **Reset test**. Set the jump above and below **Snap distance** to compare.
+- **Elastic-pull test:** **Hold test pull** keeps a repeatable stationary pull while you compare body-only, whole-spider and string-only stretch. **Release test pull** shows recovery. There is no time-driven positional shudder; pull deformation is separate from impact/yawn squash, with a mild sideways squeeze and a face-preserving default.
+- **Eye/lid tests:** attention fades continuously with distance, warms in gradually, and speeds up for a close approach. Blink timing stays as approved; **Preview slow blink** makes the lid treatment easier to inspect. Closed lids can have no crease or a soft/bold filled crease.
+- **Motion-line test:** **Preview motion lines** makes a repeatable throw at the chosen speed. Their rate, opacity, length, thickness, lifetime, spread, drift, slowdown and shrink are independent of the three pluck dashes.
 - `anchor.ts`: finds the glyph's lowest point and tracks it on the page every frame.
 - `rope.ts`: Verlet string physics (no DOM).
-- `drag.ts`: grab/drag/release of the spider or the string. Dragging within reach lets the string go slack; past it the string gives less and less (a rubber band that shudders, then flings the spider on release). Also blocks text selection while held.
+- `drag.ts`: grab/drag/release of the spider or the string. Dragging within reach lets the string go slack; past it the string gives less and less, then recoils on release. Also blocks text selection while held.
 - `pluck.ts`: pointer crossing the string → nudge + particle burst. `particles.ts` draws the dashes.
 - `spider.ts`: the spider, drawn onto the same canvas as the string so it stays crisp while it moves and turns (the SVG is only its source of shapes) — positioning and tilt, colours and outline, face and part placement (including mirrored eyes/pupils/legs), pupils following the cursor, breathing, spring-driven legs that swing and curl, and legs that react to the cursor coming near them (flinch, reach, curl, wiggle, wave or flick).
 - `render.ts`: canvas drawing of the string and dashes. `index.ts` wires it all into one loop.
@@ -71,7 +113,7 @@ The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spid
 - `src/pages/den.astro` and `src/scripts/den.ts`: the page, its two views, the spider picker, a spider's details and the wardrobe. The Dress up spider is a `SpiderString` with `stage` and `hook` (hanging from the web's hub down into a slot, and playable) and `tryOn`.
 - `src/layouts/Base.astro` and `src/components/Header.astro`: the page shell and header both pages share.
 
-Locked items can be tried on in the den but aren't saved until they're unlocked. Snack ones unlock by feeding it; `discord` and `newsletter` ones can't be earned yet. To unlock everything in your own browser, open any page with `?unlock-all` (`?lock-all` locks it again). There's a **Have a code?** box (in the wardrobe's Snacks & tricks tab, and the den's settings) for codes that unlock things; it's a placeholder for now, with no codes yet. Add them to `CODES` in `look.ts`.
+After the paid dress-up unlock, locked items can be tried on in the den but aren't saved until they're earned. Snack ones unlock by feeding it; `discord` and `newsletter` ones can't be earned yet. In development only, `?unlock-all` unlocks the wardrobe items (`?lock-all` locks them again); neither grants the paid feature unlock. There's a **Have a code?** box (in the wardrobe's Snacks & tricks tab, and the den's settings) for item codes; it's a placeholder for now, with no codes yet. Add those item codes to `CODES` in `look.ts`. The paid coupon is validated separately by the Worker.
 
 ### The den
 

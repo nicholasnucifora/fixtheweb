@@ -3,12 +3,17 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "test": "node --test scripts/test-*.mjs",
     "dev": "astro dev",
     "build": "astro build",
+    "postbuild": "node scripts/security-headers.mjs",
     "preview": "astro preview",
     "build:spider": "node scripts/build-spider.mjs"
   },
   "dependencies": {
     "astro": "^7.3.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

@@ -47,9 +47,10 @@ export function createSpeedLines(particles: Particles) {
           length: s.length * unit * (0.5 + 0.5 * how) * (0.7 + Math.random() * 0.6),
           width: s.thickness * unit,
           life: s.lifetime * (0.7 + Math.random() * 0.6),
-          drag: 6,
+          drag: s.drag,
           gravity: 0,
-          shrink: 0.9,
+          shrink: s.shrink,
+          opacity: s.opacity,
         });
       }
     },

@@ -20,6 +20,8 @@ export interface ParticleSpawn {
   gravity: number;
   /** 0–1: how much the dash shortens by the end of its life. */
   shrink: number;
+  /** Starting opacity; omitted for the usual fully visible pluck particles. */
+  opacity?: number;
 }
 
 interface Particle extends ParticleSpawn {
@@ -56,7 +58,7 @@ export class Particles {
     for (const p of this.list) {
       const t = p.age / p.life;
       const len = p.length * (1 - t * p.shrink);
-      ctx.globalAlpha = 1 - t * t;
+      ctx.globalAlpha = (p.opacity ?? 1) * (1 - t * t);
       ctx.lineWidth = p.width * (1 - t * 0.4);
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);

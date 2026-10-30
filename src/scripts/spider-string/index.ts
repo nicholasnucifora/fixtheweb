@@ -1,6 +1,7 @@
 import { createAnchor, createHookAnchor, createSlotAnchor } from "./anchor";
 import { createAnimations } from "./animation";
 import { config } from "./config";
+import { carriesAnchor } from "./feel";
 import { createDrag } from "./drag";
 import { createFood } from "./food";
 import { createMood } from "./mood";
@@ -20,7 +21,7 @@ import { createZees } from "./zees";
  */
 export function mountAll() {
   document.querySelectorAll<HTMLElement>("[data-spider-string]").forEach(mount);
-  if (new URLSearchParams(location.search).has("tune")) {
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has("tune")) {
     import("./tune").then((m) => (document.querySelector("[data-tuner]") ? m.applySpiderTuning() : m.mountTuner()));
   }
 }
@@ -76,6 +77,10 @@ function mount(root: HTMLElement) {
   // Air streaks behind it when it's moving fast; drawn behind the spider, so their own particles.
   const wind = new Particles();
   const speedLines = createSpeedLines(wind);
+  let rigTests: ReturnType<typeof import("./rig-tests").createRigTests> | null = null;
+  if (import.meta.env.DEV && glyph instanceof SVGGraphicsElement && "testPull" in drag && new URLSearchParams(location.search).has("tune")) {
+    import("./rig-tests").then((module) => { rigTests = module.createRigTests(glyph, rope, drag); });
+  }
   // Z's floating up while it sleeps.
   const zees = createZees();
   let foodNear = 0;
@@ -129,8 +134,12 @@ function mount(root: HTMLElement) {
     const real = Math.max(0, Math.min((now - last) / 1000, config.sim.maxFrame));
     last = now;
 
-    const a = anchor.measure();
+    let a = anchor.measure();
     if (a) {
+      if (rigTests?.update(a, real)) {
+        a = anchor.measure() ?? a;
+        rigTests.afterMeasure(a);
+      }
       unit = a.unit;
       // A badge always sits in front of the page: behind, it would be under the header it sits in.
       if (!badge && !stage && config.rope.behind !== behind) {
@@ -144,6 +153,8 @@ function mount(root: HTMLElement) {
       const tail = rope.tail;
       const sideways = (Math.abs(tail.x - tail.px) * config.sim.rate) / a.unit;
       animations.update(a, real * config.sim.timeScale, sideways);
+      const testBlink = rigTests?.blink;
+      if (testBlink !== null && testBlink !== undefined) animations.state.blink = testBlink;
       // Asleep, it hangs a little lower (Faces → Asleep). In a slot, the string reaches down to it.
       const full = a.hangTo === undefined ? config.rope.length * a.unit : Math.max(1, a.hangTo - spider.hang(a.unit));
       const length = full * animations.state.lengthFactor * (1 + mood.face.sag);
@@ -157,7 +168,9 @@ function mount(root: HTMLElement) {
       // always carried along, so scrolling the page under it doesn't swing it about.
       const jx = a.x - rope.head.x;
       const jy = a.y - rope.head.y;
-      if (badge || Math.hypot(jx, jy) > config.anchor.snapDistance * a.unit) rope.translate(jx, jy);
+      const carried = badge || carriesAnchor(Math.hypot(jx, jy), a.unit, config.anchor.snapDistance);
+      if (carried) rope.translate(jx, jy);
+      rigTests?.recordJump(Math.hypot(jx, jy) / a.unit, carried);
 
       const dt = real * config.sim.timeScale;
       const step = 1 / config.sim.rate;

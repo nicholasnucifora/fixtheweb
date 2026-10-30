@@ -6,9 +6,9 @@
  * string hangs from, so everything scales with the logo; s = seconds;
  * % = percent of the spider's width.
  *
- * Code reads the plain `config` object at the bottom, live, every frame;
- * the panel edits it in place. A param added here shows up in the panel
- * automatically, under its section's group (tab).
+ * Code reads the plain `config` object at the bottom, live, every frame.
+ * The homepage panel edits the shortlist in tune-schema.ts; the remaining
+ * accepted settings keep their defaults here without filling up the panel.
  */
 
 export interface NumberParam {
@@ -45,7 +45,7 @@ export interface ActionParam {
   label: string;
   info: string;
 }
-export type Param = NumberParam | ToggleParam | ChoiceParam | ColorParam | ActionParam;
+export type Param = (NumberParam | ToggleParam | ChoiceParam | ColorParam | ActionParam) & { transient?: boolean };
 
 /** Top-level tabs in the tuning panel. */
 export const groups = {
@@ -130,7 +130,7 @@ export const schema = {
     info: "Where the string meets the b.",
     params: {
       offsetX: {
-        value: 0, min: -0.5, max: 0.5, step: 0.005, unit: "b",
+        value: 0.045, min: -0.5, max: 0.5, step: 0.005, unit: "b",
         label: "Sideways nudge",
         info: "Shifts the attach point left (−) or right (+) of the b's lowest point.",
       },
@@ -144,6 +144,30 @@ export const schema = {
         label: "Snap distance",
         info: "If the logo jumps further than this in one frame (page load, resize), the string is carried along instead of being flung.",
       },
+    },
+  },
+
+  snapTest: {
+    group: "string",
+    label: "Test snap distance",
+    info: "Move the logo by a known distance and see whether the string is carried along or swings. Press again to return, or use Reset test.",
+    params: {
+      distance: { value: 0.6, min: 0.05, max: 3, step: 0.05, unit: "b", label: "Test jump distance", info: "Compare this jump with Snap distance above.", transient: true },
+      axis: { value: "x" as "x" | "y", options: { x: "Sideways", y: "Up / down" }, label: "Jump direction", info: "", transient: true },
+      jump: { value: 0, kind: "action", label: "Test layout jump", info: "The result below reports what actually happened." },
+      reset: { value: 0, kind: "action", label: "Reset test", info: "Return the logo and spider to their original position." },
+    },
+  },
+
+  pullTest: {
+    group: "string",
+    label: "Test elastic pull",
+    info: "Hold a repeatable pull while adjusting the controls above, then release it to compare the recovery.",
+    params: {
+      distance: { value: 0.7, min: 0, max: 2.5, step: 0.05, unit: "×", label: "Pull past reach", info: "Extra pointer travel as a fraction of the string's length.", transient: true },
+      angle: { value: 55, min: -90, max: 90, step: 5, unit: "°", label: "Pull direction", info: "0 = straight down; negative left, positive right.", transient: true },
+      hold: { value: 0, kind: "action", label: "Hold test pull", info: "A steady hand: any motion you see comes from the rig." },
+      release: { value: 0, kind: "action", label: "Release test pull", info: "Let the stored tension out." },
     },
   },
 
@@ -265,7 +289,7 @@ export const schema = {
         info: "How far out it can be pulled, as a fraction of string length. Below 1 leaves slack so the string sags while held.",
       },
       follow: {
-        value: 22, min: 1, max: 80, step: 1, unit: "/s",
+        value: 60, min: 1, max: 80, step: 1, unit: "/s",
         label: "Follow tightness",
         info: "How tightly the held point tracks the pointer. Lower = floaty and laggy; higher = glued to the cursor.",
       },
@@ -299,8 +323,8 @@ export const schema = {
 
   pull: {
     group: "string",
-    label: "Wind-up",
-    info: "Dragging past what the string can reach: it gives less and less, shudders, and flings the spider when you let go.",
+    label: "Elastic pull",
+    info: "A steady pull with increasing resistance, then a clean release. The held spider stays still when your pointer does.",
     params: {
       stretch: {
         value: 0.3, min: 0, max: 1.5, step: 0.01, unit: "×",
@@ -322,25 +346,21 @@ export const schema = {
         label: "Release fling",
         info: "Extra speed the spider gets when you let go of a fully wound string, sending it across the other way. 0 = it just springs back on its own.",
       },
-      shakeStart: {
-        value: 0.45, min: 0, max: 1, step: 0.01,
-        label: "Shudder starts at",
-        info: "How wound up it has to be before the string starts shaking. 0 = shakes from the first pull, 1 = never.",
-      },
-      shake: {
-        value: 0.05, min: 0, max: 0.5, step: 0.005, unit: "b",
-        label: "Shudder amount",
-        info: "How far the string shakes when fully wound.",
-      },
-      shakeSpeed: {
-        value: 26, min: 1, max: 80, step: 1, unit: "Hz",
-        label: "Shudder speed",
-        info: "How fast it shakes. High and small reads as a tight buzz; low and wide as a heavy wobble.",
+      style: {
+        value: "body" as "body" | "whole" | "off",
+        options: { body: "Body stretches; face keeps its shape", whole: "Whole spider stretches", off: "String only" },
+        label: "Spider stretch style",
+        info: "Keep the face in proportion while the body gives a little, compare a whole-spider stretch, or leave all the stretch to the string.",
       },
       bodyStretch: {
-        value: 0.3, min: 0, max: 1, step: 0.01, unit: "×",
+        value: 0.12, min: 0, max: 0.35, step: 0.01, unit: "×",
         label: "Spider stretches",
-        info: "Holding the spider and pulling past the string's reach stretches it long along the string too, thinning out the other way (Faces → Impact → Bulge), and it springs back when you let go (Faces → Motion → Squash spring). This is how much longer it gets when fully wound. 0 = it keeps its shape.",
+        info: "Maximum extra body length under a full pull. The sideways squeeze is deliberately mild. 0 keeps its usual shape.",
+      },
+      ease: {
+        value: 0.16, min: 0.04, max: 0.8, step: 0.01, unit: "s",
+        label: "Body settling time",
+        info: "How smoothly the body takes up the pull and returns after release, without a shudder or repeated bouncing.",
       },
     },
   },
@@ -417,7 +437,7 @@ export const schema = {
     info: "The little lines that flick off the string on a pluck.",
     params: {
       count: {
-        value: 4, min: 0, max: 20, step: 1,
+        value: 3, min: 0, max: 20, step: 1,
         label: "Count",
         info: "Dashes per pluck.",
       },
@@ -728,7 +748,17 @@ export const schema = {
       radius: {
         value: 4, min: 0.5, max: 20, step: 0.1, unit: "b",
         label: "Notice distance",
-        info: "How close the cursor has to be before it looks at all, measured from the point between the eyes so both eyes always agree about it. Further away, the pupils drift back to rest.",
+        info: "The distance where it gives the cursor half its attention. Attention fades continuously on both sides, rather than switching on at an edge.",
+      },
+      falloff: {
+        value: 2, min: 0.7, max: 4, step: 0.1,
+        label: "Attention falloff",
+        info: "Lower spreads a vague awareness over a wider area; higher concentrates it close to the spider. There is no hard visibility cutoff.",
+      },
+      attentionTime: {
+        value: 0.35, min: 0.05, max: 1.5, step: 0.05, unit: "s",
+        label: "Noticing / forgetting time",
+        info: "Time taken to warm to the cursor or lose interest. Close approaches get its attention faster.",
       },
       converge: {
         value: 1, min: -1, max: 2, step: 0.05, unit: "×",
@@ -746,9 +776,19 @@ export const schema = {
         info: "Only used by \"Trail after it\": how far away the cursor has to be for the pupil to reach the rim of the eye. Smaller = the eyes hit their limit sooner and small movements matter more.",
       },
       speed: {
-        value: 10, min: 1, max: 40, step: 0.5, unit: "/s",
+        value: 4.5, min: 1, max: 40, step: 0.5, unit: "/s",
         label: "Look speed",
-        info: "How quickly the pupils move to where they're looking.",
+        info: "The leisurely eye speed for a cursor further away.",
+      },
+      closeRadius: {
+        value: 0.8, min: 0.1, max: 3, step: 0.05, unit: "b",
+        label: "Quick glance within",
+        info: "The eyes gradually become quicker inside this distance, so a close approach can still make them dart.",
+      },
+      closeSpeed: {
+        value: 26, min: 1, max: 60, step: 1, unit: "/s",
+        label: "Close-up eye speed",
+        info: "Their fastest response when the cursor is right by the face.",
       },
     },
   },
@@ -913,7 +953,7 @@ export const schema = {
     info: "Thin edges look uneven when they land between the screen's pixels: one side of the outline thin and grey, another a pixel thicker. These line the spider and string up with the pixels.",
     params: {
       wholePixels: {
-        value: true,
+        value: false,
         label: "Whole-pixel sizes",
         info: "Rounds the outline and string thickness, and the body's width and height, to whole screen pixels, so the outline is equally thick at the top and bottom of the head. Changes sizes by under half a pixel.",
       },
@@ -1059,10 +1099,10 @@ export const schema = {
     params: {
       enabled: { value: true, label: "Blinks", info: "Off = the eyes stay open." },
       style: {
-        value: "squash" as "squash" | "lids",
+        value: "lids" as "squash" | "lids",
         options: { squash: "Squash flat", lids: "Close into lids" },
         label: "How it blinks",
-        info: "Squash flat: the eye squashes down to nothing and the body shows through, as it always has. Close into lids: it squashes, and as it goes the eye turns into a shut ◡ line, like the closed eyes in the reference drawings.",
+        info: "Close into lids sweeps body-coloured lids across the eyes while keeping the eye and pupil shapes intact. Squash flat keeps the older squashing blink for comparison.",
       },
       everyFrom: {
         value: 2.5, min: 0.2, max: 20, step: 0.1, unit: "s",
@@ -1089,6 +1129,18 @@ export const schema = {
         label: "Double blink",
         info: "How often a blink is followed straight away by a second one.",
       },
+    },
+  },
+
+  eyelids: {
+    group: "spidey",
+    label: "Eyelid finish",
+    info: "Curved lids close over the eyes, with a choice of no crease or a substantial, tapered crease. The other expression shapes stay as they are.",
+    params: {
+      finish: { value: "none" as "none" | "soft" | "bold", options: { none: "Clean lids — no crease", soft: "Soft filled crease", bold: "Bold filled crease" }, label: "Closed-lid finish", info: "The crease is a filled shape with tapered ends, rather than a thin outline." },
+      curve: { value: 0.2, min: 0, max: 0.6, step: 0.02, unit: "×", label: "Lid curve", info: "Curvature of the lids as a blink closes." },
+      preview: { value: 0, kind: "action", label: "Preview slow blink", info: "A slow blink for inspecting the lid shape; ordinary blink timing stays unchanged." },
+      sleepy: { value: 0, kind: "action", label: "Preview sleepy lids", info: "Check the approved sleepy expression with the eyelids." },
     },
   },
 
@@ -1284,10 +1336,13 @@ export const schema = {
 
   speedLines: {
     group: "spidey",
-    label: "Speed lines",
-    info: "Little air streaks trailing behind it when it's really moving, so a throw feels like a throw and a fall like a fall.",
+    label: "Motion / wind lines",
+    info: "The streaks behind a fast-moving spider. These have their own count, size and fade; Pluck dashes only affect taps on the string.",
     params: {
       enabled: { value: true, label: "Speed lines", info: "Off = no streaks." },
+      previewSpeed: { value: 12, min: 1, max: 30, step: 1, unit: "b/s", label: "Preview throw speed", info: "The speed of the repeatable test throw below.", transient: true },
+      preview: { value: 0, kind: "action", label: "Preview motion lines", info: "Throw the main spider at the chosen speed so you can test these controls." },
+      opacity: { value: 0.65, min: 0, max: 1, step: 0.05, label: "Opacity", info: "How visible each streak is before it fades." },
       minSpeed: {
         value: 4, min: 0.5, max: 40, step: 0.5, unit: "b/s",
         label: "Start at",
@@ -1333,6 +1388,8 @@ export const schema = {
         label: "Drift",
         info: "How fast they drift backwards, as a fraction of its speed.",
       },
+      drag: { value: 6, min: 0, max: 20, step: 0.5, unit: "/s", label: "Slowdown", info: "How quickly the streaks stop drifting." },
+      shrink: { value: 0.9, min: 0, max: 1, step: 0.05, label: "Shorten as they fade", info: "0 keeps their length; 1 shrinks them to nothing." },
     },
   },
 

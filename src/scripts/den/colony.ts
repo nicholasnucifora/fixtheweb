@@ -1,4 +1,5 @@
 import { LOOK_EVENT, keepUnlocked, parseLook, putOn, setLook, trying, worn } from "../spider-string/look";
+import { hasDenAccess } from "./access";
 import { blankLook, type Look } from "../spider-string/wardrobe";
 import { den } from "./config";
 import { type Cause, type Death, remember } from "./deaths";
@@ -521,6 +522,7 @@ function colourGenes(m: Member) {
  * as it was). For the main spider, that's the look worn everywhere too. False if nobody's being dressed.
  */
 export function wear() {
+  if (!hasDenAccess()) return false;
   const m = dressing();
   if (!m) return false;
   const next = keepUnlocked(trying, m.look);
@@ -537,6 +539,7 @@ export function wear() {
  * be put on this way: returns false, and nothing changes.
  */
 export function dressSpider(id: string, change: (look: Look) => void) {
+  if (!hasDenAccess()) return false;
   const m = byId(id);
   if (!m) return false;
   const next = parseLook(JSON.stringify(m.look));

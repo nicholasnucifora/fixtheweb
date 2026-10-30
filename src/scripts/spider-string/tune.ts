@@ -1,7 +1,5 @@
 import {
   config,
-  groups,
-  schema,
   type ActionParam,
   type ChoiceParam,
   type ColorParam,
@@ -10,6 +8,7 @@ import {
   type Section,
   type ToggleParam,
 } from "./config";
+import { homeGroups, homeSchema } from "./tune-schema";
 
 type Value = number | boolean | string;
 type Values = Record<string, Record<string, Value>>;
@@ -33,15 +32,13 @@ export interface Tuning {
 /** The spider's own settings, shared by every page. */
 const SPIDER: Tuning = {
   values: config as unknown as Values,
-  schema: schema as Record<string, AnySection>,
-  groups,
+  schema: homeSchema,
+  groups: homeGroups,
   key: "spider-string:tune",
   title: "Tuning",
   intro:
-    "Changes apply instantly and are saved in this browser, but only while ?tune is in the URL. " +
-    "Sizes are in b (the height of the letter b), so they scale with the logo. " +
-    "Copy changes and paste them to Claude (or into config.ts) to make them the defaults.",
-  playable: ["animation", "expression"],
+    "Only the controls still being refined are shown. Changes apply instantly and are saved in this browser while ?tune is open. " +
+    "b is the height of the logo's b. Use the test buttons to compare values, then Copy changes. Test positions and actions aren't saved.",
 };
 
 /** Puts this browser's saved changes to the spider's settings into effect, without the panel (for pages with a panel of their own). */
@@ -130,7 +127,7 @@ export function mountTuner(tuning: Tuning = SPIDER) {
     for (const [s, section] of Object.entries(sections)) {
       for (const [k, param] of Object.entries(section.params)) {
         // Buttons aren't settings: they bump a counter and nothing else.
-        if (!isAction(param) && values[s][k] !== param.value) out.push([`${s}.${k}`, values[s][k]]);
+        if (!isAction(param) && !param.transient && values[s][k] !== param.value) out.push([`${s}.${k}`, values[s][k]]);
       }
     }
     return out;
@@ -158,6 +155,15 @@ export function mountTuner(tuning: Tuning = SPIDER) {
     const details = h("details", "section");
     details.open = true;
     details.append(h("summary", "", section.label), h("p", "section-info", section.info));
+    if (tuning === SPIDER && (s === "snapTest" || s === "pullTest" || s === "eyelids" || s === "speedLines")) {
+      const result = h("p", "test-result", "Ready to test.");
+      result.setAttribute("aria-live", "polite");
+      details.append(result);
+      document.addEventListener("spider:tune-result", (event) => {
+        const detail = (event as CustomEvent).detail;
+        if (detail?.section === s) result.textContent = detail.message;
+      });
+    }
     for (const [k, param] of Object.entries(section.params)) {
       const r = row(param, (v) => set(s, k, v));
       rows.push(() => r.update(values[s][k]));
@@ -221,6 +227,7 @@ export function mountTuner(tuning: Tuning = SPIDER) {
     fallback.hidden = true;
     save();
     refresh();
+    document.dispatchEvent(new CustomEvent("spider:reset"));
   };
 
   const setCollapsed = (collapsed: boolean) => {
@@ -287,6 +294,7 @@ function row(param: Param, set: (v: Value) => void) {
 
   if (isChoice(param)) {
     const select = h("select");
+    select.setAttribute("aria-label", param.label);
     for (const [value, text] of Object.entries(param.options)) select.append(new Option(text, value));
     select.onchange = () => set(select.value);
     head.append(reset);
@@ -295,6 +303,7 @@ function row(param: Param, set: (v: Value) => void) {
   } else if (isColor(param)) {
     const input = h("input");
     input.type = "color";
+    input.setAttribute("aria-label", param.label);
     input.oninput = () => set(input.value);
     head.append(reset, input);
     el.append(head);
@@ -302,6 +311,7 @@ function row(param: Param, set: (v: Value) => void) {
   } else if (isToggle(param)) {
     const box = h("input");
     box.type = "checkbox";
+    box.setAttribute("aria-label", param.label);
     box.onchange = () => set(box.checked);
     head.append(reset, box);
     el.append(head);
@@ -310,6 +320,7 @@ function row(param: Param, set: (v: Value) => void) {
     const p = param as NumberParam;
     const range = h("input");
     range.type = "range";
+    range.setAttribute("aria-label", param.label);
     range.min = String(p.min);
     range.max = String(p.max);
     range.step = String(p.step);
@@ -318,11 +329,14 @@ function row(param: Param, set: (v: Value) => void) {
     // Typed values may go beyond the slider's range.
     const num = h("input", "num");
     num.type = "number";
+    num.setAttribute("aria-label", `${param.label} value`);
     num.step = String(p.step);
-    num.onchange = () => {
+    const commitNumber = () => {
       const v = parseFloat(num.value);
       if (Number.isFinite(v)) set(v);
     };
+    num.oninput = commitNumber;
+    num.onchange = commitNumber;
 
     head.append(num, h("span", "unit", p.unit ?? ""), reset);
     el.append(head, range);
@@ -353,8 +367,9 @@ function applySaved({ values, schema: sections, key }: Tuning) {
   for (const [path, v] of Object.entries(saved)) {
     const [s, k] = path.split(".");
     const param = sections[s]?.params[k];
-    if (!param || isAction(param) || typeof v !== typeof param.value) continue;
-    if (isChoice(param) && !(String(v) in param.options)) continue;
+    if (!param || isAction(param) || param.transient || typeof v !== typeof param.value) continue;
+    if (typeof v === "number" && !Number.isFinite(v)) continue;
+    if (isChoice(param) && !Object.hasOwn(param.options, String(v))) continue;
     if (isColor(param) && !/^#[0-9a-f]{6}$/i.test(String(v))) continue;
     values[s][k] = v as Value;
   }
@@ -385,6 +400,7 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text =
 }
 
 const styles = `
+  .test-result { margin: 10px 12px; padding: 9px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--fg); font: 600 12px/1.5 system-ui, sans-serif; }
   :host { all: initial; }
   .panel, .pill {
     --bg: #ffffff; --fg: #1b1e29; --muted: #6b6f7b; --line: #e4e4df;
