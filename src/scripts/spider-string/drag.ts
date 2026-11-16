@@ -2,6 +2,7 @@ import type { AnchorFrame } from "./anchor";
 import { config } from "./config";
 import { isIgnored } from "./ignore";
 import type { Rope } from "./rope";
+import { rotatePoint, type Point } from "./rotation";
 
 /**
  * Grab, drag and release: the spider by its element, or the string anywhere
@@ -20,7 +21,7 @@ import type { Rope } from "./rope";
  * blocked, otherwise the browser can start dragging selected page content
  * (the "no drop" cursor).
  */
-export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
+export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope, rotation: () => number = () => 0) {
   const html = document.documentElement;
   let pointerId: number | null = null;
   /** Rope point being held. */
@@ -37,6 +38,7 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
   let releasedTension = 0;
   const pointer = { x: 0, y: 0 };
   const offset = { x: 0, y: 0 };
+  let grabAngle = 0;
   /** Where the pointer has been lately while held (document px, ms), for the throw on release. */
   const trail: { x: number; y: number; t: number }[] = [];
   /** Pointer speed when it was let go, px/s. */
@@ -99,6 +101,7 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
     const p = rope.points[index];
     offset.x = p.x - pointer.x;
     offset.y = p.y - pointer.y;
+    grabAngle = rotation();
     refresh();
     const part = index === tailIndex() ? "spider" : "string";
     root.dispatchEvent(new CustomEvent("spider:grab", { bubbles: true, detail: { part } }));
@@ -184,8 +187,11 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
     const span = (rope.length * index) / tailIndex();
     const reach = span * config.drag.reach;
     const give = pull.stretch * span;
-    const x = pointer.x + offset.x - a.x;
-    const y = pointer.y + offset.y - a.y;
+    const shift = config.grabRotation.mode !== "off" && index === tailIndex()
+      ? rotatePoint([offset.x, offset.y], rotation() - grabAngle)
+      : [offset.x, offset.y];
+    const x = pointer.x + shift[0] - a.x;
+    const y = pointer.y + shift[1] - a.y;
 
     // Past its reach the string keeps giving, but less and less: a rubber band that never breaks.
     const beyond = (excess: number) =>
@@ -230,10 +236,11 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
 
   return {
     /** A repeatable, stationary pointer for the development tuner's pull comparison. */
-    testPull(a: AnchorFrame, angle: number, beyond: number) {
+    testPull(a: AnchorFrame, angle: number, beyond: number, grip: Point = [0, 0]) {
       if (pointerId !== null) return;
       held = tailIndex();
-      offset.x = offset.y = 0;
+      grabAngle = rotation();
+      [offset.x, offset.y] = rotatePoint([-grip[0], -grip[1]], grabAngle);
       const radians = angle * Math.PI / 180;
       const reach = rope.length * (config.drag.reach + Math.max(0, beyond));
       pointer.x = a.x + Math.sin(radians) * reach;
@@ -252,6 +259,11 @@ export function createDrag(root: HTMLElement, bob: HTMLElement, rope: Rope) {
     /** Index of the rope point being held, or null. */
     get held() {
       return held;
+    },
+
+    /** Where the hand holds the spider, relative to its string attachment in its own frame. */
+    get grip(): Point | null {
+      return held === tailIndex() ? rotatePoint([-offset.x, -offset.y], -grabAngle) : null;
     },
 
     /** How far past its length the string is being pulled, so the rope can be let out to match. */

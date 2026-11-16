@@ -1,0 +1,80 @@
+---
+const videos = [
+  { title: "A small herb garden", channel: "Something to try", art: "garden", duration: "8:24" },
+  { title: "How the moon shapes our tides", channel: "A little curiosity", art: "moon", duration: "12:08" },
+  { title: "A very unhelpful cat", channel: "Just for the fun of it", art: "cat", duration: "3:16" },
+];
+---
+<figure class="feed-example" data-feed-example>
+  <div class="example-heading"><span>Your feed</span><span class="example-pill">An ending in sight</span></div>
+  <p class="example-instruction">Try marking these videos as watched.</p>
+  <div class="example-videos">
+    {videos.map(video => <div class="example-video" data-example-video>
+      <div class:list={["example-art", video.art]} aria-hidden="true">
+        {video.art === "garden" && <svg viewBox="0 0 100 72"><path d="M35 45h32l-5 22H40Z" fill="#b87956"/><path d="M51 45V21" stroke="#436b4a" stroke-width="4"/><path d="M51 34C24 34 26 9 29 11c20 2 23 11 22 23Zm1-8C52 6 77 7 77 7S79 29 52 26Z" fill="#6b9064"/></svg>}
+        {video.art === "moon" && <svg viewBox="0 0 100 72"><circle cx="61" cy="24" r="14" fill="#f3e6bc"/><path d="M0 50Q25 35 49 50t51 0v22H0Z" fill="#80a6aa"/><path d="M0 61Q25 47 49 61t51 0v11H0Z" fill="#537b88"/></svg>}
+        {video.art === "cat" && <svg viewBox="0 0 100 72"><path d="M25 48V19l19 12h15l18-12v29c0 18-52 18-52 0Z" fill="#bd895f"/><path d="m36 44 6 3 6-3m9 0 6 3 6-3" fill="none" stroke="#543e35" stroke-width="2.5" stroke-linecap="round"/><path d="m49 52 4 4 4-4" fill="#6c4e43"/></svg>}
+        <span>{video.duration}</span>
+      </div>
+      <div class="video-copy"><strong>{video.title}</strong><span>{video.channel}</span></div>
+      <button type="button" data-example-finish aria-label={`Mark ${video.title} as watched in this example`} title="Mark as watched"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>)}
+  </div>
+  <div class="feed-ending" data-example-ending hidden><span aria-hidden="true">✓</span><h3>All caught up.</h3><p>A natural place to pause.<br />What would you like to do next?</p><button type="button" data-example-reset>Replay the example <span aria-hidden="true">↻</span></button></div>
+  <div class="example-bottom"><span data-example-status role="status" aria-live="polite">3 videos in this example</span><span aria-hidden="true">↓</span></div>
+  <figcaption>A small illustration of a finite feed. Sample videos.</figcaption>
+</figure>
+<script>
+  for (const example of document.querySelectorAll<HTMLElement>("[data-feed-example]")) {
+    const rows = [...example.querySelectorAll<HTMLElement>("[data-example-video]")];
+    const ending = example.querySelector<HTMLElement>("[data-example-ending]")!;
+    const status = example.querySelector<HTMLElement>("[data-example-status]")!;
+    example.addEventListener("click", event => {
+      if (!(event.target instanceof Element)) return;
+      const finish = event.target.closest("[data-example-finish]");
+      if (finish) {
+        const row = finish.closest<HTMLElement>("[data-example-video]")!;
+        row.hidden = true;
+        const remaining = rows.filter(item => !item.hidden);
+        ending.hidden = remaining.length > 0;
+        status.textContent = remaining.length ? `${remaining.length} video${remaining.length === 1 ? "" : "s"} left in this example` : "You reached the end of the feed";
+        if (remaining.length) remaining[0].querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+        else ending.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+      }
+      if (event.target.closest("[data-example-reset]")) {
+        rows.forEach(row => { row.hidden = false; });
+        ending.hidden = true;
+        status.textContent = "3 videos in this example";
+        rows[0].querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+      }
+    });
+  }
+</script>
+<style>
+  .feed-example { margin: 0; padding: 26px 26px 0; border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 50px -28px #172b2740; transform: rotate(1.5deg); }
+  .example-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-weight: 900; font-size: 1.05rem; }
+  .example-pill { background: var(--story-soft); color: var(--accent); font-size: .65rem; border-radius: 100px; padding: 7px 11px; font-weight: 800; }
+  .example-instruction { color: var(--muted); font-size: .78rem; margin: 7px 0 18px; }
+  .example-videos { display: grid; gap: 13px; }
+  .example-video { display: flex; gap: 13px; align-items: center; }
+  .example-video[hidden], .feed-ending[hidden] { display: none; }
+  .example-art { width: 100px; height: 72px; border-radius: 10px; flex: none; position: relative; overflow: hidden; background: #e5ead9; }
+  .example-art svg { width: 100%; height: 100%; }
+  .example-art.moon { background: #354a63; }
+  .example-art.cat { background: #eedbc8; }
+  .example-art > span { position: absolute; bottom: 4px; right: 5px; color: #fff; background: #172b27d9; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: 800; }
+  .video-copy { flex: 1; min-width: 0; }
+  .video-copy strong { display: block; font-size: .83rem; font-weight: 850; line-height: 1.35; }
+  .video-copy > span { display: block; color: var(--muted); font-size: .69rem; margin-top: 5px; }
+  [data-example-finish] { display: grid; place-items: center; flex: none; width: 35px; height: 35px; padding: 8px; background: var(--fill); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; color: var(--accent); }
+  [data-example-finish]:hover { background: var(--story-soft); border-color: var(--accent); }
+  [data-example-finish] svg { width: 18px; height: 18px; }
+  .example-bottom { display: flex; justify-content: space-between; margin-top: 20px; padding-block: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
+  figcaption { margin: 0 -26px; padding: 14px 16px; text-align: center; font-size: .66rem; color: var(--muted); background: var(--fill); border-radius: 0 0 26px 26px; }
+  .feed-ending { min-height: 242px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .feed-ending > span { color: var(--accent); background: var(--story-soft); width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; }
+  .feed-ending h3 { margin: 12px 0 5px; font-size: 1.6rem; }
+  .feed-ending p { color: var(--muted); margin: 0; font-size: .85rem; line-height: 1.6; }
+  [data-example-reset] { font: 800 .78rem var(--body-font); color: var(--accent); border: 0; background: none; padding: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+  @media (max-width: 450px) { .feed-example { padding: 18px 16px 0; transform: none; } figcaption { margin-inline: -16px; }.example-art { width: 76px; height: 60px; }.example-video { gap: 9px; }.example-pill { font-size: 9px; padding: 5px 8px; }.video-copy strong { font-size: .76rem; }.video-copy > span { font-size: .65rem; } }
+</style>

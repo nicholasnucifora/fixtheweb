@@ -182,6 +182,8 @@ export interface EyeShape {
   side: "left" | "right";
   center: Vec;
   radius: number;
+  /** Actual half-width/height of the white, for lid closure on the asymmetric artwork. */
+  extent?: Vec;
   white: Path2D;
   pupil: Path2D;
   pupilCenter: Vec;
@@ -229,7 +231,9 @@ export function drawEyes(
     return {
       eye,
       f,
-      open: Math.max(0.001, clamp01(f.open) * (lidsBlink ? 1 : 1 - shut)),
+      open: clamp01(f.open),
+      visible: f.open > 0.01 && shut < 0.92,
+      opacity: smooth(0.08, 0.25, 1 - shut),
       closed: f.closed,
     };
   });
@@ -242,101 +246,110 @@ export function drawEyes(
     ctx.translate(-cx, -cy);
   };
 
-  for (const { eye, f, open } of parts) {
+  // Clip the visible opening before painting. Painting body-colour over antialiased eye edges
+  // leaves a pale fringe, and clipping a cover to that same edge cannot remove it completely.
+  const opening = (eye: EyeShape, f: EyeFace) => {
+    const [cx, cy] = eye.center;
+    const r = eye.radius;
+    const ry = eye.extent?.[1] ?? r;
+    const wide = 3 * Math.max(r, ...(eye.extent ?? [r, r]));
+    const inward = eye.side === "left" ? 1 : -1;
+    if (!lidsBlink && shut > 0) {
+      // Squash only the aperture. Undo the transform after clipping so pupils keep their shape.
+      const height = Math.max(0.02, 1 - shut);
+      ctx.translate(cx, cy);
+      ctx.scale(1, height);
+      ctx.translate(-cx, -cy);
+      ctx.clip(eye.white);
+      ctx.translate(cx, cy);
+      ctx.scale(1, 1 / height);
+      ctx.translate(-cx, -cy);
+    } else {
+      ctx.clip(eye.white);
+      if (shut > 0) {
+        const upper = cy - ry + 1.64 * ry * shut;
+        const lower = cy + ry - 0.36 * ry * shut;
+        const bow = config.eyelids.curve * ry * shut;
+        ctx.beginPath();
+        ctx.moveTo(cx - wide, upper);
+        ctx.quadraticCurveTo(cx, upper + bow, cx + wide, upper);
+        ctx.lineTo(cx + wide, lower);
+        ctx.quadraticCurveTo(cx, lower + bow, cx - wide, lower);
+        ctx.closePath();
+        ctx.clip();
+      }
+    }
+    if (f.lid >= 0.002) {
+      const edge = cy - r + 2 * r * clamp01(f.lid);
+      const tilt = f.slant * 0.6 * Math.min(1, f.lid * 5);
+      const at = (x: number) => edge + tilt * (x - cx) * inward;
+      ctx.beginPath();
+      ctx.moveTo(cx - wide, at(cx - wide));
+      ctx.lineTo(cx + wide, at(cx + wide));
+      ctx.lineTo(cx + wide, cy + wide);
+      ctx.lineTo(cx - wide, cy + wide);
+      ctx.closePath();
+      ctx.clip();
+    }
+    if (f.lower >= 0.002) {
+      const edge = cy + r - 2 * r * clamp01(f.lower);
+      ctx.beginPath();
+      ctx.moveTo(cx - 2 * r, cy - wide);
+      ctx.lineTo(cx - 2 * r, edge + 0.3 * r * f.lower);
+      ctx.quadraticCurveTo(cx, edge - 0.6 * r * f.lower, cx + 2 * r, edge + 0.3 * r * f.lower);
+      ctx.lineTo(cx + 2 * r, cy - wide);
+      ctx.closePath();
+      ctx.clip();
+    }
+  };
+
+  for (const { eye, f, open, visible, opacity } of parts) {
+    if (!visible) continue;
     ctx.save();
     around(eye, f, open);
+    opening(eye, f);
+    ctx.globalAlpha *= opacity;
     ctx.fillStyle = colors.eyes;
     ctx.fill(eye.white);
     ctx.restore();
   }
 
-  for (const { eye, f, open } of parts) {
+  for (const { eye, f, open, visible, opacity } of parts) {
+    if (!visible) continue;
     ctx.save();
     around(eye, f, open);
-    ctx.clip(eye.white);
+    opening(eye, f);
     const [px, py] = eye.pupilCenter;
     ctx.translate(eye.look[0] + eye.slosh[0] + px, eye.look[1] + eye.slosh[1] + py);
-    ctx.scale(f.pupil, f.pupil);
+    const pupilSize = f.pupil * (lidsBlink ? 1 : Math.sqrt(1 - shut));
+    ctx.scale(pupilSize, pupilSize);
     ctx.translate(-px, -py);
+    ctx.globalAlpha *= opacity * (lidsBlink ? 1 : smooth(0.12, 0.45, 1 - shut));
     ctx.fillStyle = colors.pupils;
     ctx.fill(eye.pupil);
     ctx.restore();
   }
 
-  // Lids are body-coloured shapes laid over the eye, cut to its outline.
-  for (const { eye, f, open } of parts) {
-    if (f.lid < 0.002 && f.lower < 0.002) continue;
-    const [cx, cy] = eye.center;
-    const r = eye.radius;
-    const inward = eye.side === "left" ? 1 : -1;
-    ctx.save();
-    around(eye, f, open);
-    ctx.clip(eye.white);
-    ctx.fillStyle = colors.body;
-    if (f.lid >= 0.002) {
-      const edge = cy - r + 2 * r * clamp01(f.lid);
-      // A slant only shows once there's some lid to slant.
-      const tilt = f.slant * 0.6 * Math.min(1, f.lid * 5);
-      const at = (x: number) => edge + tilt * (x - cx) * inward;
-      ctx.beginPath();
-      ctx.moveTo(cx - 2 * r, cy - 3 * r);
-      ctx.lineTo(cx + 2 * r, cy - 3 * r);
-      ctx.lineTo(cx + 2 * r, at(cx + 2 * r));
-      ctx.lineTo(cx - 2 * r, at(cx - 2 * r));
-      ctx.closePath();
-      ctx.fill();
-    }
-    if (f.lower >= 0.002) {
-      // Curved up in the middle, like cheeks pushing up into a squint.
-      const edge = cy + r - 2 * r * clamp01(f.lower);
-      ctx.beginPath();
-      ctx.moveTo(cx - 2 * r, cy + 3 * r);
-      ctx.lineTo(cx - 2 * r, edge + 0.3 * r * f.lower);
-      ctx.quadraticCurveTo(cx, edge - 0.6 * r * f.lower, cx + 2 * r, edge + 0.3 * r * f.lower);
-      ctx.lineTo(cx + 2 * r, cy + 3 * r);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  // A blink closes actual curved lids over intact eyes, instead of flattening the pupils.
-  if (lidsBlink && shut > 0.001) {
+  // The optional crease is separate from eye visibility. Clean lids draw nothing when shut.
+  if (lidsBlink && shut > 0.6 && config.eyelids.finish !== "none") {
     for (const { eye, f, open } of parts) {
+      if (open <= 0.01) continue;
       const [cx, cy] = eye.center;
       const r = eye.radius;
-      const upper = cy - r + 1.64 * r * shut;
-      const lower = cy + r - 0.36 * r * shut;
-      const bow = config.eyelids.curve * r * shut;
+      const ry = eye.extent?.[1] ?? r;
+      const upper = cy - ry + 1.64 * ry * shut;
+      const bow = config.eyelids.curve * ry * shut;
       ctx.save();
       around(eye, f, open);
       ctx.clip(eye.white);
-      ctx.fillStyle = colors.body;
+      const weight = config.eyelids.finish === "bold" ? 0.34 : 0.17;
+      ctx.globalAlpha *= smooth(0.6, 1, shut);
+      ctx.fillStyle = colors.eyes;
       ctx.beginPath();
-      ctx.moveTo(cx - 2 * r, cy - 3 * r);
-      ctx.lineTo(cx + 2 * r, cy - 3 * r);
-      ctx.lineTo(cx + 2 * r, upper);
-      ctx.quadraticCurveTo(cx, upper + bow, cx - 2 * r, upper);
-      ctx.closePath();
+      ctx.moveTo(cx - 0.72 * r, upper);
+      ctx.quadraticCurveTo(cx, upper + bow, cx + 0.72 * r, upper);
+      ctx.quadraticCurveTo(cx, upper + bow + weight * r, cx - 0.72 * r, upper);
       ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(cx - 2 * r, cy + 3 * r);
-      ctx.lineTo(cx + 2 * r, cy + 3 * r);
-      ctx.lineTo(cx + 2 * r, lower);
-      ctx.quadraticCurveTo(cx, lower + bow, cx - 2 * r, lower);
-      ctx.closePath();
-      ctx.fill();
-      if (config.eyelids.finish !== "none") {
-        // A tapered filled ribbon has substance at small sizes, without an outlined eyelid.
-        const weight = config.eyelids.finish === "bold" ? 0.34 : 0.17;
-        ctx.globalAlpha *= smooth(0.6, 1, shut);
-        ctx.fillStyle = colors.eyes;
-        ctx.beginPath();
-        ctx.moveTo(cx - 0.72 * r, upper);
-        ctx.quadraticCurveTo(cx, upper + bow, cx + 0.72 * r, upper);
-        ctx.quadraticCurveTo(cx, upper + bow + weight * r, cx - 0.72 * r, upper);
-        ctx.fill();
-      }
       ctx.restore();
     }
   }

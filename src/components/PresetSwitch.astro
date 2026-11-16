@@ -1,0 +1,99 @@
+---
+import { previewPages, getPagePreset, normalisePagePath } from "../lib/page-presets";
+const path = normalisePagePath(Astro.url.pathname);
+const current = previewPages.find(page => page.path === path);
+const preset = getPagePreset(Astro.url);
+const hrefFor = (value: string) => {
+  const url = new URL(Astro.url);
+  url.searchParams.set("preset", value);
+  return url.pathname + url.search;
+};
+---
+{current && <aside class="preset-bar" data-preset-bar data-path={path} data-preset={preset} data-spider-ignore aria-label="Page preview controls">
+  <span class="preset-kicker">Local preview</span>
+  <label class="preset-page"><span class="sr-only">Preview page</span><select aria-label="Preview page">{previewPages.map(page => <option value={page.path} selected={page.path === path}>{page.label}</option>)}</select></label>
+  <nav class="preset-options" aria-label={`Presets for ${current.label}`}>
+    <a href={hrefFor("a")} data-preset-choice="a" aria-current={preset === "a" ? "true" : undefined} title={current.a}>Preset A</a>
+    <a href={hrefFor("b")} data-preset-choice="b" aria-current={preset === "b" ? "true" : undefined} title={current.b}>Preset B</a>
+  </nav>
+  <span class="preset-description">{current[preset]}</span>
+  <span class="preset-saved" data-preset-status>Saved for this page</span>
+</aside>}
+
+<script>
+  import { normalisePagePath, previewPages, presetStoragePrefix } from "../lib/page-presets";
+  const bar = document.querySelector<HTMLElement>("[data-preset-bar]");
+  const paths = new Set(previewPages.map(page => page.path));
+  const savedFor = (path: string) => {
+    try { return localStorage.getItem(presetStoragePrefix + path) === "a" ? "a" : "b"; } catch { return "b"; }
+  };
+  const destination = (value: string) => {
+    const url = new URL(value, location.href);
+    const path = normalisePagePath(url.pathname);
+    if (url.origin === location.origin && paths.has(path) && !url.searchParams.has("preset")) url.searchParams.set("preset", savedFor(path));
+    return url;
+  };
+  // Every destination uses its own preference, never the current page's preset.
+  const refreshLinks = () => document.querySelectorAll<HTMLAnchorElement>("a[href]").forEach(link => {
+    const original = link.dataset.presetOriginalHref ?? link.getAttribute("href")!;
+    if (original.startsWith("#") || link.hasAttribute("download") || link.hasAttribute("data-preset-choice")) return;
+    const url = new URL(original, location.href);
+    if (url.origin !== location.origin || !paths.has(normalisePagePath(url.pathname)) || url.searchParams.has("preset")) return;
+    link.dataset.presetOriginalHref = original;
+    link.href = destination(original).href;
+  });
+  const rememberCurrent = () => {
+    if (!bar) return;
+    try { localStorage.setItem(presetStoragePrefix + bar.dataset.path!, bar.dataset.preset!); }
+    catch { bar.querySelector("[data-preset-status]")!.textContent = "Storage unavailable · links still work"; }
+  };
+  if (bar) {
+    const path = bar.dataset.path!;
+    rememberCurrent();
+    bar.querySelector("select")?.addEventListener("change", event => { location.href = destination((event.target as HTMLSelectElement).value).href; });
+    bar.querySelectorAll<HTMLAnchorElement>("[data-preset-choice]").forEach(link => {
+      if (location.hash) link.hash = location.hash;
+      link.addEventListener("click", event => {
+        if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (link.dataset.presetChoice === bar.dataset.preset) { event.preventDefault(); return; }
+        link.hash = location.hash;
+        const section = [...document.querySelectorAll<HTMLElement>("main section[id], main header[id]")].reverse().find(node => node.getBoundingClientRect().top <= 180);
+        try {
+          sessionStorage.setItem("ftw.preset-scroll", JSON.stringify({ path, preset: link.dataset.presetChoice, section: section?.id, offset: section ? 150 - section.getBoundingClientRect().top : 0, ratio: scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight), at: Date.now() }));
+        } catch { /* Switching itself does not depend on storage. */ }
+      });
+    });
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("ftw.preset-scroll") ?? "null");
+      sessionStorage.removeItem("ftw.preset-scroll");
+      if (saved?.path === path && saved?.preset === bar.dataset.preset && Date.now() - saved.at < 20000) {
+        document.fonts.ready.then(() => requestAnimationFrame(() => {
+          const section = saved.section ? document.getElementById(saved.section) : null;
+          const top = section ? section.getBoundingClientRect().top + scrollY + Math.min(saved.offset, Math.max(0, section.offsetHeight - 150)) - 150 : saved.ratio * Math.max(0, document.documentElement.scrollHeight - innerHeight);
+          window.scrollTo({ top: Math.max(0, top), behavior: "instant" });
+        }));
+      }
+    } catch { /* Ignore stale or malformed local state. */ }
+  }
+  refreshLinks();
+  addEventListener("pageshow", () => { rememberCurrent(); refreshLinks(); });
+  addEventListener("storage", refreshLinks);
+</script>
+
+<style is:global>
+  .preset-bar { box-sizing: border-box; position: fixed; inset: var(--header-height) 0 auto; z-index: 29; display: flex; align-items: center; gap: 14px; min-height: 48px; padding: 6px clamp(12px, 2.5vw, 40px); border-block: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 750 12px/1.3 Nunito, sans-serif; }
+  .preset-kicker { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
+  .preset-page select { box-sizing: border-box; max-width: 190px; min-height: 34px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 26px 5px 9px; font: inherit; cursor: pointer; }
+  .preset-options { display: flex; padding: 3px; background: var(--fill); border-radius: 9px; gap: 3px; flex: none; }
+  .preset-options a { display: block; padding: 7px 12px; border-radius: 6px; text-decoration: none; color: var(--muted); white-space: nowrap; }
+  .preset-options a[aria-current] { background: var(--accent); color: var(--bg); }
+  .preset-options a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .preset-saved { margin-left: auto; color: var(--muted); font-size: 11px; }
+  .preset-bar :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .preset-bar ~ main .ftw-page-intro { padding-top: 180px; }
+  html:has(.preset-bar) { scroll-padding-top: 150px; }
+  html:has(.preset-bar) [id] { scroll-margin-top: 0; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+  @media (max-width: 1000px) { .preset-saved { display: none; } }
+  @media (max-width: 700px) { .preset-bar { gap: 8px; } .preset-kicker, .preset-description { display: none; } .preset-page { margin-right: auto; min-width: 0; } .preset-page select { width: 100%; max-width: 180px; } .preset-options a { padding-inline: 10px; } .preset-bar ~ main .ftw-page-intro { padding-top: 158px; } .preset-bar ~ main .development-hero { padding-top: 170px; } }
+</style>

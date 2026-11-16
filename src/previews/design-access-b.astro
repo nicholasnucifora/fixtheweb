@@ -1,0 +1,48 @@
+---
+import Base from "../layouts/Base.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+---
+<Base title="The changes we want · Design & access · Fix the Web" page="notes">
+  <EditorialStyles />
+  <main id="main" class="editorial" tabindex="-1">
+    <header class="ftw-shell ftw-page-intro"><p class="ftw-eyebrow">Design & access</p><h1>Let people build<br />and use alternatives.</h1><p class="ftw-lead">Better ways to use digital services shouldn’t depend entirely on whether the platform chooses to build them. Independent builders need both the access to make alternatives and permission to offer them to people.</p><div class="prose access-experience"><p>I could build Villow because YouTube provides an API for video and channel information, plus an embedded player. I haven’t found an equally practical route for the alternatives I’d like to build on other services. Even on YouTube, I still need to resolve whether its rules allow particular changes I want to make.</p><p class="signature">Nicholas · Building Villow</p></div><nav class="topic-nav" aria-label="On this page"><a href="#asks">What we’re asking for</a><a href="#example">A practical example</a><a href="#permissions">Three kinds of access</a><a href="#native">Change within platforms</a></nav></header>
+    <section class="soft-band ftw-section" id="asks"><div class="ftw-shell split"><div><p class="ftw-eyebrow">What we’re asking for</p><h2>Better choices.<br />Practical ways to build them.</h2><p class="muted">These proposals need work with builders, researchers, platforms and policymakers. The details will differ between services.</p></div><ol class="numbered-list">
+      <li><div><h3>Make the alternatives worth choosing.</h3><p>A following feed needs the care that makes a recommendation feed appealing. Controls should be easy to find, explain what can change and let people revisit earlier choices. Stopping points and adjustable boundaries matter too. Each service needs designs that suit the people using it.</p></div></li>
+      <li><div><h3>Make it possible to build and test them.</h3><p>Independent builders and researchers need access to the content, players and data a different experience requires, plus clear permission to try it. Set out consent, data protection and who is accountable. Leave room to test designs beyond those platforms or governments already favour.</p></div></li>
+      <li><div><h3>Let people keep using what works for them.</h3><p>The route needs to cover ongoing alternatives as well as temporary studies. That means workable permissions and responsibilities for creators’ interests, privacy, security, costs, maintenance and the platform’s duties.</p></div></li>
+    </ol></div></section>
+    <section class="ftw-shell ftw-section" id="example"><div class="section-heading"><p class="ftw-eyebrow">A practical example</p><h2>What would it take to test<br />a feed that ends?</h2><p>Compare a finite subscriptions feed with a continuing feed, keeping the videos people came to see. Here’s what we’d need to build it, test it and work out whether people could keep using it.</p></div>
+      <dl class="access-record">
+        <div><dt>The experiment needs</dt><dd>Relevant video and channel information, playback, a defined comparison, consenting participants and measurements that answer the question. It also needs a reliable experience people can actually use.</dd></div>
+        <div><dt>What makes building possible</dt><dd>YouTube’s <a href="https://developers.google.com/youtube/v3">Data API</a> supplies video and channel information, and its <a href="https://developers.google.com/youtube/iframe_api_reference">embedded player</a> provides playback. Villow supplies its own feed presentation and chosen controls.</dd></div>
+        <div><dt>Practical limitations</dt><dd>Hosting, setup, API quotas and supported browser coverage affect scale and participation. Access to metadata does not necessarily provide the platform’s own recommendation feed or every interaction we might want to compare.</dd></div>
+        <div><dt>Permissions to resolve</dt><dd>YouTube’s published policies govern API, player and data use. The exact study and each relevant feature need to be checked against those requirements. A technical limitation, a quota and a policy restriction are different findings.</dd></div>
+        <div><dt>How to work through it</dt><dd>Record the capability and permission needed. Seek clarification or an agreement for the proposed use where necessary. Define consent, collect only the data needed, and agree on review, reporting and what happens when the experiment ends.</dd></div>
+      </dl>
+      <p class="source-note">YouTube’s <a href="https://developers.google.com/youtube/terms/developer-policies">Developer Policies</a> require independent value alongside compliance with player, data and other rules. Whether a particular Villow feature meets those rules still needs checking; building it does not settle that question.</p>
+    </section>
+    <section class="warm-band ftw-section" id="permissions"><div class="ftw-shell"><div class="section-heading"><p class="ftw-eyebrow">Three kinds of access</p><h2>Studying a service, testing a design<br />and running an alternative.</h2></div><div class="permissions">
+      <div><span>01</span><h3>Understand a service.</h3><p>Use data to investigate how a platform works and the effects of its systems.</p></div>
+      <div><span>02</span><h3>Test an experience.</h3><p>Run a defined interface experiment with consenting participants and suitable protections.</p></div>
+      <div><span>03</span><h3>Operate an alternative.</h3><p>Offer a product for ongoing use, with the necessary permissions, support and safeguards.</p></div>
+    </div><div class="prose distinction"><p><strong>Permission for one does not automatically grant the others.</strong> The EU’s Digital Services Act provides qualified researchers with a route to platform data for studying systemic risks. That research access does not establish a general right to run a replacement interface. <a href="https://digital-strategy.ec.europa.eu/en/news/new-measures-unlock-access-data-largest-online-platforms-support-research">Read the European Commission’s explanation.</a></p><p>If people want to keep using an alternative after a study, they need a route for that too—with agreed responsibilities for ongoing use.</p></div></div></section>
+    <section class="ftw-shell ftw-section split" id="native"><div><p class="ftw-eyebrow">Change within platforms</p><h2>The platform can<br />build it too.</h2></div><div class="prose"><p>Platforms can adopt useful controls and designs directly, so people can benefit without setting up another service or facing the same access and coverage barriers.</p><p>An independent alternative gives people something to try. Testing it can show which features help, and the findings can inform specific proposals for the platform itself.</p><p>Different services need different answers. A stopping point in long-form video may look unlike one in messaging, a game or a short-video feed. The aim is to give people more say in how they use each service.</p></div></section>
+    <section class="ftw-shell ftw-section next-step"><div><p class="ftw-eyebrow">Help make this possible</p><h2>Work through<br />one access barrier.</h2><p class="muted">Help identify what a particular alternative needs, where access or rules get in the way, and what a workable arrangement could look like.</p></div><a class="ftw-button" href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20design%20and%20access">Help develop a proposal →</a></section>
+  </main>
+</Base>
+<style>
+  .access-experience { border-left: 3px solid var(--accent); padding-left: 22px; margin-top: 30px; }
+  .access-experience .signature { font-size: .85rem; margin-bottom: 0; }
+  .access-record { margin: 0; }
+  .access-record > div { display: grid; grid-template-columns: 240px 1fr; gap: 48px; padding: 24px 0; border-top: 1px solid var(--line); }
+  .access-record > div:last-child { border-bottom: 1px solid var(--line); }
+  .access-record dt { font-weight: 850; line-height: 1.4; }
+  .access-record dd { margin: 0; color: var(--muted); line-height: 1.75; max-width: 750px; }
+  .permissions { display: grid; grid-template-columns: repeat(3,1fr); gap: 40px; }
+  .permissions > div { border-top: 2px solid var(--accent); padding-top: 22px; }
+  .permissions span { font-size: .8rem; font-weight: 850; color: var(--accent); }
+  .permissions h3 { font-size: 1.3rem; margin: 14px 0; }
+  .permissions p { color: var(--muted); font-size: .96rem; }
+  .distinction { margin-top: 34px; }
+  @media (max-width: 760px) { .access-record > div { grid-template-columns: 1fr; gap: 12px; } .permissions { grid-template-columns: 1fr; gap: 20px; } }
+</style>

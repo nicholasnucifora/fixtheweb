@@ -1,0 +1,12 @@
+Use case: precise-object-edit / brand recolor.
+Edit the supplied Fix the Web Reddit banner into its LIGHT MODE color variant. This is a palette-only change: preserve the exact composition, letter shapes, text size and position, web strand shapes, quiet space on the left, and the existing thin 2160 x 256 banner proportions.
+
+Change the banner background to a clean warm off-white #fafaf7.
+Change the wordmark's "fix" and "web" letters from white to very dark charcoal #1b1e29, matching the brand's light-mode logo. Keep the middle "the" mint green #6ac7a7.
+Change ALL spiderweb lines from green/sage to BLACK (#171717), with any secondary lines allowed subtly lighter charcoal. Webs must read as black, not green. Preserve the large sweeping right-side web and smaller upper-left web.
+Preserve all clear space on the lower left for the separate Reddit icon.
+Keep everything flat, clean and crisp, with no added paper grain, shadows, gradients, glow or ornamentation.
+
+Text remains exactly "fixtheweb", lowercase, with no other words.
+Do not add a spider, icon, circle, border or UI.
+Return only the complete thin banner, edge to edge, preferably at exactly 2160x256, without letterboxing or a presentation frame.

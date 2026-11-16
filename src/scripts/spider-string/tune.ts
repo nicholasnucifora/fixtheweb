@@ -35,10 +35,8 @@ const SPIDER: Tuning = {
   schema: homeSchema,
   groups: homeGroups,
   key: "spider-string:tune",
-  title: "Tuning",
-  intro:
-    "Only the controls still being refined are shown. Changes apply instantly and are saved in this browser while ?tune is open. " +
-    "b is the height of the logo's b. Use the test buttons to compare values, then Copy changes. Test positions and actions aren't saved.",
+  title: "Rotation",
+  intro: "Everything else uses the accepted defaults. Try grabbing the spider near a corner.",
 };
 
 /** Puts this browser's saved changes to the spider's settings into effect, without the panel (for pages with a panel of their own). */
@@ -89,9 +87,9 @@ export function mountTuner(tuning: Tuning = SPIDER) {
   const actions = h("div", "actions");
   actions.append(copy, resetAll, side, hide);
   const tabs = h("nav", "tabs");
+  tabs.hidden = Object.keys(groups).length < 2;
   const head = h("header", "head");
   head.append(titleRow, actions, tabs);
-
   const intro = h("p", "intro", tuning.intro);
   const fallback = h("textarea", "fallback");
   fallback.readOnly = true;
@@ -106,7 +104,7 @@ export function mountTuner(tuning: Tuning = SPIDER) {
     tabs.append(tab);
     tabButtons[g] = tab;
     panes[g] = h("div", "pane");
-    panes[g].append(h("p", "group-info", group.info));
+    if (group.info) panes[g].append(h("p", "group-info", group.info));
   }
 
   const body = h("div", "body");
@@ -154,16 +152,8 @@ export function mountTuner(tuning: Tuning = SPIDER) {
   for (const [s, section] of Object.entries(sections)) {
     const details = h("details", "section");
     details.open = true;
-    details.append(h("summary", "", section.label), h("p", "section-info", section.info));
-    if (tuning === SPIDER && (s === "snapTest" || s === "pullTest" || s === "eyelids" || s === "speedLines")) {
-      const result = h("p", "test-result", "Ready to test.");
-      result.setAttribute("aria-live", "polite");
-      details.append(result);
-      document.addEventListener("spider:tune-result", (event) => {
-        const detail = (event as CustomEvent).detail;
-        if (detail?.section === s) result.textContent = detail.message;
-      });
-    }
+    details.append(h("summary", "", section.label));
+    if (section.info) details.append(h("p", "section-info", section.info));
     for (const [k, param] of Object.entries(section.params)) {
       const r = row(param, (v) => set(s, k, v));
       rows.push(() => r.update(values[s][k]));
@@ -366,7 +356,8 @@ function applySaved({ values, schema: sections, key }: Tuning) {
   }
   for (const [path, v] of Object.entries(saved)) {
     const [s, k] = path.split(".");
-    const param = sections[s]?.params[k];
+    if (!Object.hasOwn(sections, s) || !Object.hasOwn(sections[s].params, k)) continue;
+    const param = sections[s].params[k];
     if (!param || isAction(param) || param.transient || typeof v !== typeof param.value) continue;
     if (typeof v === "number" && !Number.isFinite(v)) continue;
     if (isChoice(param) && !Object.hasOwn(param.options, String(v))) continue;
@@ -400,7 +391,6 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text =
 }
 
 const styles = `
-  .test-result { margin: 10px 12px; padding: 9px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--fg); font: 600 12px/1.5 system-ui, sans-serif; }
   :host { all: initial; }
   .panel, .pill {
     --bg: #ffffff; --fg: #1b1e29; --muted: #6b6f7b; --line: #e4e4df;
@@ -423,7 +413,7 @@ const styles = `
     background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
   }
-  .head { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .head { padding: 10px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
   .title-row { display: flex; align-items: baseline; gap: 8px; }
   .title { font-size: 13px; }
   .status { color: var(--muted); }

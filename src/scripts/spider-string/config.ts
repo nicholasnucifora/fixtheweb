@@ -1,14 +1,13 @@
 /**
- * Every tunable for the hanging string + spider, with the range and
- * explanation the tuning panel shows for it (open the page with ?tune).
+ * Accepted settings for the hanging string + spider, with their original
+ * ranges and descriptions. Homepage tuning is finished.
  *
  * `value` is the default. Units: b = the rendered height of the letter the
  * string hangs from, so everything scales with the logo; s = seconds;
  * % = percent of the spider's width.
  *
  * Code reads the plain `config` object at the bottom, live, every frame.
- * The homepage panel edits the shortlist in tune-schema.ts; the remaining
- * accepted settings keep their defaults here without filling up the panel.
+ * tune-schema.ts intentionally exposes no homepage controls or saved overrides.
  */
 
 export interface NumberParam {
@@ -147,30 +146,6 @@ export const schema = {
     },
   },
 
-  snapTest: {
-    group: "string",
-    label: "Test snap distance",
-    info: "Move the logo by a known distance and see whether the string is carried along or swings. Press again to return, or use Reset test.",
-    params: {
-      distance: { value: 0.6, min: 0.05, max: 3, step: 0.05, unit: "b", label: "Test jump distance", info: "Compare this jump with Snap distance above.", transient: true },
-      axis: { value: "x" as "x" | "y", options: { x: "Sideways", y: "Up / down" }, label: "Jump direction", info: "", transient: true },
-      jump: { value: 0, kind: "action", label: "Test layout jump", info: "The result below reports what actually happened." },
-      reset: { value: 0, kind: "action", label: "Reset test", info: "Return the logo and spider to their original position." },
-    },
-  },
-
-  pullTest: {
-    group: "string",
-    label: "Test elastic pull",
-    info: "Hold a repeatable pull while adjusting the controls above, then release it to compare the recovery.",
-    params: {
-      distance: { value: 0.7, min: 0, max: 2.5, step: 0.05, unit: "×", label: "Pull past reach", info: "Extra pointer travel as a fraction of the string's length.", transient: true },
-      angle: { value: 55, min: -90, max: 90, step: 5, unit: "°", label: "Pull direction", info: "0 = straight down; negative left, positive right.", transient: true },
-      hold: { value: 0, kind: "action", label: "Hold test pull", info: "A steady hand: any motion you see comes from the rig." },
-      release: { value: 0, kind: "action", label: "Release test pull", info: "Let the stored tension out." },
-    },
-  },
-
   rope: {
     group: "string",
     label: "String",
@@ -224,7 +199,7 @@ export const schema = {
       maxStretch: {
         value: 0.12, min: 0, max: 1, step: 0.01, unit: "×",
         label: "Max stretch",
-        info: "The hard limit on stretching, however hard it's pulled (0.25 = never more than 25% longer than its length).",
+        info: "Base extra string length while held. The hand-pull extension in Elastic pull can let the string out further.",
       },
       compression: {
         value: 0, min: 0, max: 1, step: 0.01, unit: "×",
@@ -347,13 +322,13 @@ export const schema = {
         info: "Extra speed the spider gets when you let go of a fully wound string, sending it across the other way. 0 = it just springs back on its own.",
       },
       style: {
-        value: "body" as "body" | "whole" | "off",
+        value: "whole" as "body" | "whole" | "off",
         options: { body: "Body stretches; face keeps its shape", whole: "Whole spider stretches", off: "String only" },
         label: "Spider stretch style",
-        info: "Keep the face in proportion while the body gives a little, compare a whole-spider stretch, or leave all the stretch to the string.",
+        info: "The whole spider stretches together along the pull by default. You can also compare body-only stretch or leave all the stretch to the string.",
       },
       bodyStretch: {
-        value: 0.12, min: 0, max: 0.35, step: 0.01, unit: "×",
+        value: 0.35, min: 0, max: 0.35, step: 0.01, unit: "×",
         label: "Spider stretches",
         info: "Maximum extra body length under a full pull. The sideways squeeze is deliberately mild. 0 keeps its usual shape.",
       },
@@ -600,6 +575,27 @@ export const schema = {
     },
   },
 
+  grabRotation: {
+    group: "spidey",
+    label: "While held",
+    info: "",
+    params: {
+      mode: {
+        value: "motion" as "off" | "grip" | "motion",
+        options: { off: "Current movement", grip: "Rotate with position", motion: "Stretch, movement tilt" },
+        label: "Rotation style",
+        info: "Position follows the anchor; movement tilt settles level wherever you hold it.",
+      },
+      amount: {
+        value: 0.8, min: 0, max: 1, step: 0.05, unit: "×",
+        label: "Turn amount",
+        info: "How much the optional styles tilt the spider.",
+      },
+      preview: { value: 0, kind: "action", label: "Hold left pull", info: "Compare a steady pull from the bottom-right corner." },
+      release: { value: 0, kind: "action", label: "Release", info: "Let go and return to the usual movement." },
+    },
+  },
+
   body: {
     group: "spidey",
     label: "Body",
@@ -756,7 +752,7 @@ export const schema = {
         info: "Lower spreads a vague awareness over a wider area; higher concentrates it close to the spider. There is no hard visibility cutoff.",
       },
       attentionTime: {
-        value: 0.35, min: 0.05, max: 1.5, step: 0.05, unit: "s",
+        value: 0.15, min: 0.05, max: 1.5, step: 0.05, unit: "s",
         label: "Noticing / forgetting time",
         info: "Time taken to warm to the cursor or lose interest. Close approaches get its attention faster.",
       },
@@ -1099,10 +1095,10 @@ export const schema = {
     params: {
       enabled: { value: true, label: "Blinks", info: "Off = the eyes stay open." },
       style: {
-        value: "lids" as "squash" | "lids",
+        value: "squash" as "squash" | "lids",
         options: { squash: "Squash flat", lids: "Close into lids" },
         label: "How it blinks",
-        info: "Close into lids sweeps body-coloured lids across the eyes while keeping the eye and pupil shapes intact. Squash flat keeps the older squashing blink for comparison.",
+        info: "Close into lids narrows a curved opening; Squash flat narrows the eye's silhouette. Both keep the pupils round and disappear cleanly when fully shut.",
       },
       everyFrom: {
         value: 2.5, min: 0.2, max: 20, step: 0.1, unit: "s",
@@ -1342,7 +1338,7 @@ export const schema = {
       enabled: { value: true, label: "Speed lines", info: "Off = no streaks." },
       previewSpeed: { value: 12, min: 1, max: 30, step: 1, unit: "b/s", label: "Preview throw speed", info: "The speed of the repeatable test throw below.", transient: true },
       preview: { value: 0, kind: "action", label: "Preview motion lines", info: "Throw the main spider at the chosen speed so you can test these controls." },
-      opacity: { value: 0.65, min: 0, max: 1, step: 0.05, label: "Opacity", info: "How visible each streak is before it fades." },
+      opacity: { value: 0.55, min: 0, max: 1, step: 0.05, label: "Opacity", info: "How visible each streak is before it fades." },
       minSpeed: {
         value: 4, min: 0.5, max: 40, step: 0.5, unit: "b/s",
         label: "Start at",
@@ -1354,7 +1350,7 @@ export const schema = {
         info: "At this speed they're as many and as long as they get.",
       },
       rate: {
-        value: 45, min: 1, max: 200, step: 1, unit: "/s",
+        value: 35, min: 1, max: 200, step: 1, unit: "/s",
         label: "How many",
         info: "Streaks per second at full speed.",
       },

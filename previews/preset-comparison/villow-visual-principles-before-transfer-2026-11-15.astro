@@ -1,0 +1,283 @@
+---
+const principles = [
+  {
+    id: "finite-feeds", label: "Make room for life", title: "Enjoy the video.\nGet back to your day.",
+    body: "A good experience should leave you satisfied and ready to leave. Villow gives the feed an ending and keeps more videos from competing with the one you chose.",
+    detail: "An optional to-do list beside your video can keep the rest of your day in view. Take a walk, call someone, or just have a rest. Spending less time here should feel like getting something back.",
+    note: "An ending is an invitation. You can still choose to keep watching.",
+  },
+  {
+    id: "intentions", label: "Keep the choice yours", title: "Your goals.\nYour limits. Your choice.",
+    body: "Change works best when you want it for yourself. Choose the limits, schedules and tools that suit your life, adjust them when your plans change, and leave out the ones that don’t help.",
+    detail: "For a little encouragement, Villow’s streak grows when you keep the limits you chose—even on days you don’t watch. It makes sticking to your own decision feel rewarding, while keeping the option to change your mind.",
+    note: "The aim is a commitment to yourself, with control still in your hands.",
+  },
+  {
+    id: "reflection", label: "Make change easy to reach", title: "See your habits.\nFind the controls right there.",
+    body: "It’s easy to lose track of time. Seeing how long you spend watching and browsing makes those habits easier to notice—and gives you a place to start if you want to cut back.",
+    detail: "The next step should be close by: a limit you can adjust, a viewing pattern you can explore, a suggestion you can accept or dismiss. Useful tools belong where people will actually find them, with language they can understand.",
+    note: "Less searching through settings. More chances to make a change that suits you.",
+  },
+  {
+    id: "value", label: "Listen to what people value", title: "Was it worth\nyour time?",
+    body: "A long watch doesn’t tell us whether you’re glad you watched. Villow lets you look back and say what felt worthwhile, then use those patterns to shape what you see.",
+    detail: "Learning something, laughing, resting or sharing a moment can all be time well spent. The goal is to keep what you value while reducing the browsing you wish you’d skipped.",
+    note: "Your own judgment helps define a better experience.",
+  },
+  {
+    id: "subscriptions", label: "Make the calmer option appealing", title: "Less endless browsing.\nStill plenty to enjoy.",
+    body: "A feed of channels you follow should be easy and enjoyable to use. Organising those channels and choosing which videos appear can make that calmer way of watching worth choosing.",
+    detail: "Different people want different experiences. If you enjoy YouTube’s recommendations, Villow’s extension lets you keep using them there, with tools to help manage your time.",
+    note: "Make the experience appealing enough that people want to choose it.",
+  },
+  {
+    id: "connection", label: "Help people support each other", title: "Good company.\nA little encouragement.",
+    body: "Send a video with a personal note. Watch together from different places. Social media can help people feel closer, and that’s a benefit worth designing for.",
+    detail: "If you choose to share usage, seeing friends’ habits can put your own in perspective and help you stay accountable. Their numbers are context, not a verdict on what’s normal or right for you. You choose what you share.",
+    note: "Enjoying something together and sharing usage are separate choices.",
+  },
+];
+---
+
+<section class="principles-story" id="design-questions" aria-labelledby="principles-title">
+  <header class="ftw-shell principles-intro">
+    <p class="ftw-eyebrow">What we’re designing for</p>
+    <h2 id="principles-title">A good app should help<br />you need it less.</h2>
+    <p>The goal is more time for the life you want to live. That change has to come from you. Villow brings together tools to understand your habits, choose what to change and find encouragement to keep going.</p>
+    <span class="illustration-note">The illustrations below use made-up examples to show the ideas.</span>
+  </header>
+
+  {principles.map((principle, index) => <article class:list={["principle-chapter", `chapter-${principle.id}`]} id={principle.id} aria-labelledby={`title-${principle.id}`}>
+    <div class="ftw-shell chapter-layout">
+      <div class="chapter-copy">
+        <p class="chapter-label"><span>0{index + 1}</span>{principle.label}</p>
+        <h3 id={`title-${principle.id}`}>{principle.title.split("\n").map((line, i) => <>{i > 0 && <br />}{line}</>)}</h3>
+        <div class="chapter-text">
+          <p class="chapter-lead">{principle.body}</p>
+          <p>{principle.detail}</p>
+          <p class="chapter-note">{principle.note}</p>
+        </div>
+      </div>
+
+      <figure class:list={["principle-scene", `scene-${principle.id}`]}>
+        {principle.id === "finite-feeds" && <>
+          <div class="daylight" aria-hidden="true"><svg viewBox="0 0 480 220"><circle cx="348" cy="66" r="36" fill="var(--scene-gold)" /><path d="M0 172Q100 80 240 163T480 140V220H0Z" fill="var(--scene-sage)" /><path d="M0 212Q145 138 275 190T480 172V220H0Z" fill="var(--scene-green)" /><path d="M211 220q-32-32 34-54t-4-28" fill="none" stroke="var(--scene-paper)" stroke-width="13" /></svg></div>
+          <div class="ending-card paper"><span class="round-tick" aria-hidden="true">✓</span><strong>You’re all caught up.</strong><p>There’s a whole day beyond your feed.</p><div class="day-plans"><span>Take a walk</span><span>Call a friend</span><span>Do nothing for a bit</span></div></div>
+          <figcaption>A feed with an ending. Your day still ahead.</figcaption>
+        </>}
+
+        {principle.id === "intentions" && <>
+          <div class="limit-demo paper" data-villow-limit-demo>
+            <div class="demo-top"><span>Try choosing a limit</span><label class="limit-toggle"><input type="checkbox" checked data-limit-enabled /><span>Use a daily limit</span></label></div>
+            <label class="limit-label" for="villow-example-limit">Time for watching & browsing</label>
+            <output class="limit-output" for="villow-example-limit" data-limit-output><span data-limit-number>60</span> <small data-limit-unit>min / day</small></output>
+            <input id="villow-example-limit" class="limit-slider" type="range" min="15" max="180" step="15" value="60" aria-valuetext="60 minutes per day" data-limit-slider />
+            <div class="range-ends"><span>15 min</span><span>3 hours</span></div>
+            <p class="limit-message" data-limit-message role="status">Try the slider. This example only changes here.</p>
+          </div>
+          <div class="streak-card paper"><span class="streak-sun" aria-hidden="true">✦</span><div><strong>8 days keeping your limits</strong><span>Days away from the app count too.</span></div><div class="streak-days" aria-label="Eight example days without raising a limit">{Array.from({length:8}, () => <i aria-hidden="true">✓</i>)}</div></div>
+          <figcaption>An example limit you can change. A streak that rewards keeping it.</figcaption>
+        </>}
+
+        {principle.id === "reflection" && <>
+          <div class="habits-card paper"><div class="demo-top"><span>A little perspective</span><span class="small-tag">Example day</span></div><div class="usage-total"><strong>1h 20m</strong><span>watching & browsing</span></div><div class="time-bar" role="img" aria-label="Example time: 35 minutes watching, 45 minutes browsing"><span></span><span></span></div><div class="time-key"><span><i></i>Watching <strong>35m</strong></span><span><i></i>Browsing <strong>45m</strong></span></div><div class="nearby-controls"><span>Want to make more room in your day?</span><a href="#intentions">Try a limit you choose <span aria-hidden="true">↗</span></a></div></div>
+          <div class="reflection-caption"><span aria-hidden="true">↳</span>Understand it. Adjust it. All within reach.</div>
+          <figcaption>Information becomes useful when there’s an easy next step.</figcaption>
+        </>}
+
+        {principle.id === "value" && <>
+          <div class="worthwhile-card paper"><div class="garden-picture" aria-hidden="true"><svg viewBox="0 0 400 200"><circle cx="310" cy="44" r="23" fill="var(--scene-gold)" /><path d="M0 163q95-60 190-4t210-10v51H0Z" fill="var(--scene-sage)"/><path d="M154 131h92l-14 69h-64Z" fill="#bd805e"/><path d="M200 136V47" stroke="#2e6550" stroke-width="7"/><path d="M200 101C145 103 137 49 144 44c38 0 58 18 56 57Zm1-18c-3-40 41-61 61-48 0 36-21 54-61 48Z" fill="#4c8f68"/></svg><span>A small herb garden</span></div><div class="worthwhile-prompt"><strong>Glad you watched?</strong><span class="worthwhile-answer">✓ &nbsp; That was worth my time</span></div></div>
+          <div class="value-words"><span>A laugh.</span><span>A new idea.</span><span>A moment to rest.</span></div>
+          <figcaption>What you got from the video matters as much as how long you stayed.</figcaption>
+        </>}
+
+        {principle.id === "subscriptions" && <>
+          <div class="channels-card paper"><div class="demo-top"><span>A little of what you love</span></div><div class="channel-categories"><span>Making things</span><span>A little curiosity</span><span>Just for fun</span></div><div class="chosen-video"><span class="video-art art-leaf" aria-hidden="true">✿</span><div><strong>Something to try this weekend</strong><span>A channel you chose · 12 min</span></div></div><div class="chosen-video"><span class="video-art art-moon" aria-hidden="true">☾</span><div><strong>A small, surprising discovery</strong><span>A channel you chose · 8 min</span></div></div><div class="feed-finish"><span aria-hidden="true">✓</span> A manageable feed. An ending in sight.</div></div>
+          <figcaption>Your interests, organised. A calmer feed can still be a good one.</figcaption>
+        </>}
+
+        {principle.id === "connection" && <>
+          <div class="shared-note"><span class="person-avatar" aria-hidden="true">A</span><div class="paper"><span>Alex shared a video</span><strong>“This made me think of you.”</strong></div></div>
+          <div class="friends-card paper"><div class="demo-top"><span>A little perspective, together</span></div><p>Example daily usage, shared by choice</p><div class="friend-row"><span>You</span><i style="--bar:65%"></i><strong>1h 20m</strong></div><div class="friend-row"><span>Alex</span><i style="--bar:40%"></i><strong>50m</strong></div><div class="friend-row"><span>Sam</span><i style="--bar:85%"></i><strong>1h 45m</strong></div><div class="friends-note">Different lives. Different goals.<br />Something to talk about.</div></div>
+          <figcaption>Connection and encouragement, with sharing you choose.</figcaption>
+        </>}
+      </figure>
+    </div>
+  </article>)}
+
+  <section class="future-directions" id="beyond-the-feed" aria-labelledby="future-title">
+    <div class="ftw-shell">
+      <header class="future-intro"><p class="ftw-eyebrow">Where we want to go next</p><h3 id="future-title">Better informed.<br />Inspired to do something.</h3><p>Villow doesn’t cover every part of better social media. These next ideas extend the same ambition beyond time management.</p></header>
+      <div class="future-grid">
+        <article id="corrections"><div class="future-art correction-art" aria-hidden="true"><span class="watched-chip">A video you watched</span><span class="connecting-line">↓</span><div class="context-note"><span>New context is available</span><strong>A chance to check the claim.</strong><i>Read the note & its sources ↗</i></div></div><p class="future-status">Idea to explore · Not built yet</p><h4>Help corrections reach the people who saw the claim.</h4><p>A useful correction can arrive after you’ve watched and moved on. Bringing sourced context back to earlier viewers could help people reconsider misleading information—and make it easier to check before sharing.</p><a class="ftw-text-link" href="/ideas#corrections">Explore corrections & context →</a></article>
+        <article id="creator-actions"><div class="future-art action-art" aria-hidden="true"><span class="watched-chip">From “I’d love to try that…”</span><span class="connecting-line">↓</span><div class="action-note"><span>Something for your weekend</span><strong>Take that walk.<br />Try that recipe.</strong><i>Save an idea for later</i></div></div><p class="future-status">Idea to explore · Not built yet</p><h4>Turn inspiration into something you do.</h4><p>A creator could suggest something to try, somewhere to go or a cause to support. You could save that next step for later. This would go beyond Villow’s existing personal to-do list, helping good videos lead into life outside the app.</p><a class="ftw-text-link" href="/ideas#creator-actions">Explore actions beyond watching →</a></article>
+      </div>
+      <p class="future-footnote">These are design proposals, with questions still to work through. Their effects on misinformation or time away from the screen have not been established.</p>
+    </div>
+  </section>
+</section>
+
+<script>
+  for (const demo of document.querySelectorAll<HTMLElement>("[data-villow-limit-demo]")) {
+    const enabled = demo.querySelector<HTMLInputElement>("[data-limit-enabled]")!;
+    const slider = demo.querySelector<HTMLInputElement>("[data-limit-slider]")!;
+    const number = demo.querySelector<HTMLElement>("[data-limit-number]")!;
+    const unit = demo.querySelector<HTMLElement>("[data-limit-unit]")!;
+    const message = demo.querySelector<HTMLElement>("[data-limit-message]")!;
+    const render = () => {
+      slider.disabled = !enabled.checked;
+      slider.setAttribute("aria-valuetext", `${slider.value} minutes per day`);
+      number.textContent = enabled.checked ? slider.value : "Off";
+      unit.textContent = enabled.checked ? "min / day" : "your choice";
+      message.textContent = enabled.checked ? "Your example limit. Change it whenever you like." : "No daily limit in this example. You can turn it back on.";
+    };
+    slider.addEventListener("input", render);
+    enabled.addEventListener("change", render);
+  }
+</script>
+
+<style>
+  .principles-story { --scene-paper: #f8f5ed; --scene-gold: #e8bc72; --scene-sage: #bbd2ad; --scene-green: #679987; }
+  .principles-intro { max-width: 840px; text-align: center; padding-block: 88px 76px; }
+  .principles-intro h2 { font-size: clamp(2.2rem, 4.6vw, 3.6rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 24px; text-wrap: balance; }
+  .principles-intro > p:not(.ftw-eyebrow) { max-width: 670px; margin: 0 auto; color: var(--muted); font-size: 1.12rem; line-height: 1.75; }
+  .illustration-note { display: block; margin-top: 26px; font-size: .76rem; color: var(--muted); }
+  .principle-chapter { padding-block: clamp(64px, 7vw, 108px); scroll-margin-top: calc(var(--header-height) + 72px); }
+  .principle-chapter:nth-of-type(odd) { background: var(--story-soft); }
+  .chapter-layout { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: clamp(40px, 6vw, 90px); }
+  .principle-chapter:nth-of-type(even) .chapter-copy { order: 2; }
+  .chapter-copy { max-width: 490px; }
+  .chapter-label { display: flex; gap: 13px; align-items: center; color: var(--accent); font-size: .78rem; font-weight: 850; margin: 0 0 22px; }
+  .chapter-label > span { font-weight: 600; opacity: .7; }
+  .chapter-copy h3 { font-size: clamp(2rem, 3.3vw, 2.8rem); line-height: 1.1; letter-spacing: -.035em; margin: 0 0 26px; text-wrap: balance; }
+  .chapter-text > p { font-size: 1rem; line-height: 1.75; color: var(--muted); margin: 0 0 18px; }
+  .chapter-text > .chapter-lead { color: var(--ink); font-size: 1.08rem; }
+  .chapter-text > .chapter-note { padding-top: 18px; border-top: 1px solid var(--line); font-size: .85rem; margin-top: 24px; }
+  .principle-scene { min-width: 0; width: 100%; margin: 0; position: relative; }
+  .principle-scene figcaption { font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.6; margin: 22px auto 0; max-width: 390px; }
+  .paper { border-radius: 22px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 15px 35px -24px #132f365c; }
+  .demo-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; font-size: .9rem; font-weight: 850; }
+  .daylight { overflow: hidden; border-radius: 160px 160px 18px 18px; background: color-mix(in srgb, var(--scene-gold) 16%, var(--bg)); margin-inline: 18px; }
+  .daylight svg { display: block; width: 100%; height: auto; }
+  .ending-card { position: relative; text-align: center; padding: 28px 22px; margin-top: -15px; }
+  .round-tick { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--story-soft); color: var(--accent); margin: 0 auto 12px; }
+  .ending-card > strong { display: block; font-size: 1.5rem; font-weight: 850; }
+  .ending-card > p { font-size: .85rem; color: var(--muted); margin: 8px 0 22px; }
+  .day-plans { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .day-plans span { font-size: .72rem; padding: 7px 11px; border: 1px solid var(--line); border-radius: 30px; }
+  .limit-demo { padding: 28px; }
+  .limit-toggle { display: flex; align-items: center; gap: 7px; min-height: 44px; font-size: .7rem; font-weight: 650; cursor: pointer; }
+  .limit-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .limit-label { display: block; margin-top: 25px; color: var(--muted); font-size: .8rem; }
+  .limit-output { display: block; font-size: 3.2rem; font-weight: 850; letter-spacing: -.05em; margin: 3px 0 14px; }
+  .limit-output small { font-size: .85rem; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+  .limit-slider { width: 100%; height: 44px; accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .limit-slider:disabled { opacity: .35; cursor: default; }
+  .range-ends { display: flex; justify-content: space-between; color: var(--muted); font-size: .7rem; }
+  .limit-message { font-size: .72rem; color: var(--muted); margin: 20px 0 0; min-height: 2.8em; }
+  .streak-card { margin: 16px 14px 0; padding: 20px; display: grid; grid-template-columns: 35px 1fr; gap: 12px; align-items: center; }
+  .streak-sun { color: #a66a1c; font-size: 34px; }
+  .streak-card strong, .streak-card div > span { display: block; }
+  .streak-card strong { font-size: .9rem; }
+  .streak-card div > span { font-size: .73rem; color: var(--muted); margin-top: 4px; }
+  .streak-days { grid-column: 1/-1; display: flex; gap: 7px; }
+  .streak-days i { display: grid; place-items: center; flex: 1; height: 25px; border-radius: 6px; background: var(--story-warm); color: var(--accent); font-size: 13px; font-style: normal; }
+  .habits-card { padding: 30px; }
+  .small-tag { font-size: .64rem; color: var(--muted); font-weight: 600; }
+  .usage-total { display: flex; flex-direction: column; margin-top: 25px; }
+  .usage-total strong { font-size: 3.1rem; letter-spacing: -.04em; line-height: 1.1; }
+  .usage-total > span { color: var(--muted); font-size: .8rem; margin-top: 5px; }
+  .time-bar { display: flex; height: 27px; gap: 4px; margin: 24px 0 14px; border-radius: 8px; overflow: hidden; }
+  .time-bar span:first-child { width: 43.75%; background: var(--accent); }
+  .time-bar span:last-child { flex: 1; background: var(--scene-gold); }
+  .time-key { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .75rem; }
+  .time-key > span { display: flex; gap: 6px; align-items: center; }
+  .time-key i { display: block; width: 8px; height: 8px; border-radius: 3px; background: var(--accent); }
+  .time-key > span + span i { background: var(--scene-gold); }
+  .nearby-controls { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .nearby-controls > span { display: block; color: var(--muted); font-size: .8rem; margin-bottom: 12px; }
+  .nearby-controls a { display: flex; justify-content: space-between; gap: 15px; padding: 14px 16px; background: var(--story-soft); border-radius: 10px; color: var(--accent); font-size: .82rem; font-weight: 850; text-decoration: none; }
+  .nearby-controls a:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .reflection-caption { display: flex; justify-content: center; align-items: center; gap: 14px; color: var(--accent); font-size: .83rem; margin: 16px 0; }
+  .reflection-caption > span { font-size: 32px; }
+  .worthwhile-card { overflow: hidden; }
+  .garden-picture { background: color-mix(in srgb, var(--scene-gold) 14%, var(--bg)); }
+  .garden-picture svg { display: block; width: 100%; height: auto; }
+  .garden-picture > span { display: block; font-size: .85rem; font-weight: 850; padding: 16px 24px; }
+  .worthwhile-prompt { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 20px; }
+  .worthwhile-prompt > strong { font-size: 1.3rem; }
+  .worthwhile-answer { padding: 10px 18px; border-radius: 40px; background: var(--story-soft); color: var(--accent); font-size: .82rem; font-weight: 800; }
+  .value-words { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; margin-top: 24px; color: var(--accent); font-size: .85rem; }
+  .channels-card { padding: 28px; }
+  .channel-categories { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 26px; }
+  .channel-categories > span { padding: 6px 10px; background: var(--story-soft); color: var(--accent); border-radius: 30px; font-size: .65rem; font-weight: 750; }
+  .chosen-video { display: flex; align-items: center; gap: 16px; margin: 15px 0; }
+  .video-art { flex: none; display: grid; place-items: center; width: 98px; height: 72px; border-radius: 10px; font-size: 44px; line-height: 1; }
+  .art-leaf { background: #dce7cb; color: #456e47; }
+  .art-moon { background: #37475a; color: #f0dc9b; }
+  .chosen-video strong { display: block; font-size: .85rem; line-height: 1.35; }
+  .chosen-video div > span { display: block; margin-top: 7px; color: var(--muted); font-size: .65rem; }
+  .feed-finish { display: flex; gap: 9px; color: var(--accent); font-size: .75rem; margin-top: 23px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .shared-note { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; }
+  .person-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--scene-sage); color: #244d37; font-weight: 850; flex: none; }
+  .shared-note .paper { padding: 17px 21px; border-bottom-left-radius: 4px; }
+  .shared-note .paper span { display: block; color: var(--muted); font-size: .7rem; margin-bottom: 4px; }
+  .shared-note strong { font-size: .91rem; }
+  .friends-card { margin-left: 25px; padding: 25px; }
+  .friends-card > p { font-size: .7rem; color: var(--muted); margin: 5px 0 25px; }
+  .friend-row { display: grid; grid-template-columns: 34px 1fr 54px; gap: 12px; align-items: center; margin: 14px 0; font-size: .73rem; }
+  .friend-row > i { width: var(--bar); height: 13px; background: var(--accent); opacity: .65; border-radius: 3px; }
+  .friend-row > strong { font-size: .7rem; text-align: right; }
+  .friends-note { font-size: .8rem; color: var(--muted); padding-top: 18px; border-top: 1px solid var(--line); margin-top: 24px; line-height: 1.6; }
+  .future-directions { padding-block: 90px; background: var(--story-warm); }
+  .future-intro { max-width: 680px; }
+  .future-intro h3 { font-size: clamp(2.2rem, 4vw, 3.4rem); line-height: 1.1; letter-spacing: -.035em; margin: 0 0 24px; }
+  .future-intro > p:last-child { color: var(--muted); line-height: 1.75; }
+  .future-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 80px); margin-top: 45px; }
+  .future-art { box-sizing: border-box; min-height: 300px; padding: 26px; background: color-mix(in srgb, var(--bg) 70%, transparent); border-radius: 22px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .watched-chip { font-size: .78rem; color: var(--muted); }
+  .connecting-line { font-size: 27px; margin: 7px; color: var(--accent); }
+  .context-note, .action-note { align-self: stretch; background: var(--surface); border: 1px solid var(--line); padding: 20px; border-radius: 12px; text-align: left; }
+  .context-note > span, .action-note > span { color: var(--accent); font-size: .7rem; font-weight: 800; }
+  .context-note > strong, .action-note > strong { display: block; font-size: 1.1rem; margin: 7px 0 13px; line-height: 1.3; }
+  .context-note i, .action-note i { font-size: .75rem; font-style: normal; color: var(--muted); }
+  .future-status { color: var(--accent); font-weight: 850; font-size: .73rem; margin: 28px 0 13px; }
+  .future-grid h4 { font-size: 1.65rem; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 20px; font-weight: 850; }
+  .future-grid article > p:not(.future-status) { color: var(--muted); font-size: 1rem; line-height: 1.75; }
+  .future-footnote { max-width: 770px; border-top: 1px solid var(--line); padding-top: 25px; margin: 42px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.7; }
+  @media (max-width: 850px) {
+    .chapter-layout { grid-template-columns: 1fr; gap: 0; max-width: 620px; }
+    .chapter-copy { display: contents; }
+    .chapter-copy h3 { order: 1; }
+    .principle-scene { order: 2; max-width: 480px; margin-inline: auto; }
+    .chapter-text { order: 3; margin-top: 30px; }
+    .future-grid { gap: 35px; }
+  }
+  @media (max-width: 600px) {
+    .principles-intro { padding-block: 58px 52px; }
+    .principles-intro > p:not(.ftw-eyebrow) { font-size: 1rem; }
+    .principle-chapter { padding-block: 54px; }
+    .chapter-copy h3 { font-size: clamp(1.9rem, 7.8vw, 2.5rem); }
+    .chapter-text > p { font-size: .96rem; }
+    .chapter-text > .chapter-lead { font-size: 1rem; }
+    .limit-demo, .habits-card, .channels-card { padding: 22px 18px; }
+    .limit-demo .demo-top { align-items: start; flex-direction: column; }
+    .streak-card { margin-inline: 0; padding: 17px; }
+    .streak-card strong { font-size: .8rem; }
+    .streak-card div > span { font-size: .67rem; }
+    .friends-card { margin-left: 0; padding: 22px 18px; }
+    .shared-note .paper { padding: 14px; }
+    .shared-note strong { font-size: .8rem; }
+    .ending-card { padding: 24px 16px; }
+    .ending-card > strong { font-size: 1.35rem; }
+    .daylight { margin-inline: 10px; }
+    .video-art { width: 75px; height: 66px; }
+    .chosen-video { gap: 12px; }
+    .chosen-video strong { font-size: .76rem; }
+    .chosen-video div > span { font-size: .6rem; }
+    .reflection-caption { font-size: .73rem; gap: 10px; }
+    .future-directions { padding-block: 60px; }
+    .future-grid { grid-template-columns: 1fr; gap: 45px; }
+    .future-art { padding: 20px; min-height: 240px; }
+  }
+</style>

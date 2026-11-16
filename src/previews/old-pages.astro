@@ -1,0 +1,47 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Old pages · Fix the Web" page="archive">
+  <main id="main" class="ftw-shell old-pages">
+    <header class="ftw-page-intro">
+      <a class="ftw-text-link" href="/">← Back to Fix the Web</a>
+      <p class="ftw-eyebrow">Kept for later</p>
+      <h1>Old pages.</h1>
+      <p class="ftw-lead">Earlier experiments, set aside while the new direction takes shape. They’re here to revisit, rework or leave behind.</p>
+    </header>
+
+    <section class="old-page-list" aria-label="Earlier experiments">
+      <article class="old-page-entry">
+        <div>
+          <p class="ftw-eyebrow">Interactive experiment</p>
+          <h2>Spider Den</h2>
+          <p>A place for the spiders to live, with dress-up, feeding and a small world of their own.</p>
+        </div>
+        <a class="ftw-button" href="/old-pages/den">Open the Den <span aria-hidden="true">↗</span></a>
+      </article>
+      <article class="old-page-entry">
+        <div>
+          <p class="ftw-eyebrow">Earlier campaign idea</p>
+          <h2>Your Life on Screens</h2>
+          <p>The original life and screen-time calculator, with its existing framing and assumptions retained for review.</p>
+        </div>
+        <a class="ftw-button" href="/old-pages/life">Open the calculator <span aria-hidden="true">↗</span></a>
+      </article>
+    </section>
+    <p class="old-pages-note">These pages are separate from the current Fix the Web proposal. Keeping them here does not commit to releasing them.</p>
+  </main>
+</Base>
+
+<style>
+  .old-page-list { display: grid; gap: 1.25rem; padding-bottom: 2rem; }
+  .old-page-entry { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 2rem; background: var(--fill); border-radius: 24px; }
+  .old-page-entry h2 { margin: .25rem 0 .65rem; font-size: clamp(1.6rem, 3vw, 2rem); }
+  .old-page-entry p { max-width: 53ch; margin: 0; color: var(--muted); }
+  .old-page-entry .ftw-eyebrow { color: var(--accent); }
+  .old-page-entry a { flex: none; }
+  .old-pages-note { max-width: 64ch; margin: 0 0 4rem; color: var(--muted); font-size: .95rem; }
+  @media (max-width: 680px) {
+    .old-page-entry { align-items: flex-start; flex-direction: column; padding: 1.5rem; gap: 1.25rem; }
+  }
+</style>

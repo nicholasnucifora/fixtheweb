@@ -1,0 +1,88 @@
+---
+import Base from "../layouts/Base.astro";
+import submission from "../content/digital-duty-of-care.txt?raw";
+import originalTextURL from "../content/digital-duty-of-care.txt?url";
+import { getPagePreset } from "../lib/page-presets";
+const expanded = getPagePreset(Astro.url) === "b";
+
+// Keep the supplied words intact, joining only the text export's hard wraps.
+const headings = [
+  "User empowerment should extend beyond choosing a feed",
+  "Engagement is not the same thing as value",
+  "Design for stopping, not only continuing",
+  "Reflection can itself be a product feature",
+  "Make the alternative to engagement algorithms better",
+  "Turn intentions into commitments without removing control",
+  "An opportunity for experimentation",
+];
+const lines = submission.trim().split(/\r?\n/).map(line => line.trim());
+const positions = headings.map(heading => lines.indexOf(heading));
+const closing = lines.slice(-2);
+const sections = headings.map((heading, index) => {
+  const end = positions[index + 1] ?? lines.length - closing.length;
+  const paragraphs: string[] = [];
+  let paragraph: string[] = [];
+  for (const line of lines.slice(positions[index] + 1, end)) {
+    if (line) paragraph.push(line);
+    if ((!line || /[.!?:][”"]?$/.test(line)) && paragraph.length) {
+      paragraphs.push(paragraph.join(" "));
+      paragraph = [];
+    }
+  }
+  if (paragraph.length) paragraphs.push(paragraph.join(" "));
+  return { heading, id: `section-${index + 1}`, paragraphs };
+});
+const documentTitle = lines.slice(0, 2).join(" ");
+---
+
+<Base title="Digital Duty of Care submission · Fix the Web" page="notes">
+  <main id="main" class="submission-page">
+    <header class="ftw-shell ftw-page-intro submission-intro">
+      <a class="ftw-text-link back-link" href="/notes/design-and-access">← Making alternatives possible</a>
+      <p class="ftw-eyebrow">A submission by Nicholas Nucifora</p>
+      <h1>Digital Duty of Care.</h1>
+      <p class="ftw-lead">{documentTitle}</p>
+      <div class="submission-byline"><p><strong>Nicholas Nucifora</strong><br />Developer of Villow · <a href="https://villow.app">villow.app</a></p><a class="ftw-text-link" href={originalTextURL} download="digital-duty-of-care-submission.txt">Download original text ↓</a></div>
+    </header>
+    {expanded && <section class="ftw-shell reading-guide" aria-labelledby="reading-guide-title"><p class="ftw-eyebrow">A guide to the argument</p><h2 id="reading-guide-title">Meaningful agency needs more than a feed switch.</h2><p>The submission connects seven design questions: usable choice, engagement versus value, natural stopping points, reflection, attractive alternatives, commitments that preserve freedom, and independent experimentation.</p><div><a class="ftw-text-link" href="#section-2">Why engagement is not value →</a><a class="ftw-text-link" href="#section-6">Supporting earlier intentions →</a><a class="ftw-text-link" href="/notes/design-and-access">Our developing position today →</a></div><p class="reading-guide-note">This introduction is separate from Nicholas’s original submission below. The original wording is preserved as submitted; it is not a statement of the latest law or product availability.</p></section>}
+    <div class="ftw-shell submission-body">
+      <nav class="submission-contents" aria-label="In this submission"><p class="ftw-eyebrow">In this submission</p><ol>{sections.map(section => <li><a href={`#${section.id}`}>{section.heading}</a></li>)}</ol><p class="submission-format-note">Original submission text, formatted for reading.</p></nav>
+      <article class="ftw-reading submission-copy">
+        {sections.map(section => <section id={section.id} aria-labelledby={`${section.id}-title`}><h2 id={`${section.id}-title`}>{section.heading}</h2>{section.paragraphs.map(paragraph => <p>{paragraph}</p>)}</section>)}
+        <footer class="submission-signature">{closing.map(line => <p>{line}</p>)}</footer>
+      </article>
+    </div>
+    <div class="ftw-shell ftw-section submission-return"><a class="ftw-text-link" href="/work/villow">Explore the designs behind Villow →</a><a class="ftw-text-link" href="/#get-involved">Help develop this work →</a></div>
+  </main>
+</Base>
+
+<style>
+  .reading-guide { box-sizing: border-box; padding: 30px; border-radius: 20px; background: var(--story-soft); margin-bottom: 36px; }
+  .reading-guide h2 { font-size: 1.7rem; line-height: 1.25; margin-top: 0; }
+  .reading-guide > p:not(.ftw-eyebrow) { max-width: 860px; color: var(--muted); }
+  .reading-guide > div { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+  .reading-guide .reading-guide-note { font-size: .82rem; margin-bottom: 0; padding-top: 15px; border-top: 1px solid var(--line); }
+  .back-link { display: inline-block; margin-bottom: 2.4rem; font-size: .9rem; }
+  .submission-intro h1 { font-size: clamp(2.8rem, 6vw, 5rem); line-height: 1.06; letter-spacing: -.05em; margin: .7rem 0 1.6rem; }
+  .submission-intro > .ftw-lead { max-width: 42rem; }
+  .submission-byline { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 3rem; margin-top: 2rem; font-size: .95rem; }
+  .submission-byline p { color: var(--muted); }
+  .submission-byline strong { color: var(--ink); font-weight: 800; }
+  .submission-byline p a { color: inherit; text-underline-offset: 3px; }
+  .submission-body { display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: 4rem; align-items: start; padding-block: 2rem 3rem; }
+  .submission-contents { position: sticky; top: 110px; border-top: 1px solid var(--line); padding-top: 1.25rem; }
+  .submission-contents ol { margin: 1rem 0; padding: 0; list-style: none; }
+  .submission-contents li { padding: .45rem 0; line-height: 1.35; }
+  .submission-contents a { text-decoration: none; color: var(--muted); font-size: .88rem; display: block; }
+  .submission-contents a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .submission-format-note { color: var(--muted); font-size: .8rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  .submission-copy { font-size: 1.05rem; line-height: 1.75; }
+  .submission-copy section + section { border-top: 1px solid var(--line); padding-top: 2.7rem; margin-top: 2.7rem; }
+  .submission-copy h2 { font-size: clamp(1.7rem, 2.5vw, 2.15rem); line-height: 1.2; letter-spacing: -.025em; margin: 0 0 1.5rem; }
+  .submission-copy p { margin: 0 0 1.15rem; color: var(--muted); }
+  .submission-signature { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+  .submission-signature p { margin: 0; font-size: .95rem; color: var(--ink); }
+  .submission-return { display: flex; flex-wrap: wrap; gap: 1rem 3rem; border-top: 1px solid var(--line); }
+  @media (max-width: 850px) { .submission-body { grid-template-columns: 1fr; gap: 3rem; } .submission-contents { position: static; max-width: 40rem; } .submission-contents ol { columns: 2; column-gap: 2rem; } .submission-contents li { break-inside: avoid; } }
+  @media (max-width: 500px) { .submission-contents ol { columns: 1; } .submission-copy { font-size: 1rem; } }
+</style>

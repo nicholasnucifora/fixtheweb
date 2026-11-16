@@ -1,0 +1,106 @@
+---
+import Base from "../layouts/Base.astro";
+import VillowMark from "../components/VillowMark.astro";
+
+const questions = [
+  {
+    number: "01", id: "finite-feeds", label: "A feed you can finish", title: "What if there were a natural place to stop?",
+    body: "Villow brings subscriptions, saved videos and discoveries into a finite feed. Reaching the end creates a moment to decide what comes next. You choose the channels and boundaries that suit you.",
+    question: "Does an ending help people finish when they want to, while still finding the videos they came for?",
+    detail: "We want to understand whether the ending feels useful, confusing or restrictive. Someone leaving sooner is only part of the picture: did they find what they wanted, feel satisfied, or simply move their unwanted browsing elsewhere?",
+  },
+  {
+    number: "02", id: "reflection", label: "A moment to reflect", title: "Was this worth your time?",
+    body: "After a video, you can make that judgment for yourself. It is different from liking a video. Entertainment, comfort and a good laugh can all be worthwhile. Ratings help you look back at your viewing and consider suggested changes.",
+    question: "Does a small moment of reflection become useful insight without turning into another chore?",
+    detail: "We want to learn whether people understand the question, find their history useful, or feel interrupted or judged. Ratings are optional; a worthwhile percentage describes rated videos and cannot tell us what someone thought of everything they watched.",
+  },
+  {
+    number: "03", id: "subscriptions", label: "Choices you can actually use", title: "Make the alternative worth choosing.",
+    body: "A following feed needs more than a switch. Villow lets people shape what they see from their chosen channels. Suggestions explain a pattern and offer an adjustment; the person decides whether to accept it.",
+    question: "Can people shape a feed they enjoy without becoming experts in managing it?",
+    detail: "We want to see which controls people understand, which they overlook and how easily they can undo a choice. More settings alone do not establish more useful control. Defaults, explanations and the effort required all matter.",
+  },
+];
+---
+
+<Base title="Villow · Our first project · Fix the Web" page="work">
+  <main id="main" class="villow-study">
+    <header class="ftw-shell ftw-page-intro case-intro">
+      <a class="ftw-text-link back-link" href="/#work">← Our work</a>
+      <div class="case-title-line"><VillowMark size={50} alt="" /><p class="ftw-eyebrow">Our first project · Villow</p></div>
+      <h1>A different way<br />to watch.</h1>
+      <p class="ftw-lead">Keep the videos you value. Make room for your own choices.</p>
+      <div class="case-opening">
+        <div>
+          <p>Villow explores how YouTube could work when the experience is designed around the person watching. It brings together a feed that ends, chosen boundaries, reflection and ways to enjoy videos with friends.</p>
+          <div class="ftw-actions"><a class="ftw-button" href="https://villow.app">Explore Villow <span aria-hidden="true">↗</span></a><a class="ftw-text-link" href="#design-questions">Explore the design questions ↓</a></div>
+        </div>
+        <aside class="case-status"><span class="status-dot" aria-hidden="true"></span><h2>Built to be questioned.</h2><p>Villow is a working prototype. Its design ideas still need meaningful evaluation. We want to learn what helps, what gets in the way and what should change.</p></aside>
+      </div>
+    </header>
+
+    <span id="intentions" aria-hidden="true"></span>
+    <section class="ftw-shell ftw-section case-questions" id="design-questions" aria-labelledby="questions-title">
+      <div class="section-intro"><p class="ftw-eyebrow">The questions behind the design</p><h2 id="questions-title">Three places to start.</h2><p>The interface makes these ideas tangible. The next step is understanding how they work for people.</p></div>
+      <div class="question-list">
+        {questions.map(question => <article class="question-row" id={question.id}>
+          <div class="question-index" aria-hidden="true">{question.number}</div>
+          <div class="question-copy"><p class="question-label">{question.label}</p><h3>{question.title}</h3><p>{question.body}</p>
+            <details class="learning-detail"><summary>What we want to learn <span aria-hidden="true">+</span></summary><div><p class="learning-question">{question.question}</p><p>{question.detail}</p></div></details>
+          </div>
+        </article>)}
+      </div>
+    </section>
+
+    <section class="case-company" id="connection" aria-labelledby="company-title"><div class="ftw-shell company-inner">
+      <div><p class="ftw-eyebrow">The good things matter too</p><h2 id="company-title">A video from a friend.<br />An evening together.</h2></div>
+      <div><p>Villow includes personal recommendations with a note, shared queues and watching together. Connection is part of what people value about being online.</p><p>Sharing viewing goals or usage is a separate choice. We want to understand when accountability feels supportive, when it creates pressure, and how easy it feels to opt out.</p></div>
+    </div></section>
+
+    <span id="get-started" aria-hidden="true"></span>
+    <section class="ftw-shell ftw-section case-next" id="learning" aria-labelledby="next-title">
+      <div><p class="ftw-eyebrow">One project, wider possibilities</p><h2 id="next-title">What can this teach us?</h2></div>
+      <div class="case-next-copy"><p>There are different ways to use Villow. The app offers its own feed; the extension adds controls while you watch on YouTube; using both connects selected discoveries and supported usage information. People can choose the experience that suits them.</p><p>We want to begin by learning where people find value, get confused or decide to leave. Researchers can help us turn that experience into focused comparisons of particular designs. Time spent is one part of the picture, alongside satisfaction, useful control and the effort involved.</p><p>The broader aim is to turn useful lessons into changes platforms can adopt. We will share what we try, what we learn and where the ideas fall short.</p><p>Other proposals explore corrections, creator actions and thoughtful uses of AI. Those are possibilities to investigate, with their own evidence and access needs.</p><div class="ftw-actions"><a class="ftw-text-link" href="/notes/design-and-access">Making alternatives possible →</a><a class="ftw-text-link" href="/#get-involved">Help with the next questions →</a></div></div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .case-intro { padding-bottom: 5rem; }
+  .back-link { display: inline-block; margin-bottom: 2.4rem; font-size: .9rem; }
+  .case-title-line { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; }
+  .case-title-line p { margin: 0; }
+  .case-intro h1 { font-size: clamp(3.4rem, 7vw, 6rem); letter-spacing: -.055em; line-height: 1.03; margin: 0 0 1.6rem; }
+  .case-intro > .ftw-lead { max-width: 32rem; }
+  .case-opening { display: grid; grid-template-columns: 1.3fr 1fr; gap: 5rem; align-items: start; margin-top: 2.6rem; }
+  .case-opening > div > p { max-width: 37rem; }
+  .case-status { border-radius: 1.5rem; padding: 1.8rem 2rem; background: color-mix(in srgb, var(--accent) 9%, var(--bg)); position: relative; }
+  .case-status h2 { font-size: 1.35rem; margin: 0 0 .8rem; }
+  .case-status p { color: var(--muted); font-size: 1rem; margin: 0; }
+  .status-dot { display: block; width: .55rem; height: .55rem; background: var(--accent); border-radius: 50%; margin-bottom: 1rem; }
+  .section-intro { max-width: 40rem; margin-bottom: 3rem; }
+  .section-intro h2, .company-inner h2, .case-next h2 { font-size: clamp(2rem, 3.8vw, 3rem); letter-spacing: -.04em; line-height: 1.12; margin: .5rem 0 1.4rem; }
+  .section-intro > p:last-child { color: var(--muted); }
+  .question-row { display: grid; grid-template-columns: 8rem 1fr; gap: 1.5rem; padding: 2.5rem 0; border-top: 1px solid var(--line); }
+  .question-index { font-family: var(--heading-font); font-size: 3.6rem; font-weight: 500; color: color-mix(in srgb, var(--accent) 42%, var(--bg)); line-height: 1; padding-top: .3rem; }
+  .question-copy { max-width: 46rem; }
+  .question-label { font-size: .85rem; color: var(--accent); font-weight: 800; margin: 0 0 .6rem; }
+  .question-copy h3 { font-size: clamp(1.7rem, 2.7vw, 2.3rem); line-height: 1.2; letter-spacing: -.03em; margin: 0 0 1rem; }
+  .question-copy > p:last-of-type { color: var(--muted); }
+  .learning-detail { margin-top: 1.3rem; }
+  .learning-detail summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .85rem 0; font-size: 1rem; font-weight: 800; color: var(--accent); border-top: 1px solid var(--line); }
+  .learning-detail summary::-webkit-details-marker { display: none; }
+  .learning-detail summary span { font-size: 1.35rem; transition: transform .2s; }
+  .learning-detail[open] summary span { transform: rotate(45deg); }
+  .learning-detail > div { padding: .25rem 0 .5rem; font-size: 1rem; }
+  .learning-detail > div p:last-child { color: var(--muted); }
+  .learning-question { font-weight: 750; }
+  .case-company { background: color-mix(in srgb, var(--accent) 7%, var(--bg)); padding: 4.5rem 0; }
+  .company-inner, .case-next { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; }
+  .company-inner > div:last-child { color: var(--muted); }
+  .company-inner p:first-child, .case-next-copy p:first-child { margin-top: 0; }
+  .case-next-copy p { color: var(--muted); }
+  @media (max-width: 760px) { .case-opening, .company-inner, .case-next { grid-template-columns: 1fr; gap: 2rem; } .case-intro { padding-bottom: 3rem; } .question-row { grid-template-columns: 3rem 1fr; gap: .8rem; } .question-index { font-size: 2rem; } .case-status { padding: 1.5rem; } .case-company { padding-block: 3rem; } }
+  @media (prefers-reduced-motion: reduce) { .learning-detail summary span { transition: none; } }
+</style>

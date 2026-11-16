@@ -1,0 +1,10 @@
+Use case: ads-marketing / compositing.
+Asset type: finished upload-ready Reddit community banner for Fix the Web.
+Edit the supplied reference banner into a beautifully art-directed final brand banner. Reference image 1 is the exact existing brand wordmark and the EXACT required canvas/layout, not a moodboard. Preserve its 2160 x 256 pixel ultra-wide 8.4375:1 format. Output one thin banner image only, edge to edge, no surrounding padding, presentation board or UI.
+
+INVARIANTS: Preserve the wordmark exactly: the playful heavy rounded irregular lowercase 'fixtheweb', including the precise original letter shapes, spacing, warm white 'fix' and 'web', mint green 'the', position and scale. Preserve solid charcoal navy #1b1e29 backdrop and wordmark colors #f2f2ee and #6ac7a7. Wordmark occupies approximately x=35% to 76%, y=12.5% to 87.5%.
+
+ADD: expressive, crisp, elegant spiderweb strand illustration as a frame at the extreme edges. Dominant web at the upper-right and right edge, sweeping in from a hub beyond the canvas, with generous beautifully curved scalloped radial silk lines, several mint-green strands and softer muted sage threads. Make the scale bold and graphic with broad open web cells, not intricate tiny clutter. A much smaller subtle web fragment at the upper-left edge can balance it; keep the lower-left corner and the first 25% of the banner mostly clean navy because Reddit places its separate circular community icon there. Plenty of untouched navy breathing space around the wordmark. The right-hand web must not cross through or touch any letter. Deliberate sophisticated asymmetry. Friendly modern hand-drawn brand energy, clean flat illustration, crisp finish, few colors. Subtle irregular curves feel like real silk tension, not a mechanical grid.
+
+TEXT verbatim: existing 'fixtheweb' wordmark only. No tagline, no new text.
+Avoid: spiders or other creatures, duplicate icons, circular placeholders, Reddit logo, interface mockups, glows, neon, 3D, drop shadows, grunge, textures, stars, specks, dense webs over letters, fake padding above or below, borders or rounded corners. Return the completed thin 2160x256 banner.

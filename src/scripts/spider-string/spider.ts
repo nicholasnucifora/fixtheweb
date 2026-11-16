@@ -1,3 +1,4 @@
+import { pageColorMode } from "../color-mode";
 import spiderSource from "../../assets/spider/spider.svg?raw";
 import type { AnchorFrame } from "./anchor";
 import type { AnimationState } from "./animation";
@@ -7,6 +8,7 @@ import { type Fit, type Pen, dressBack, dressBody, dressFace, dressFeet, dressHa
 import { type Face, drawEyes, drawMouth } from "./face";
 import { stringDeviceWidth } from "./render";
 import type { Rope } from "./rope";
+import { heldRotation, movementRotation, type Point } from "./rotation";
 import { SKINS, type Look } from "./wardrobe";
 
 /**
@@ -111,7 +113,7 @@ export function createSpider(
   face: Face,
   look: Look,
   /** `cursor`: whether its legs and eyes notice the cursor. */
-  { cursor = true }: { cursor?: boolean } = {},
+  { cursor = true, grip = () => null }: { cursor?: boolean; grip?: () => Point | null } = {},
 ) {
   const svg = new DOMParser().parseFromString(spiderSource, "image/svg+xml").documentElement;
   const [, , W, H] = (svg.getAttribute("viewBox") ?? "0 0 596 401").split(/\s+/).map(Number);
@@ -130,7 +132,7 @@ export function createSpider(
   };
   const favicon = new Image();
   favicon.src = "/favicon.svg";
-  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const dark = pageColorMode();
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   const dOf = (el: Element | null) => el?.getAttribute("d") ?? "";
@@ -197,6 +199,7 @@ export function createSpider(
       /** How far the pupil can move from the eye's middle, art units, and the eye's own radius. */
       room: 0,
       radius: 0,
+      extent: [0, 0] as Vec,
       /** Pupils left behind by a sudden move (art units), and how fast they're swinging back (fractions of room/s). */
       slosh: [0, 0] as Vec,
       sloshAt: [0, 0] as Vec,
@@ -245,6 +248,7 @@ export function createSpider(
       const white = pick(config.eyes.shape as Source, eye.side, (s) => eyeOf(s).whiteShape);
       eye.white = place(white.from, white.mirrored, at, size, size);
       eye.center = at;
+      eye.extent = [white.from.size[0] * size / 2, white.from.size[1] * size / 2];
 
       // The pupil keeps its drawn position within the eye, scaled with it.
       eye.pupilCenter = [
@@ -630,6 +634,8 @@ export function createSpider(
   });
 
   return {
+    /** The angle actually drawn, for keeping the grabbed material point under the hand. */
+    rotation: () => tilt + animation.tilt,
     /** Stops following the cursor, for a spider that's gone for good. */
     dispose: () => events.abort(),
 
@@ -712,7 +718,18 @@ export function createSpider(
         const taut = rope.length > 0 ? Math.min(1, Math.hypot(tail.x - head.x, tail.y - head.y) / rope.length) : 1;
         lean = Math.atan2(-(tail.x - back.x), tail.y - back.y) * (1 - b.tiltSlack * (1 - taut));
       }
-      const tiltTarget = Math.max(-limit, Math.min(limit, lean)) * b.tiltAmount;
+      let tiltTarget = Math.max(-limit, Math.min(limit, lean)) * b.tiltAmount;
+      const heldAt = grip();
+      if (config.grabRotation.mode === "grip" && heldAt && !animation.active) {
+        const head = rope.at(0, alpha);
+        // Position around the anchor determines the pose. The hand's material point remains
+        // attached through drag.ts, but does not bias the angle or flip it on the upper half.
+        tiltTarget = heldRotation([tail.x - head.x, tail.y - head.y], config.grabRotation.amount, width, Math.PI / 2);
+      } else if (config.grabRotation.mode === "motion" && heldAt && !animation.active) {
+        // Keep the approved directional stretch, but let only actual sideways movement tilt
+        // the body. A still hold returns level even on a horizontal, fully stretched string.
+        tiltTarget = movementRotation(velocity[0], config.grabRotation.amount, limit);
+      }
 
       if (!started) {
         started = true;

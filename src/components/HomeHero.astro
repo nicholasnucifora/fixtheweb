@@ -1,0 +1,39 @@
+---
+import Logo from "../assets/brand/fixtheweb-logo.svg";
+---
+
+<section class="hero" id="top">
+  <h1><Logo class="logo" role="img" aria-label="Fix the Web" /></h1>
+  <p>Coming soon.</p>
+</section>
+
+<style is:global>
+  .home {
+    /* Pass presses through to the spider, even when it swings behind the logo. */
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .home p,
+  .home .section {
+    pointer-events: auto;
+  }
+  .hero {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    text-align: center;
+    padding: 2rem;
+    box-sizing: border-box;
+  }
+  .hero h1 {
+    margin: 0;
+  }
+  .hero .logo {
+    display: block;
+    width: min(80vw, 640px);
+    height: auto;
+  }
+</style>

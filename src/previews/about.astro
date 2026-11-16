@@ -1,0 +1,40 @@
+---
+import Base from "../layouts/Base.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+import { getPagePreset } from "../lib/page-presets";
+const expanded = getPagePreset(Astro.url) === "b";
+// Recovered verbatim from the current, unpublished Villow About A message.
+const message = [
+  "I’m concerned about what social media’s design means for our mental health, attention, relationships and trust in democracy. These questions reach well beyond the time we spend on a screen.",
+  "Yet most of us use social media for good reasons: to learn, stay connected, find community and share what matters. But that usefulness is also what makes its problems so hard to escape: stepping away can mean losing things we value. That usefulness is exactly why I think improving it is so important.",
+  "I want to help show what healthier social media could look like in practice. Villow is my way of turning those ideas into something people can try, question and help improve. Fix the Web is the broader effort behind that work.",
+  "I’ve spent months iterating on Villow. Now I need evidence to understand which ideas help, which fall short and what needs to change. That means learning from the people using it and working with researchers to test the assumptions behind its design.",
+  "I believe this is one of the most important problems we can work on, because it touches so many parts of our lives. I can keep building, but I can’t do this alone. If you can help with research, code, policy or getting these ideas in front of more people, I’d love to hear from you.",
+];
+---
+<Base title="Why Fix the Web exists · About" page="about">
+  <EditorialStyles />
+  <main class="editorial" id="main" tabindex="-1">
+    <header class="ftw-shell ftw-page-intro"><p class="ftw-eyebrow">About Fix the Web</p>{expanded ? <h1>Hi, I’m Nicholas.<br />I started Fix the Web.</h1> : <h1>Useful enough to keep.<br />Important enough to improve.</h1>}<p class="ftw-lead">{expanded ? "I’m building better ways to use digital services, starting with Villow for YouTube. Fix the Web is the wider effort to test those ideas, improve them and make it easier for alternatives to exist." : "Fix the Web is an independent effort to improve digital experiences—and the conditions that let better alternatives exist. Villow is the first substantial example."}</p></header>
+    {expanded && <section class="soft-band ftw-section" id="starting-point"><div class="ftw-shell split"><div><p class="ftw-eyebrow">How it started</p><h2>Villow gave me<br />a place to start.</h2></div><div class="prose"><p>Building Villow meant working through practical questions: how a feed should end, how a boundary could support someone’s plans, what information would make a setting useful, and how friends could enjoy watching together.</p><p>It also raised questions about access and permissions: what I could build and compare, who could use it, and what it would take to keep it running.</p><p>Fix the Web brings that work together: build alternatives, test them and help useful ideas reach more people, including through changes to the services they already use.</p><a class="ftw-text-link" href="/work/villow">See the first project →</a></div></div></section>}
+    <section class="ftw-shell ftw-section founder-section" id="nicholas">
+      <aside class="founder"><span class="founder-monogram" aria-hidden="true">N</span><h2>Nicholas Nucifora</h2><p>Founder · Villow &amp; Fix the Web</p><p>Currently, it’s just me.<br />There’s room to help shape this.</p><a class="ftw-text-link" href="mailto:support@villow.app">Get in touch →</a></aside>
+      <div class="founder-message"><p class="ftw-eyebrow">A message from Nicholas</p><h2>Why this matters to me.</h2><blockquote class="prose">{(expanded ? message : [message[1], message[2]]).map(paragraph => <p>{paragraph}</p>)}</blockquote><p class="signature">Nicholas</p>{!expanded && <a class="ftw-text-link" href="/about?preset=b#nicholas">Read the full message →</a>}</div>
+    </section>
+    <section class="warm-band ftw-section" id="get-involved"><div class="ftw-shell split"><div><p class="ftw-eyebrow">A place to contribute</p><h2>You can help with<br />one part of the problem.</h2><p class="muted">Bring a useful skill, a question or an introduction. You don’t need a particular job title—or a finished idea.</p></div><div><ul class="contribution-list"><li><strong>Research & evaluation</strong><span>Help define a comparison and meaningful outcomes for one design choice.</span></li><li><strong>Code, design & accessibility</strong><span>Help make controls understandable, usable and easier to improve.</span></li><li><strong>Policy & access</strong><span>Investigate one specific barrier and develop a practical proposal.</span></li><li><strong>Creators & communities</strong><span>Help the work reach people who can question it, use it or contribute.</span></li></ul><a class="ftw-button" href="mailto:support@villow.app?subject=Helping%20with%20Fix%20the%20Web">Email Nicholas →</a></div></div></section>
+  </main>
+</Base>
+<style>
+  .founder-section { display: grid; grid-template-columns: 250px 1fr; gap: 90px; }
+  .founder-monogram { display: grid; place-items: center; width: 68px; height: 68px; background: var(--story-soft); border-radius: 24px; color: var(--accent); font-size: 2rem; font-weight: 850; }
+  .founder h2 { font-size: 1.25rem; margin: 22px 0 10px; }
+  .founder p { font-size: .88rem; color: var(--muted); }
+  .founder-message h2 { font-size: clamp(2rem,3vw,2.8rem); }
+  .founder-message blockquote { margin: 0; }
+  .signature { font-family: var(--heading-font); font-size: 1.5rem; margin-top: 30px; color: var(--accent); }
+  .contribution-list { list-style: none; padding: 0; margin: 0 0 30px; }
+  .contribution-list li { border-top: 1px solid var(--line); padding: 20px 0; }
+  .contribution-list strong { display: block; margin-bottom: 7px; }
+  .contribution-list span { display: block; color: var(--muted); font-size: .96rem; }
+  @media (max-width: 850px) { .founder-section { grid-template-columns: 1fr; gap: 35px; } .founder { padding-bottom: 25px; border-bottom: 1px solid var(--line); } }
+</style>

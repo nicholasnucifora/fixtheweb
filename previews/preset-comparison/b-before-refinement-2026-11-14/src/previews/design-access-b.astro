@@ -1,0 +1,46 @@
+---
+import Base from "../layouts/Base.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+---
+<Base title="The changes we want · Design & access · Fix the Web" page="notes">
+  <EditorialStyles />
+  <main id="main" class="editorial" tabindex="-1">
+    <header class="ftw-shell ftw-page-intro"><p class="ftw-eyebrow">Design & access · Our developing position</p><h1>Better experiences need<br />room to exist.</h1><p class="ftw-lead">People should have meaningful choices about how they use digital services. Better experiences should not depend entirely on whether the original platform chooses to build them.</p><nav class="topic-nav" aria-label="On this page"><a href="#asks">What we’re asking for</a><a href="#example">A practical example</a><a href="#permissions">Three kinds of access</a><a href="#native">Change within platforms</a></nav></header>
+    <section class="soft-band ftw-section" id="asks"><div class="ftw-shell split"><div><p class="ftw-eyebrow">Three directions for change</p><h2>Choice that works.<br />Experiments that can happen.<br />Alternatives that can last.</h2><p class="muted">These are proposals to develop with builders, researchers, platforms and policymakers. The details need to fit the service and the people involved.</p></div><ol class="numbered-list">
+      <li><div><h3>Make meaningful choice usable.</h3><p>Recommendation choices, discovery alternatives, stopping points and adjustable boundaries should be accessible and understandable. Give the alternatives enough care to be worth choosing. This is a standard of meaningful agency, not a requirement to copy one app’s features.</p></div></li>
+      <li><div><h3>Make responsible experimentation possible.</h3><p>Create clear, appropriately scoped routes for independent builders and researchers to test a different experience. Define permissions, consent, data protection and accountability without assuming platforms or governments already know the best design.</p></div></li>
+      <li><div><h3>Make room for alternatives to continue.</h3><p>Consider how a useful alternative can remain available after a study. Ongoing operation needs workable permissions and responsibilities: creator interests, privacy, security, costs, maintenance and the platform’s duties all matter.</p></div></li>
+    </ol></div></section>
+    <section class="ftw-shell ftw-section" id="example"><div class="section-heading"><p class="ftw-eyebrow">From principle to a concrete question</p><h2>What would it take to test<br />a finite subscriptions feed?</h2><p>Villow makes this practical. Suppose we want to compare a feed that ends with a continuing feed, while preserving the videos people came to see. A responsible experiment needs more than access to a list of videos.</p></div>
+      <dl class="access-record">
+        <div><dt>The experiment needs</dt><dd>Relevant video and channel information, playback, a defined comparison, consenting participants and measurements that answer the question. It also needs a reliable experience people can actually use.</dd></div>
+        <div><dt>What makes building possible</dt><dd>YouTube provides APIs and an embedded player. Those capabilities make much of Villow possible, while the app supplies its own feed presentation and chosen controls.</dd></div>
+        <div><dt>Practical limitations</dt><dd>Hosting, setup, API quotas and supported browser coverage affect scale and participation. Access to metadata does not necessarily provide the platform’s own recommendation feed or every interaction we might want to compare.</dd></div>
+        <div><dt>Permissions to resolve</dt><dd>YouTube’s published policies govern API, player and data use. The exact study and each relevant feature need to be checked against those requirements. A technical limitation, a quota and a policy restriction are different findings.</dd></div>
+        <div><dt>A responsible route</dt><dd>Write down the precise capability and permission needed. Seek clarification or a scoped agreement where necessary; define consent, data minimisation, review and reporting; and consider what happens when the experiment ends.</dd></div>
+      </dl>
+      <p class="source-note">YouTube’s <a href="https://developers.google.com/youtube/terms/developer-policies">Developer Policies</a> discuss independent value alongside player, data and other requirements. An alternative’s purpose does not by itself settle compliance. This example does not establish a violation or predict enforcement.</p>
+    </section>
+    <section class="warm-band ftw-section" id="permissions"><div class="ftw-shell"><div class="section-heading"><p class="ftw-eyebrow">Different permissions, different responsibilities</p><h2>Access is not one thing.</h2></div><div class="permissions">
+      <div><span>01</span><h3>Understand a service.</h3><p>Use data to investigate how a platform works and the effects of its systems.</p></div>
+      <div><span>02</span><h3>Test an experience.</h3><p>Run a defined interface experiment with consenting participants and suitable protections.</p></div>
+      <div><span>03</span><h3>Operate an alternative.</h3><p>Offer a product for ongoing use, with the necessary permissions, support and safeguards.</p></div>
+    </div><div class="prose distinction"><p><strong>Permission for one does not automatically grant the others.</strong> The EU’s Digital Services Act offers a precedent for qualified researchers to obtain platform data for research into systemic risks. That is distinct from a general right to run a replacement interface. <a href="https://digital-strategy.ec.europa.eu/en/news/new-measures-unlock-access-data-largest-online-platforms-support-research">Read the European Commission’s explanation.</a></p><p>At the same time, a temporary research route leaves a real question: what if people want to keep using the alternative? That question deserves a considered route of its own, rather than an assumption of either unrestricted access or permanent exclusion.</p></div></div></section>
+    <section class="ftw-shell ftw-section split" id="native"><div><p class="ftw-eyebrow">Reaching people where they already are</p><h2>The platform can<br />build it too.</h2></div><div class="prose"><p>A successful idea should not require everyone to set up another service. Platforms can adopt useful controls and design principles directly, reducing setup, access and coverage barriers.</p><p>Independent alternatives and platform improvements can support each other. A working example makes possibilities visible. Evaluation helps distinguish helpful features from attractive assumptions. Specific proposals make it easier to discuss adoption.</p><p>Different services will need different answers. A useful stopping point in long-form video may look unlike one in messaging, a game or a short-video feed. The shared ambition is meaningful agency, not identical interfaces.</p></div></section>
+    <section class="ftw-shell ftw-section next-step"><div><p class="ftw-eyebrow">The argument behind this work</p><h2>Control goes beyond<br />choosing a feed.</h2><p class="muted">Nicholas’s Digital Duty of Care submission sets out the case for stopping points, reflection, attractive alternatives, commitments and independent experimentation.</p><a class="ftw-text-link" href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20design%20and%20access">Help develop a specific proposal →</a></div><a class="ftw-button" href="/notes/digital-duty-of-care">Read the submission →</a></section>
+  </main>
+</Base>
+<style>
+  .access-record { margin: 0; }
+  .access-record > div { display: grid; grid-template-columns: 240px 1fr; gap: 48px; padding: 24px 0; border-top: 1px solid var(--line); }
+  .access-record > div:last-child { border-bottom: 1px solid var(--line); }
+  .access-record dt { font-weight: 850; line-height: 1.4; }
+  .access-record dd { margin: 0; color: var(--muted); line-height: 1.75; max-width: 750px; }
+  .permissions { display: grid; grid-template-columns: repeat(3,1fr); gap: 40px; }
+  .permissions > div { border-top: 2px solid var(--accent); padding-top: 22px; }
+  .permissions span { font-size: .8rem; font-weight: 850; color: var(--accent); }
+  .permissions h3 { font-size: 1.3rem; margin: 14px 0; }
+  .permissions p { color: var(--muted); font-size: .96rem; }
+  .distinction { margin-top: 34px; }
+  @media (max-width: 760px) { .access-record > div { grid-template-columns: 1fr; gap: 12px; } .permissions { grid-template-columns: 1fr; gap: 20px; } }
+</style>

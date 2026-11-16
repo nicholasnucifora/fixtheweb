@@ -1,0 +1,20 @@
+---
+import { previewPages, normalisePagePath, presetStoragePrefix } from "../lib/page-presets";
+const path = normalisePagePath(Astro.url.pathname);
+const enabled = previewPages.some(page => page.path === path);
+---
+{enabled && <script is:inline define:vars={{ path, prefix: presetStoragePrefix }}>
+  // Restore this page only, before its content paints. Explicit links always win.
+  try {
+    const url = new URL(location.href);
+    const explicit = url.searchParams.get("preset")?.toLowerCase();
+    if (explicit === "a" || explicit === "b") localStorage.setItem(prefix + path, explicit);
+    else {
+      const saved = localStorage.getItem(prefix + path);
+      if (saved === "a") {
+        url.searchParams.set("preset", saved);
+        location.replace(url.href);
+      }
+    }
+  } catch { /* The comparison links also work without browser storage. */ }
+</script>}

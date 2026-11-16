@@ -1,0 +1,154 @@
+---
+import BrandIcon, { type IconName } from "./BrandIcon.astro";
+const icons: IconName[] = ["spark", "heart", "clock", "compass", "leaf", "people", "chat", "cursor"];
+const messages = ["The internet can be better. Let's fix it.", "A better internet starts with us.", "Let's make the internet better."];
+---
+
+<aside class="design-panel" id="home-design-panel" aria-labelledby="design-title" data-spider-ignore hidden>
+  <div class="design-panel-heading">
+    <div><span>Design · Homepage</span><h2 id="design-title">Try it here.</h2></div>
+    <button class="design-close" type="button" aria-label="Close design options">×</button>
+  </div>
+  <p class="design-intro">Every change appears on this page straight away.</p>
+  <div class="design-options">
+    <details open>
+      <summary>Words & buttons</summary>
+      <div class="design-section">
+        <div class="design-presets" aria-label="Message options">
+          {messages.map(message => <button type="button" data-message={message} aria-pressed="false">{message}</button>)}
+        </div>
+        <label>Or write your own<textarea data-field="headline" rows="2" maxlength="100" /></label>
+        <label>Main button<input data-field="action" maxlength="45" /></label>
+      </div>
+    </details>
+    <details open>
+      <summary>Spider</summary>
+      <div class="design-section">
+        <fieldset><legend>Size</legend><div class="design-segments">
+          <label><input type="radio" name="spider-size" data-field="spider" value="quiet" /><span>Small</span></label>
+          <label><input type="radio" name="spider-size" data-field="spider" value="room" /><span>Medium</span></label>
+          <label><input type="radio" name="spider-size" data-field="spider" value="lively" /><span>Large</span></label>
+        </div></fieldset>
+        <label class="design-range" for="design-thread">String length <output for="design-thread" data-thread-output>150 px</output>
+          <input id="design-thread" type="range" min="60" max="260" step="5" data-field="threadLength" />
+        </label>
+      </div>
+    </details>
+    <details>
+      <summary>Type & icons</summary>
+      <div class="design-section">
+        <fieldset class="design-fonts"><legend>Supporting type</legend>
+          <label style="font-family: Nunito"><input type="radio" name="design-type" value="soft" data-field="type" /><span>Soft & rounded<small>Nunito</small></span></label>
+          <label style="font-family: Fredoka"><input type="radio" name="design-type" value="bubble" data-field="type" /><span>Bubbly & playful<small>Fredoka</small></span></label>
+          <label style="font-family: 'Trebuchet MS'"><input type="radio" name="design-type" value="simple" data-field="type" /><span>Simple & friendly<small>Trebuchet</small></span></label>
+        </fieldset>
+        <label>Icon treatment<select data-field="icons"><option value="soft">Soft fill</option><option value="outline">Rounded outline</option><option value="chunky">Extra chunky</option></select></label>
+        <div class="design-icon-gallery" aria-label="Icon samples">{icons.map(name => <span title={name}><BrandIcon name={name} /></span>)}</div>
+      </div>
+    </details>
+  </div>
+  <div class="design-panel-footer"><span role="status" data-design-status>Saved in this browser.</span><button type="button" data-design-reset>Reset</button></div>
+</aside>
+
+<script>
+  import { applyDesign, cleanDesign, currentDesignDefaults, getDesignKey, readDesign, writeDesign, type HomeDesign } from "../scripts/home-design";
+  const defaultDesign = currentDesignDefaults();
+  const designKey = getDesignKey();
+  const panel = document.querySelector<HTMLElement>("#home-design-panel")!;
+  const toggle = document.querySelector<HTMLButtonElement>("[data-design-toggle]")!;
+  const close = panel.querySelector<HTMLButtonElement>(".design-close")!;
+  const status = panel.querySelector<HTMLElement>("[data-design-status]")!;
+  const inputs = panel.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("[data-field]");
+  let design: HomeDesign = readDesign();
+  const renderControls = (syncInputs = true) => {
+    if (syncInputs) inputs.forEach(input => {
+      const value = design[input.dataset.field as keyof HomeDesign];
+      if (input instanceof HTMLInputElement && input.type === "radio") input.checked = input.value === value;
+      else input.value = String(value);
+    });
+    panel.querySelector<HTMLOutputElement>("[data-thread-output]")!.value = `${design.threadLength} px`;
+    panel.querySelectorAll<HTMLButtonElement>("[data-message]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.message === design.headline)));
+  };
+  const update = (syncInputs = true) => {
+    design = cleanDesign(design);
+    applyDesign(design);
+    renderControls(syncInputs);
+    status.textContent = writeDesign(designKey, design) ? "Saved in this browser." : "Changes are temporary; browser storage is unavailable.";
+  };
+  const setOpen = (open: boolean, focus = true) => {
+    panel.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+    document.documentElement.toggleAttribute("data-design-open", open);
+    if (focus) (open ? close : toggle).focus({ preventScroll: true });
+  };
+  toggle.addEventListener("click", () => setOpen(panel.hidden));
+  close.addEventListener("click", () => setOpen(false));
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !panel.hidden) setOpen(false); });
+  inputs.forEach(input => input.addEventListener("input", () => {
+    design = { ...design, [input.dataset.field!]: input.dataset.field === "threadLength" ? Number(input.value) : input.value };
+    update(false);
+  }));
+  panel.querySelectorAll<HTMLButtonElement>("[data-message]").forEach(button => button.addEventListener("click", () => {
+    design.headline = button.dataset.message!;
+    update();
+  }));
+  panel.querySelector("[data-design-reset]")!.addEventListener("click", () => { design = { ...defaultDesign }; update(); });
+  addEventListener("storage", event => {
+    if (event.key !== designKey && event.key !== null) return;
+    design = readDesign(); renderControls();
+  });
+  renderControls();
+  if (new URLSearchParams(location.search).get("design") === "open") setOpen(true, false);
+</script>
+
+<style is:global>
+  .design-panel { box-sizing: border-box; position: fixed; z-index: 40; inset: 0 0 0 auto; width: 340px; padding: 25px 22px 0; background: var(--surface); border-left: 1px solid var(--line); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; font: 14px/1.5 Nunito, sans-serif; }
+  .design-panel[hidden] { display: none; }
+  .design-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+  .design-panel-heading span { color: var(--muted); font-size: 12px; font-weight: 800; }
+  .design-panel h2 { font-family: Fredoka, sans-serif; font-weight: 500; font-size: 28px; margin: 3px 0 0; }
+  .design-close { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); color: var(--ink); background: transparent; cursor: pointer; font: 24px Nunito; }
+  .design-intro { color: var(--muted); margin: 15px 0 20px; font-size: 13px; }
+  .design-options details { border-top: 1px solid var(--line); }
+  .design-options summary { cursor: pointer; padding: 16px 0; font-weight: 850; }
+  .design-section { display: grid; gap: 16px; padding-bottom: 22px; }
+  .design-section label { display: grid; gap: 7px; font-weight: 800; font-size: 12px; }
+  .design-section input:not([type="radio"]):not([type="range"]), .design-section textarea, .design-section select { box-sizing: border-box; width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); font: 14px/1.5 Nunito, sans-serif; }
+  .design-section textarea { resize: vertical; }
+  .design-section fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+  .design-section legend { font-size: 12px; font-weight: 800; margin-bottom: 8px; }
+  .design-presets { display: grid; gap: 7px; }
+  .design-presets button { padding: 11px 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--ink); text-align: left; font: 750 14px/1.4 Nunito, sans-serif; cursor: pointer; }
+  .design-presets button[aria-pressed="true"], .design-segments label:has(:checked), .design-fonts label:has(:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .design-segments { display: flex; gap: 6px; }
+  .design-segments label { display: flex; align-items: center; gap: 5px; flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 9px 7px; cursor: pointer; }
+  .design-panel input { accent-color: var(--accent); }
+  .design-panel input[type="radio"] { margin: 0; }
+  .design-range { grid-template-columns: 1fr auto; }
+  .design-range output { color: var(--muted); font-weight: 700; }
+  .design-range input { grid-column: 1 / -1; width: 100%; margin: 2px 0; cursor: pointer; }
+  .design-fonts label { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 13px; margin-bottom: 7px; font-size: 16px; cursor: pointer; }
+  .design-fonts small { display: block; color: var(--muted); font: 11px Nunito; margin-top: 2px; }
+  .design-icon-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .design-icon-gallery > span { display: grid; place-items: center; padding: 12px; border-radius: 12px; background: var(--fill); }
+  .design-panel-footer { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 15px 0; background: var(--surface); border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+  .design-panel-footer button { border: 0; background: transparent; color: var(--ink); font: 800 12px Nunito; text-decoration: underline; cursor: pointer; }
+  @media (min-width: 901px) {
+    html[data-design-open] body { padding-right: 340px; }
+    html[data-design-open] .header { right: 340px; }
+    html[data-design-open] .header .nav, html[data-design-open] .den-link { display: none; }
+    html[data-design-open] .header-tools { margin-left: auto; }
+    html[data-design-open] .mobile-nav { display: block; }
+    html[data-design-open] .hero-wordmark { max-width: calc(100% - 48px); }
+  }
+  @media (max-width: 900px) {
+    .design-panel { inset: auto 0 0; width: 100%; height: 40svh; border-left: 0; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; padding-top: 16px; }
+    .design-panel h2 { font-size: 23px; }.design-panel-heading span { font-size: 11px; }
+    .design-intro { margin-block: 8px 15px; }
+    html[data-design-open] body { padding-bottom: 40svh; }
+    html[data-design-open] .development-hero { min-height: 60svh; padding: 115px 24px 65px; }
+    html[data-design-open] .hero-content { padding-bottom: 0; }
+    html[data-design-open] .hero-wordmark { max-width: 480px; }
+    html[data-design-open] .hero-scroll { display: none; }
+  }
+</style>

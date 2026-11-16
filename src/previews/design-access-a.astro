@@ -1,0 +1,47 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Making alternatives possible · Fix the Web" page="notes">
+  <main id="main" class="access-page">
+    <header class="ftw-shell ftw-page-intro access-intro">
+      <a class="ftw-text-link back-link" href="/#approach">← Our approach</a>
+      <p class="ftw-eyebrow">Design and platform access</p>
+      <h1>Better designs need<br />room to be tested.</h1>
+      <p class="ftw-lead">Independent builders can make alternatives tangible. Researchers can help discover what those alternatives actually change.</p>
+    </header>
+    <div class="ftw-shell access-body">
+      <aside class="access-note"><p class="ftw-eyebrow">A proposal for change</p><p>Make it practical to build, evaluate and learn from alternative digital experiences—with appropriate protection for users, creators and their data.</p></aside>
+      <article class="ftw-reading">
+        <section aria-labelledby="opportunity-title"><h2 id="opportunity-title">From an idea to something people can try.</h2><p>Building Villow has made abstract design choices concrete: how a feed ends, how a limit can be changed, and how reflection fits into watching. These are questions that benefit from prototypes and real experience.</p><p>Useful alternatives depend on more than a good idea. Content, players, data access, permissions and operating costs all affect what can be built and tested. We want to document those constraints precisely and work towards arrangements that make independent evaluation possible.</p></section>
+        <section class="access-distinction" aria-labelledby="access-title"><h2 id="access-title">Three different kinds of access.</h2><ol><li><strong>Understand a service.</strong><span>Access data to investigate how a platform works and what effects its designs may have.</span></li><li><strong>Test a different experience.</strong><span>Run a defined interface experiment with consenting participants and appropriate safeguards.</span></li><li><strong>Operate a public product.</strong><span>Offer an alternative service for ongoing use, with the permissions and responsibilities that requires.</span></li></ol><p>Permission for one does not automatically cover the others. The EU's Digital Services Act provides a precedent for research data access; it does not establish a general right to run a replacement interface. <a href="https://digital-strategy.ec.europa.eu/en/news/new-measures-unlock-access-data-largest-online-platforms-support-research">Read the Commission's explanation ↗</a></p></section>
+        <section aria-labelledby="next-title"><h2 id="next-title">Start with the experiment.</h2><p>Our next step is to record what a particular design needs: the capability, available access, relevant permission and specific limitation. A technical gap, a quota limit and a policy restriction are different problems.</p><p>YouTube's developer policies address independent value alongside separate player and data requirements. Villow's purpose alone does not settle how those rules apply to every feature. <a href="https://developers.google.com/youtube/terms/developer-policies">YouTube Developer Policies ↗</a></p><p>The aim is to build useful evidence and make specific proposals that platforms and policymakers can act on.</p></section>
+      </article>
+    </div>
+    <section class="ftw-shell ftw-section next-step" aria-labelledby="contribute-title"><div><p class="ftw-eyebrow">A starting point</p><h2 id="contribute-title">Control goes beyond<br />choosing a feed.</h2><p>Usable controls, reflection, stopping points and independent experimentation all have a part to play.</p></div><a class="ftw-button" href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20design%20and%20access">Help develop a proposal <span aria-hidden="true">→</span></a></section>
+  </main>
+</Base>
+
+<style>
+  .back-link { display: inline-block; margin-bottom: 2.4rem; font-size: .9rem; }
+  .access-intro h1 { font-size: clamp(2.8rem, 6.3vw, 5.1rem); letter-spacing: -.05em; line-height: 1.06; margin: .6rem 0 1.7rem; }
+  .access-intro .ftw-lead { max-width: 44rem; }
+  .access-body { display: grid; grid-template-columns: 17rem minmax(0,1fr); gap: 4rem; align-items: start; padding-block: 2rem 4rem; }
+  .access-note { border-top: 3px solid var(--accent); padding-top: 1.3rem; font-size: 1rem; }
+  .access-note > p:nth-child(2) { color: var(--muted); }
+  article section + section { margin-top: 3rem; }
+  article h2 { font-size: 1.8rem; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 1.2rem; }
+  article p { color: var(--muted); }
+  article a { color: var(--accent); text-underline-offset: 4px; }
+  .access-distinction ol { padding: 0; list-style: none; counter-reset: access; }
+  .access-distinction li { counter-increment: access; display: grid; grid-template-columns: 2rem 1fr; column-gap: 1rem; padding: 1.2rem 0; border-top: 1px solid var(--line); }
+  .access-distinction li::before { content: counter(access, decimal-leading-zero); color: var(--accent); font-weight: 800; grid-row: span 2; }
+  .access-distinction li strong { font-size: 1.08rem; margin-bottom: .3rem; }
+  .access-distinction li span { color: var(--muted); font-size: 1rem; }
+  .next-step { border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 3rem; }
+  .next-step > div { max-width: 36rem; }
+  .next-step h2 { font-size: clamp(2rem, 3.5vw, 3rem); line-height: 1.1; letter-spacing: -.035em; margin: .6rem 0 1.5rem; }
+  .next-step > div > p:last-child { color: var(--muted); }
+  .next-step > a { flex-shrink: 0; }
+  @media (max-width: 850px) { .access-body { grid-template-columns: 1fr; gap: 3rem; } .access-note { max-width: 32rem; } .next-step { flex-direction: column; align-items: start; gap: 1rem; } }
+</style>

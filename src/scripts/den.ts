@@ -1,3 +1,4 @@
+import { pageColorMode } from "./color-mode";
 import {
   COLONY_EVENT,
   byId,
@@ -86,7 +87,7 @@ const VIEWS: Record<string, View> = {
 
 const VIEW_KEY = "den:view";
 const DRAWER_KEY = "den:wardrobe";
-const dark = matchMedia("(prefers-color-scheme: dark)");
+const dark = pageColorMode();
 const DEFAULT_NAME = blankLook().name;
 
 export function mountDen() {
@@ -104,7 +105,7 @@ export function mountDen() {
         title: "Den tuning",
         intro:
           "Just what's special to the den: its webs, the spiders' habits and strings, their lives and the flies. " +
-          "How the spiders themselves move, look and feel is shared with the whole site: tune that on the home page with ?tune (saved tweaks from there apply here too). " +
+          "How the spiders themselves move, look and feel uses the accepted site defaults; homepage tuning is complete. " +
           "b here is the den's own: a grown-up spider is 0.48 b wide, like the home page's by default. " +
           "Changes are saved in this browser, but only while ?tune is in the URL. Copy changes and paste them to Claude (or into den/config.ts) to make them the defaults.",
       }),

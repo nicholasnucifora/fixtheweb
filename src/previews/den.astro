@@ -6,7 +6,7 @@ import { AMOUNTS, SPEEDS } from "../scripts/den/settings";
 import { PALETTE, PATTERNS, SKINS, SLOTS, THREADS, unlockLabel, type Slot } from "../scripts/spider-string/wardrobe";
 
 /**
- * The Spider Den, in two views. Dress up: the picked spider hanging from a web, with a wardrobe to
+ * Development-only Spider Den, in two views. Dress up: the picked spider hanging from a web, with a wardrobe to
  * dress it up. The den: all your spiders living on webs across the page (src/scripts/den/), with the
  * same wardrobe in a drawer. The wardrobe is built from the catalogue in wardrobe.ts;
  * src/scripts/den.ts makes it all work.
@@ -93,9 +93,10 @@ const ghost = `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true
 const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M4.5 7V5a3.5 3.5 0 1 1 7 0v2h.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h.5Zm1.75 0h3.5V5a1.75 1.75 0 1 0-3.5 0v2Z"/></svg>`;
 ---
 
-<Base title="Spider Den · Fix the Web" page="den">
-  <main class="den" data-den-view="den" data-wardrobe="closed" data-info="closed" data-den-access="locked" data-tuner>
+<Base title="Spider Den · Old pages · Fix the Web" page="den">
+  <main id="main" class="den" data-den-view="den" data-wardrobe="closed" data-info="closed" data-den-access="locked" data-tuner>
     <div class="den-bar" data-spider-ignore>
+      <a class="den-archive-link" href="/old-pages" title="Earlier experiment, kept for later review">← Old pages</a>
       <div class="view-switch" role="group" aria-label="View">
         <button type="button" data-den-show="dress" data-den-paid aria-haspopup="dialog" aria-pressed="false">
           Dress up <span class="paid-lock"><Fragment set:html={lock} /><span class="visually-hidden"> (paid feature, coupon required)</span></span>
@@ -374,7 +375,7 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
       <div class="card-body">
         <p class="card-name">
           <strong data-card-name>Webby</strong>
-          <span class="card-main" data-card-main title="The one on the logo and in the header">★ Main spider</span>
+          <span class="card-main" data-card-main title="The one hanging from the homepage logo">★ Main spider</span>
         </p>
         <p class="card-age" data-card-age>Grown up</p>
         <p class="card-family" data-card-family hidden></p>
@@ -525,6 +526,8 @@ const lock = `<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"
 </script>
 
 <style is:global>
+  .den-archive-link { display: inline-flex; align-items: center; min-height: 38px; padding-inline: .5rem; color: var(--accent); font-size: .8125rem; font-weight: 800; text-decoration: none; white-space: nowrap; }
+  .den-archive-link:hover { text-decoration: underline; text-underline-offset: 3px; }
   .den {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);

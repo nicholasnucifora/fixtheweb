@@ -1,0 +1,156 @@
+---
+import DevelopmentHero from "../components/DevelopmentHero.astro";
+import SpiderString from "../components/SpiderString.astro";
+import VillowMark from "../components/VillowMark.astro";
+import FeedExample from "../components/FeedExample.astro";
+import Base from "../layouts/Base.astro";
+---
+<Base title="Fix the Web · Better digital experiences" page="home">
+  <main class="home" id="main" tabindex="-1">
+    <DevelopmentHero />
+
+    <section class="section ftw-shell ftw-section why-section" id="why">
+      <div><p class="ftw-eyebrow">Why this matters</p><h2>There’s a lot worth<br class="wide-break" /> keeping online.</h2></div>
+      <div class="why-copy"><p>We learn, unwind, find community and stay close to people. Those are good reasons to be online.</p><p>That usefulness also makes the problems harder to escape. Stepping away can mean giving up things we value.</p><p class="why-conclusion">We want to help change the experience itself—so it fits the lives we want to lead.</p></div>
+    </section>
+
+    <section class="section project-band" id="work" aria-labelledby="project-title">
+      <div class="ftw-shell">
+        <div class="project-opening">
+          <div class="project-copy">
+            <p class="ftw-eyebrow">Our first project</p>
+            <div class="project-name"><VillowMark size={42} alt="" /><span>Villow</span></div>
+            <h2 id="project-title">A different way<br />to watch YouTube.</h2>
+            <p>A feed you can finish. Boundaries you choose. A moment to consider what was worth your time.</p>
+            <p>Villow brings these ideas into an alternative experience, with room for discovery, enjoyment and friends.</p>
+            <div class="ftw-actions"><a class="ftw-button" href="/work/villow">Explore the project <span aria-hidden="true">↗</span></a><a class="ftw-text-link" href="https://villow.app" target="_blank" rel="noopener">Visit Villow <span aria-hidden="true">↗</span></a></div>
+          </div>
+          <FeedExample />
+        </div>
+        <div class="project-principles">
+          <div><span class="principle-number">01</span><h3>A natural place to stop.</h3><p>Reach the end of a feed, and decide what comes next.</p></div>
+          <div><span class="principle-number">02</span><h3>Your own sense of worthwhile.</h3><p>Reflect on what you watched. Learning, laughter and rest all count.</p></div>
+          <div><span class="principle-number">03</span><h3>Good videos, good company.</h3><p>Pass something along with a note, or make time to watch together.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section ftw-shell ftw-section questions-section" id="questions">
+      <div class="section-intro"><p class="ftw-eyebrow">The questions behind the design</p><h2>Let’s find out<br />what actually helps.</h2><p>Building an alternative makes the questions concrete. Listening to the people using it helps us understand what needs to change.</p></div>
+      <div class="question-list">
+        <a href="/work/villow#finite-feeds"><span class="question-no">01</span><div><h3>Does an ending help us stop?</h3><p>A finite feed could make finishing feel natural. Can it do that while keeping the things people want to watch?</p></div><span class="question-arrow" aria-hidden="true">↗</span></a>
+        <a href="/work/villow#reflection"><span class="question-no">02</span><div><h3>When is reflection useful?</h3><p>“Was this worth your time?” could reveal a pattern. We also need to learn when asking gets in the way.</p></div><span class="question-arrow" aria-hidden="true">↗</span></a>
+        <a href="/work/villow#subscriptions"><span class="question-no">03</span><div><h3>Can choosing be easier?</h3><p>Following feeds need to be worth using. How much control helps before managing it becomes another task?</p></div><span class="question-arrow" aria-hidden="true">↗</span></a>
+      </div>
+      <aside class="learning-note"><span aria-hidden="true">↳</span><p>These are designs to evaluate. We want to understand which choices help, who they help, and where they fall short.</p><a href="/work/villow#learning">How we want to learn <span aria-hidden="true">→</span></a></aside>
+    </section>
+
+    <section class="section approach-section" id="approach">
+      <div class="ftw-shell">
+        <div class="approach-heading"><p class="ftw-eyebrow">How this can lead to change</p><h2>A useful idea<br />should be able to travel.</h2><p>Villow is a starting point. The wider ambition is to improve the services people already use.</p></div>
+        <ol class="approach-steps">
+          <li><span>Build</span><h3>Make the alternative tangible.</h3><p>Turn design ideas into something people can experience, question and help improve.</p></li>
+          <li><span>Learn</span><h3>Share what happens.</h3><p>Evaluate the choices behind it. Explain the limitations and publish what needs to change.</p></li>
+          <li><span>Change</span><h3>Help good designs reach further.</h3><p>Develop lessons platforms can adopt and practical proposals policymakers can consider.</p></li>
+        </ol>
+        <p class="wider-purpose">Our concerns reach beyond YouTube: attention, relationships and trust are shaped in part by how online spaces work. We’re starting with one substantial project and a few questions we can pursue properly.</p>
+      </div>
+    </section>
+
+    <section class="section ftw-shell ftw-section access-section">
+      <div class="access-panel">
+        <div><p class="ftw-eyebrow">Making alternatives possible</p><h2>Better ideas need<br />room to be tested.</h2></div>
+        <div><p>Independent developers and researchers need practical ways to explore different designs, with protection for users, creators and their data.</p><p>Building Villow has made those questions real. Meaningful choice goes beyond choosing a feed.</p><a class="ftw-text-link" href="/notes/design-and-access">Read the design &amp; access brief <span aria-hidden="true">↗</span></a></div>
+      </div>
+    </section>
+
+    <section class="section ftw-shell ftw-section involvement-section" id="get-involved">
+      <div class="involvement-heading"><p class="ftw-eyebrow">Get involved</p><h2>A better web<br />will take all of us.</h2><p>Bring your experience, a useful skill, or a question we should be asking.</p></div>
+      <div class="involvement-options">
+        <a href="https://villow.app" target="_blank" rel="noopener"><span class="involvement-icon" aria-hidden="true">↗</span><div><h3>Try Villow.</h3><p>Explore the product and share what helps or gets in the way through its feedback page.</p></div></a>
+        <a href="mailto:support@villow.app?subject=Research%20and%20Fix%20the%20Web"><span class="involvement-icon" aria-hidden="true">?</span><div><h3>Help us learn.</h3><p>Bring research or evaluation experience to the questions behind the designs.</p></div></a>
+        <a href="mailto:support@villow.app?subject=Contributing%20to%20Fix%20the%20Web"><span class="involvement-icon" aria-hidden="true">+</span><div><h3>Help build it.</h3><p>Contribute code, design, accessibility, testing or documentation.</p></div></a>
+        <a href="mailto:support@villow.app?subject=Ideas%20and%20introductions%20for%20Fix%20the%20Web"><span class="involvement-icon" aria-hidden="true">↗</span><div><h3>Open a conversation.</h3><p>Connect the work with creators, communities, researchers or people working on policy.</p></div></a>
+      </div>
+      <div class="founder-note"><p>“I’ve spent months iterating on Villow. Now I need evidence to understand which ideas help, which fall short and what needs to change.”</p><span>Nicholas Nucifora · Founder of Villow &amp; Fix the Web</span><a class="ftw-text-link" href="mailto:support@villow.app">Get in touch <span aria-hidden="true">↗</span></a></div>
+    </section>
+  </main>
+  <SpiderString stage=".home-identity-rest" hook=".hero-logo [data-glyph='b']" homeIdentity />
+</Base>
+
+<style>
+  .section h2 { font-size: clamp(2.1rem, 3.8vw, 3.25rem); line-height: 1.12; letter-spacing: -.035em; margin: 0 0 24px; font-weight: 650; text-wrap: balance; }
+  .section p { line-height: 1.75; }
+  .why-section { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; padding-top: 40px; padding-bottom: 100px; }
+  .why-copy p { margin: 0 0 20px; color: var(--muted); }
+  .why-copy .why-conclusion { color: var(--ink); font-weight: 750; margin-bottom: 0; }
+  .project-band { padding: 84px 0 60px; background: var(--story-soft); }
+  .project-opening { display: grid; grid-template-columns: 1fr 1.08fr; gap: 84px; align-items: center; }
+  .project-copy > p:not(.ftw-eyebrow) { max-width: 470px; color: var(--muted); font-size: 1rem; margin: 0 0 14px; }
+  .project-name { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; margin-bottom: 22px; }
+  .project-principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--line); }
+  .principle-number { font-size: .7rem; font-weight: 850; color: var(--accent); letter-spacing: .08em; }
+  .project-principles h3 { font-size: 1.08rem; margin: 8px 0 10px; }
+  .project-principles p { margin: 0; color: var(--muted); font-size: .92rem; max-width: 310px; }
+  .questions-section { padding-top: 100px; padding-bottom: 90px; }
+  .section-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 0 80px; margin-bottom: 36px; }
+  .section-intro .ftw-eyebrow { grid-column: 1/-1; }
+  .section-intro > p:last-child { color: var(--muted); margin: 0; max-width: 440px; align-self: center; }
+  .question-list > a { display: grid; grid-template-columns: 36px 1fr 36px; gap: 20px; padding: 30px 0; color: var(--ink); text-decoration: none; border-top: 1px solid var(--line); }
+  .question-list > a:last-child { border-bottom: 1px solid var(--line); }
+  .question-no { font-size: .8rem; color: var(--accent); font-weight: 850; padding-top: 5px; }
+  .question-list h3 { font-size: 1.4rem; letter-spacing: -.02em; margin: 0 0 9px; }
+  .question-list p { max-width: 730px; margin: 0; color: var(--muted); font-size: .96rem; }
+  .question-arrow { font-size: 24px; color: var(--accent); text-align: right; }
+  .question-list a:hover h3 { color: var(--accent); }
+  .learning-note { display: flex; align-items: center; gap: 22px; background: var(--story-warm); padding: 22px 26px; margin-top: 28px; border-radius: 16px; }
+  .learning-note > span { font-size: 26px; color: var(--accent); }
+  .learning-note p { margin: 0; font-size: .88rem; flex: 1; }
+  .learning-note a { color: var(--ink); font-size: .8rem; font-weight: 800; text-underline-offset: 4px; }
+  .approach-section { padding: 74px 0; border-block: 1px solid var(--line); }
+  .approach-heading { max-width: 700px; }
+  .approach-heading > p:last-child { color: var(--muted); max-width: 590px; margin-bottom: 44px; }
+  .approach-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3,1fr); gap: 40px; counter-reset: steps; }
+  .approach-steps li { border-top: 2px solid var(--accent); padding-top: 22px; counter-increment: steps; }
+  .approach-steps li > span { font-size: .8rem; color: var(--accent); font-weight: 850; }
+  .approach-steps li > span::before { content: "0" counter(steps) " / "; }
+  .approach-steps h3 { font-size: 1.25rem; margin: 18px 0 12px; max-width: 250px; }
+  .approach-steps p { margin: 0; color: var(--muted); font-size: .94rem; }
+  .wider-purpose { color: var(--muted); font-size: .94rem; max-width: 780px; margin: 48px 0 0; }
+  .access-section { padding-bottom: 30px; }
+  .access-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; background: #233f39; color: #f6f7ed; border-radius: 28px; padding: 48px; }
+  .access-panel .ftw-eyebrow { color: #a2d4ba; }
+  .access-panel h2 { font-size: clamp(2rem, 3vw, 2.8rem); margin-bottom: 0; }
+  .access-panel p:not(.ftw-eyebrow) { color: #d7e2d9; margin: 0 0 18px; font-size: .95rem; }
+  .access-panel .ftw-text-link { color: #c6e7cb; font-size: .87rem; }
+  .involvement-heading { text-align: center; max-width: 680px; margin: 0 auto 48px; }
+  .involvement-heading > p:last-child { color: var(--muted); }
+  .involvement-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 42px; }
+  .involvement-options a { display: flex; gap: 20px; padding: 25px 0; border-top: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+  .involvement-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; background: var(--story-soft); border-radius: 13px; font-weight: 700; color: var(--accent); font-size: 24px; }
+  .involvement-options h3 { margin: 2px 0 9px; font-size: 1.2rem; }
+  .involvement-options p { font-size: .94rem; margin: 0; color: var(--muted); }
+  .involvement-options a:hover h3 { color: var(--accent); text-decoration: underline; text-underline-offset: 4px; }
+  .founder-note { margin: 60px auto 0; max-width: 710px; text-align: center; border-top: 1px solid var(--line); padding-top: 44px; }
+  .founder-note > p { font-size: 1.2rem; line-height: 1.75; text-wrap: pretty; margin: 0 0 20px; }
+  .founder-note > span { display: block; color: var(--muted); font-size: .8rem; }
+  .founder-note a { margin-top: 16px; }
+  @media (max-width: 950px) {
+    .project-opening { gap: 38px; }.why-section, .section-intro { gap: 32px; }.access-panel { padding: 34px; gap: 30px; }
+    .project-copy .ftw-actions { gap: 8px 20px; }.learning-note { flex-wrap: wrap; }.learning-note a { margin-left: 48px; }
+  }
+  @media (max-width: 700px) {
+    .why-section, .project-opening, .section-intro, .access-panel { grid-template-columns: 1fr; gap: 24px; }
+    .why-section { padding-top: 16px; padding-bottom: 54px; }.wide-break { display: none; }
+    .project-band { padding: 54px 0 40px; }.project-opening { gap: 36px; }
+    .project-principles { grid-template-columns: 1fr; gap: 24px; margin-top: 40px; }
+    .project-principles > div { display: grid; grid-template-columns: 24px 1fr; gap: 0 12px; }
+    .project-principles .principle-number { padding-top: 5px; }.project-principles h3 { margin-top: 0; }.project-principles p { grid-column: 2; max-width: none; }
+    .questions-section { padding-block: 58px; }.section-intro { gap: 0; }.section-intro h2 { margin-bottom: 18px; }
+    .question-list > a { grid-template-columns: 24px 1fr 22px; gap: 10px; padding-block: 24px; }.question-list h3 { font-size: 1.16rem; }.question-list p { font-size: .88rem; }
+    .learning-note { padding: 20px; gap: 12px; }.learning-note > span { display: none; }.learning-note p { flex-basis: 100%; }.learning-note a { margin-left: 0; }
+    .approach-section { padding-block: 54px; }.approach-steps { grid-template-columns: 1fr; gap: 28px; }.approach-steps h3 { max-width: none; margin: 12px 0 8px; }.wider-purpose { margin-top: 32px; }
+    .access-section { padding-top: 44px; }.access-panel { padding: 28px 24px; border-radius: 22px; }
+    .involvement-options { grid-template-columns: 1fr; gap: 0; }.involvement-heading { margin-bottom: 30px; }.founder-note { margin-top: 36px; }
+  }
+</style>

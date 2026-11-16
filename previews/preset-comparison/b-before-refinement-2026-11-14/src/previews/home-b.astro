@@ -1,0 +1,108 @@
+---
+import Base from "../layouts/Base.astro";
+import DevelopmentHero from "../components/DevelopmentHero.astro";
+import SpiderString from "../components/SpiderString.astro";
+import VillowMark from "../components/VillowMark.astro";
+import FeedExample from "../components/FeedExample.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+---
+<Base title="Fix the Web · Digital life, shaped around people" page="home">
+  <EditorialStyles />
+  <main class="home editorial" id="main" tabindex="-1">
+    <DevelopmentHero />
+    <section class="section ftw-shell ftw-section split" id="why">
+      <div><p class="ftw-eyebrow">Keep the good. Change the experience.</p><h2>We shouldn’t have to give up what we love online.</h2></div>
+      <div class="prose"><p>We learn, laugh, follow our interests and find people who understand us. Digital services bring real value to our lives. That usefulness is also what makes their problems difficult to escape.</p><p>But continuing to use a service isn’t always the same as getting what we wanted from it. An endless next video can carry us past the point we meant to stop. A following feed can be a poor alternative to a carefully refined recommendation feed. Controls can exist without helping us understand what to change.</p><p><strong>We should be able to enjoy the benefits without accepting every design choice that comes with them.</strong></p><p>That means looking beyond time spent: at our attention, relationships, privacy and the information we encounter—and at what we ourselves find worthwhile.</p></div>
+    </section>
+    <section class="section soft-band ftw-section" id="work">
+      <div class="ftw-shell">
+        <div class="split project-opening">
+          <div><p class="ftw-eyebrow">Our first substantial project</p><div class="project-name"><VillowMark size={42} alt="" /><span>Villow</span></div><h2>A different way<br />to watch YouTube.</h2><div class="prose"><p>Villow turns these principles into an app people can use. Shape what you follow, choose boundaries for your day, learn from your viewing and make room for good company.</p><p>A finite feed is one example: reach an ending, then decide what comes next. Try the small illustration here.</p></div><a class="ftw-button" href="/work/villow">Explore Villow’s approach <span aria-hidden="true">→</span></a></div>
+          <FeedExample />
+        </div>
+        <div class="complementary-examples">
+          <a href="/work/villow#intentions"><span>01 / Follow through</span><h3>Your earlier choices still matter.</h3><p>Adjustable limits, schedules and breaks support plans you chose—with room to change your mind.</p></a>
+          <a href="/work/villow#reflection"><span>02 / Understand & adjust</span><h3>Make patterns useful.</h3><p>Connect optional reflection and viewing information to explained changes you can accept or dismiss.</p></a>
+          <a href="/work/villow#connection"><span>03 / Enjoy it together</span><h3>Good videos, better company.</h3><p>Recommend something with a personal note, or watch together with a shared queue and chat.</p></a>
+        </div>
+      </div>
+    </section>
+    <section class="section ftw-shell ftw-section split" id="change">
+      <div><p class="ftw-eyebrow">What we want to change</p><h2>More say in how<br />digital life works.</h2><p class="muted">Better experiences should be possible both inside the services people already use and through independent alternatives.</p><a class="ftw-text-link" href="/notes/design-and-access">The changes we’re asking for <span aria-hidden="true">↗</span></a></div>
+      <ol class="numbered-list">
+        <li><div><h3>Make meaningful choice usable.</h3><p>Give discovery alternatives, understandable controls and natural stopping points the care they deserve. Choosing differently should still be a good experience.</p></div></li>
+        <li><div><h3>Make responsible experimentation possible.</h3><p>Give independent builders and researchers practical ways to develop and compare designs, with clear permissions and protection for the people involved.</p></div></li>
+        <li><div><h3>Let useful alternatives keep existing.</h3><p>When people want to keep using an alternative, there should be a workable path beyond a temporary experiment—one that respects creators, privacy, security and operating costs.</p></div></li>
+      </ol>
+    </section>
+    <section class="section warm-band ftw-section" id="approach">
+      <div class="ftw-shell"><div class="section-heading"><p class="ftw-eyebrow">How we work</p><h2>Build possibilities.<br />Learn enough to improve them.</h2><p>The mission is better digital experiences. Evidence helps us decide which ideas deserve to go further, which need to change and which to leave behind.</p></div>
+        <ol class="method-steps">
+          <li><span>Build</span><h3>Make a different choice tangible.</h3><p>Turn principles into experiences people can try, question and help improve.</p></li>
+          <li><span>Evaluate</span><h3>Ask what helps—and what gets in the way.</h3><p>Look at usability, people’s own goals and unwanted effects, alongside usage.</p></li>
+          <li><span>Refine</span><h3>Let the findings change the design.</h3><p>Share limitations and unsuccessful ideas as well as promising results.</p></li>
+          <li><span>Advocate</span><h3>Help better choices reach more people.</h3><p>Develop specific proposals for platforms and policymakers, grounded in what we learn.</p></li>
+        </ol>
+        <p class="evidence-line">Villow’s features are real; their effects still need evaluation. We’re looking for collaborators to help do that well. <a href="/work/villow#learning">See the questions we want to test →</a></p>
+      </div>
+    </section>
+    <section class="section ftw-shell ftw-section" id="possibilities">
+      <div class="section-heading"><p class="ftw-eyebrow">Beyond our first project</p><h2>A wider ambition.<br />Specific ideas to explore.</h2><p>Some changes need the platforms themselves. Others reach across services and devices. These are proposals to develop, not announced projects or a delivery roadmap.</p></div>
+      <div class="idea-links">
+        <a href="/ideas#devices"><span class="status-label">Proposal · across devices</span><h3>Understand your digital day.</h3><p>A private, useful picture of activity across the devices you actually use—with optional sharing and care around overlapping time.</p><span class="idea-arrow" aria-hidden="true">↗</span></a>
+        <a href="/ideas#corrections"><span class="status-label">Proposal · information quality</span><h3>Let corrections catch up.</h3><p>When new context arrives on a video, help it reach people who already watched it.</p><span class="idea-arrow" aria-hidden="true">↗</span></a>
+        <a href="/ideas#creator-actions"><span class="status-label">Proposal · beyond watching</span><h3>Make room for a next step.</h3><p>Let creators suggest something meaningful to try, somewhere to go or a cause to support—and let viewers save it.</p><span class="idea-arrow" aria-hidden="true">↗</span></a>
+      </div>
+      <div class="ideas-ending"><p>There’s more to consider: deliberate recommendations, optional AI assistance and trustworthy discussion. The same principles will need different designs in video, messaging, games and other online spaces.</p><a class="ftw-text-link" href="/ideas">Explore the ideas and their trade-offs <span aria-hidden="true">→</span></a></div>
+    </section>
+    <section class="section ftw-shell" id="motivation"><div class="statement split"><div><p class="ftw-eyebrow">Why I started</p><h2>Its usefulness is exactly why improving it matters.</h2></div><div><blockquote>“I want to help show what healthier social media could look like in practice. Villow is my way of turning those ideas into something people can try, question and help improve. Fix the Web is the broader effort behind that work.”</blockquote><p class="signature">Nicholas Nucifora · Founder</p><a class="ftw-text-link" href="/about">Read the story behind the work <span aria-hidden="true">→</span></a></div></div></section>
+    <section class="section ftw-shell ftw-section" id="get-involved">
+      <div class="section-heading"><p class="ftw-eyebrow">Help take this further</p><h2>Bring one question.<br />One skill. One useful connection.</h2><p>This is an independent project, currently led by Nicholas. You don’t need to agree with every idea to help improve it.</p></div>
+      <div class="participation">
+        <a href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20feature%20evaluation"><h3>Help evaluate a design <span aria-hidden="true">↗</span></h3><p>Help design a study of one feature: does a stopping point support someone’s intentions without losing valued viewing?</p><span>Email about evaluation</span></a>
+        <a href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20usability%20and%20accessibility"><h3>Make a control easier to use <span aria-hidden="true">↗</span></h3><p>Bring design, accessibility or development skills to reviewing how people understand and adjust a boundary.</p><span>Email about design & development</span></a>
+        <a href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20access%20or%20proposal"><h3>Work through a proposal <span aria-hidden="true">↗</span></h3><p>Investigate a specific access barrier, or help work out the privacy requirements of cross-device wellbeing.</p><span>Email about a proposal</span></a>
+        <a href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20an%20introduction"><h3>Connect the right people <span aria-hidden="true">↗</span></h3><p>Introduce a researcher, creator, community or policy contact who could help test, improve or share this work.</p><span>Email an introduction</span></a>
+      </div>
+      <p class="participation-note">Interested in using Villow? <a href="/work/villow#get-started">See the ways to get started and what they involve.</a></p>
+    </section>
+  </main>
+  <SpiderString stage=".home-identity-rest" hook=".hero-logo [data-glyph='b']" homeIdentity />
+</Base>
+<style>
+  .project-opening { align-items: center; }
+  .project-name { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; font-size: 1.4rem; font-weight: 850; }
+  .project-opening .ftw-button { margin-top: 12px; }
+  .complementary-examples { display: grid; grid-template-columns: repeat(3,1fr); gap: 36px; border-top: 1px solid var(--line); padding-top: 34px; margin-top: 60px; }
+  .complementary-examples a { color: inherit; text-decoration: none; }
+  .complementary-examples span { color: var(--accent); font-size: .76rem; font-weight: 850; }
+  .complementary-examples h3 { font-size: 1.15rem; margin: 12px 0; }
+  .complementary-examples p { color: var(--muted); font-size: .94rem; margin: 0; }
+  .complementary-examples a:hover h3 { text-decoration: underline; text-underline-offset: 5px; }
+  .method-steps { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4,1fr); gap: 30px; }
+  .method-steps li { border-top: 2px solid var(--accent); padding-top: 20px; }
+  .method-steps span { color: var(--accent); font-size: .8rem; font-weight: 850; }
+  .method-steps h3 { font-size: 1.16rem; margin: 14px 0; }
+  .method-steps p, .evidence-line { color: var(--muted); font-size: .94rem; }
+  .evidence-line { margin: 38px 0 0; max-width: 880px; line-height: 1.7; }
+  .evidence-line a { display: inline-block; }
+  .idea-links { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+  .idea-links > a { position: relative; padding: 28px 28px 58px; border-radius: 22px; background: var(--story-soft); text-decoration: none; color: inherit; }
+  .idea-links h3 { font-size: 1.4rem; line-height: 1.2; margin: 24px 0 16px; }
+  .idea-links p { margin: 0; font-size: .94rem; color: var(--muted); }
+  .idea-links a:hover h3 { color: var(--accent); }
+  .idea-arrow { position: absolute; bottom: 20px; right: 24px; font-size: 24px; color: var(--accent); }
+  .ideas-ending { max-width: 790px; margin-top: 26px; font-size: .96rem; color: var(--muted); }
+  .statement h2 { font-size: clamp(2rem, 3.3vw, 2.8rem); line-height: 1.15; margin: 0; }
+  blockquote { margin: 0; font-size: 1.13rem; line-height: 1.75; }
+  .signature { font-size: .8rem; margin: 24px 0 8px; }
+  .participation { display: grid; grid-template-columns: 1fr 1fr; gap: 0 60px; }
+  .participation > a { display: block; padding: 26px 0; color: inherit; text-decoration: none; border-top: 1px solid var(--line); }
+  .participation h3 { margin: 0 0 14px; font-size: 1.25rem; display: flex; justify-content: space-between; gap: 20px; }
+  .participation p { color: var(--muted); font-size: .96rem; }
+  .participation a > span { color: var(--accent); font-size: .8rem; font-weight: 800; }
+  .participation a:hover h3 { color: var(--accent); }
+  .participation-note { margin-top: 25px; color: var(--muted); font-size: .94rem; }
+  @media (max-width: 950px) { .method-steps { grid-template-columns: 1fr 1fr; } .idea-links { gap: 14px; } .idea-links > a { padding: 22px 20px 56px; } }
+  @media (max-width: 700px) { .complementary-examples, .idea-links, .participation { grid-template-columns: 1fr; } .complementary-examples { gap: 28px; margin-top: 40px; } .method-steps { grid-template-columns: 1fr; gap: 18px; } .method-steps h3 { margin: 10px 0; } .idea-links { gap: 16px; } }
+</style>

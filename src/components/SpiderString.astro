@@ -1,8 +1,7 @@
 ---
 /**
  * A string hanging from a logo glyph with a draggable spider on the end.
- * Behaviour and feel: src/scripts/spider-string/ (tune in config.ts, or live
- * by opening the page with ?tune).
+ * Behaviour and accepted feel: src/scripts/spider-string/config.ts.
  *
  * The string and spider are both drawn on the canvas; the bob element is the
  * spider's invisible grab target.
@@ -20,7 +19,7 @@
  * badge), and can be played with like the one on the logo. `tryOn` shows
  * what's being tried on in the den rather than what's worn.
  */
-type Props = { tryOn?: boolean } & (
+type Props = { tryOn?: boolean; homeIdentity?: boolean } & (
   | {
       /** CSS selector for the SVG glyph the string hangs from. */
       anchor: string;
@@ -44,12 +43,13 @@ type Props = { tryOn?: boolean } & (
     }
 );
 
-const { anchor, badge, stage, hook, tryOn } = Astro.props;
+const { anchor, badge, stage, hook, tryOn, homeIdentity } = Astro.props;
 ---
 
 <div
   class="spider-string"
   data-spider-string
+  data-home-identity={homeIdentity || undefined}
   data-anchor={anchor}
   data-slot={badge ?? stage}
   data-hook={hook}

@@ -1,0 +1,7 @@
+---
+import A from "./home-a.astro";
+import B from "./home-b.astro";
+import { getPagePreset } from "../lib/page-presets";
+const Page = getPagePreset(Astro.url) === "a" ? A : B;
+---
+<Page />

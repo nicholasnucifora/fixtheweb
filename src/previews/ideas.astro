@@ -1,0 +1,52 @@
+---
+import Base from "../layouts/Base.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+import { getPagePreset } from "../lib/page-presets";
+import { proposals, aiProposals } from "../content/proposals";
+const expanded = getPagePreset(Astro.url) === "b";
+---
+<Base title="Ideas to explore · Fix the Web" page="ideas">
+  <EditorialStyles />
+  <main class="editorial" id="main" tabindex="-1">
+    <header class="ftw-shell ftw-page-intro"><p class="ftw-eyebrow">Proposals & open questions</p>{expanded ? <h1>Ideas for better<br />online experiences.</h1> : <h1>There are more ways<br />digital life could work.</h1>}<p class="ftw-lead">{expanded ? "From corrections that reach earlier viewers to a useful view of activity across devices, these are ideas we’d like to develop beyond Villow." : "Villow is our first working example. These ideas make room for a wider ambition: useful information, thoughtful discovery, meaningful connection and more control across the devices we use."}</p><p class="proposal-status">These are proposals to explore, not implemented Villow features or projects on a delivery schedule. Some would need platforms themselves to build and test them.</p><nav class="topic-nav" aria-label="Explore the proposals">{proposals.map(idea => <a href={`#${idea.id}`}>{idea.category}</a>)}<a href="#ai">Optional AI</a><a href="#trust">Authentic discussion</a></nav></header>
+    {proposals.map((idea, index) => <section id={idea.id} class:list={["ftw-section proposal", { "soft-band": index % 2 === 0 }]}><div class="ftw-shell">
+      <div class="proposal-heading"><span class="proposal-number">0{index + 1}</span><div><p class="ftw-eyebrow">Proposal · {idea.category}</p><h2>{idea.title}</h2><p class="proposal-summary">{idea.summary}</p></div></div>
+      {expanded ? <div class="proposal-detail"><div class="prose">{idea.body.map(paragraph => <p>{paragraph}</p>)}<div class="existing-context"><h3>Where this starts</h3><p>{idea.existing}</p>{idea.source && <a href={idea.source.url}>{idea.source.label} ↗</a>}</div></div><aside class="proposal-questions"><h3>What needs working through</h3><p>{idea.questions}</p><a class="ftw-text-link" href={`mailto:support@villow.app?subject=${encodeURIComponent(`Fix the Web proposal - ${idea.title}`)}`}>Help develop this idea →</a></aside></div> : <a class="ftw-text-link overview-link" href={`/ideas?preset=b#${idea.id}`}>Explore the proposal and trade-offs →</a>}
+    </div></section>)}
+    <section class="ftw-shell ftw-section proposal" id="ai">
+      <div class="proposal-heading"><span class="proposal-number">05</span><div><p class="ftw-eyebrow">Three proposals · Optional AI</p><h2>Helpful assistance.<br />People still in charge.</h2><p class="proposal-summary">Use technology where it adds something worthwhile, with a real choice about using it. These are three distinct possibilities, each with trade-offs.</p></div></div>
+      <div class="ai-ideas">{aiProposals.map((idea, index) => <article id={idea.id}><span class="ai-number">05.{index + 1}</span><h3>{idea.title}</h3>{expanded ? <><p>{idea.body}</p><div class="ai-question"><strong>The question to work through</strong><p>{idea.question}</p></div></> : <a class="ftw-text-link" href={`/ideas?preset=b#${idea.id}`}>Read the proposal →</a>}</article>)}</div>
+      {expanded && <p class="source-note">These proposals are separate from Villow’s existing rule-based viewing suggestions. AI output still needs checking against the video and its sources.</p>}
+    </section>
+    <section class="warm-band ftw-section proposal" id="trust"><div class="ftw-shell">
+      <div class="proposal-heading"><span class="proposal-number">06</span><div><p class="ftw-eyebrow">Open question · Authentic discussion</p><h2>Trust matters more than volume.</h2><p class="proposal-summary">A flood of comments is not the same as a conversation worth trusting. How can platforms limit automated manipulation while protecting real people?</p></div></div>
+      {expanded ? <div class="proposal-detail"><div class="prose"><p>Fake or coordinated engagement can make manufactured agreement look real. But calling someone a bot can silence a real person too. A useful approach needs ways to challenge mistakes and protect privacy.</p><p>Knowing someone is human would not make every claim they post true. Identity, accuracy and genuine disagreement are different problems.</p><p>Villow makes room for sharing and conversation among people you know. That offers one kind of positive connection; it does not solve botting in public discussion.</p></div><aside class="proposal-questions"><h3>A problem to investigate</h3><p>What signals are proportionate? How could people appeal a mistaken classification? Can a service improve trust without requiring everyone to expose their identity?</p><a class="ftw-text-link" href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20authentic%20discussion">Help explore the question →</a></aside></div> : <a class="ftw-text-link overview-link" href="/ideas?preset=b#trust">Explore the question →</a>}
+    </div></section>
+    <section class="ftw-shell ftw-section next-step" id="next"><div><p class="ftw-eyebrow">A shared ambition, different designs</p><h2>Start with one idea<br />worth working through.</h2><p class="muted">Long-form video, short-video feeds, messaging, games and AI need different solutions. The common goal is a better experience for the person using them. Help make one proposal concrete enough to question, improve and eventually test.</p></div><a class="ftw-button" href="mailto:support@villow.app?subject=Fix%20the%20Web%20-%20an%20idea%20to%20develop">Get in touch →</a></section>
+  </main>
+</Base>
+<style>
+  .proposal-status { max-width: 740px; padding-left: 20px; border-left: 3px solid var(--accent); margin-top: 28px; color: var(--muted); font-size: .93rem; }
+  .proposal-heading { display: grid; grid-template-columns: 48px 1fr; gap: 24px; max-width: 870px; }
+  .proposal-number { font-size: 1.05rem; color: var(--accent); font-weight: 850; padding-top: 0; }
+  .proposal-heading h2 { max-width: 770px; }
+  .proposal-summary { font-size: 1.12rem; color: var(--muted); max-width: 740px; line-height: 1.7; }
+  .proposal-detail { display: grid; grid-template-columns: 1.5fr 1fr; gap: 70px; margin: 24px 0 0 72px; }
+  .proposal-questions { border-top: 2px solid var(--accent); padding-top: 22px; }
+  .proposal-questions h3 { margin: 0 0 16px; font-size: 1.12rem; }
+  .proposal-questions p { font-size: .96rem; color: var(--muted); line-height: 1.75; }
+  .proposal-questions a { font-size: .82rem; }
+  .existing-context { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 22px; font-size: .88rem; }
+  .existing-context h3 { font-size: 1rem; margin-top: 0; }
+  .overview-link { margin-left: 72px; }
+  .ai-ideas { display: grid; grid-template-columns: repeat(3,1fr); gap: 30px; margin-top: 35px; }
+  .ai-ideas article { padding-top: 20px; border-top: 2px solid var(--accent); }
+  .ai-number { color: var(--accent); font-size: .8rem; font-weight: 850; }
+  .ai-ideas h3 { font-size: 1.2rem; line-height: 1.35; margin: 15px 0; }
+  .ai-ideas p { color: var(--muted); font-size: .94rem; line-height: 1.75; }
+  .ai-question { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; }
+  .ai-question strong { font-size: .83rem; }
+  .ai-question p { font-size: .88rem; }
+  @media (max-width: 850px) { .proposal-detail { grid-template-columns: 1fr; gap: 24px; } .ai-ideas { grid-template-columns: 1fr; gap: 28px; } }
+  @media (max-width: 500px) { .proposal-heading { grid-template-columns: 1fr; gap: 10px; } .proposal-detail, .overview-link { margin-left: 0; } .proposal-number { font-size: .8rem; } }
+</style>

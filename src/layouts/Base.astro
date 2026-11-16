@@ -1,30 +1,43 @@
 ---
-import Header from "../components/Header.astro";
-import SpiderString from "../components/SpiderString.astro";
+const Header = import.meta.env.DEV ? (await import("../components/Header.astro")).default : null;
+const DevStyles = import.meta.env.DEV ? (await import("../components/DevStyles.astro")).default : null;
+const ColorMode = import.meta.env.DEV ? (await import("../components/ColorMode.astro")).default : null;
+const StoryStyles = import.meta.env.DEV ? (await import("../components/StoryStyles.astro")).default : null;
+const ProjectFooter = import.meta.env.DEV ? (await import("../components/ProjectFooter.astro")).default : null;
+const PreviewState = import.meta.env.DEV ? (await import("../components/PreviewState.astro")).default : null;
+const PresetSwitch = import.meta.env.DEV ? (await import("../components/PresetSwitch.astro")).default : null;
+// Design controls and their scripts stay out of the public build.
+const DesignPanel = import.meta.env.DEV ? (await import("../components/DesignPanel.astro")).default : null;
 
 interface Props {
   title: string;
   /** Which page this is, for the header. */
-  page: "home" | "den" | "life";
+  page: "home" | "den" | "life" | "design" | "work" | "notes" | "archive" | "ideas" | "about";
 }
 
 const { title, page } = Astro.props;
 ---
 
-<!-- --swap is how far the header has faded in: the home page fades it in as you scroll, the rest start with it in. -->
-<html lang="en" style={page === "home" ? undefined : "--swap: 1"}>
+<html lang="en" data-coming-soon={!import.meta.env.DEV || undefined} data-preview-preset={import.meta.env.DEV ? (Astro.url.searchParams.get("preset")?.toLowerCase() === "a" ? "a" : "b") : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    {PreviewState && <PreviewState />}
+    {ColorMode && <ColorMode />}
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {DevStyles && <DevStyles />}
+    {StoryStyles && <StoryStyles />}
   </head>
   <body>
-    <Header page={page} />
+    {import.meta.env.DEV && <a class="ftw-skip" href="#main">Skip to content</a>}
+    {Header && <Header page={page} />}
+    {PresetSwitch && <PresetSwitch />}
     <slot />
-    <SpiderString badge=".brand-spider" />
+    {ProjectFooter && ["home", "work", "notes", "archive", "ideas", "about"].includes(page) && <ProjectFooter />}
+    {DesignPanel && page === "home" && <DesignPanel />}
   </body>
 </html>
 
@@ -61,6 +74,12 @@ const { title, page } = Astro.props;
   html {
     scroll-behavior: smooth;
   }
+  html[data-coming-soon],
+  html[data-coming-soon] body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -70,6 +89,6 @@ const { title, page } = Astro.props;
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font: 18px/1.5 system-ui, sans-serif;
+    font: 18px/1.5 var(--body-font, system-ui), sans-serif;
   }
 </style>

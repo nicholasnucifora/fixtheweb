@@ -1,0 +1,174 @@
+Submission on the Online Safety Amendment (Digital Duty 
+of Care) Bill 2026
+Nicholas Nucifora
+Developer of Villow
+villow.app
+User empowerment should extend beyond choosing a feed
+I welcome the exposure draft's focus on how online services are designed, rather than looking only at 
+the harmful content that may appear on them.
+I am an Australian software developer currently building Villow, an alternative interface for using 
+YouTube that I designed around a different question from most social-media products:
+How can an online service help people use it more intentionally, including helping them stop 
+using it when they would rather be doing something else?
+I began this project independently, before the release of the current exposure draft. Building it has 
+forced me to think in practical detail about recommender systems, endless feeds, stopping points, 
+time limits, user choice, reflection, accountability, and the tension between a user's longer-term 
+intentions and their immediate impulses.
+I am not presenting Villow's individual features as proven interventions. It is a working prototype that 
+now needs meaningful user testing. Rather, I want to share some of the design problems I 
+encountered, because I think they are relevant to the eventual design of the Bill's user empowerment 
+tools.
+I support giving people a genuine choice between personalised recommendations and content from 
+people they deliberately follow. My main suggestion is that meaningful user empowerment should 
+not end at that choice.
+Engagement is not the same thing as value
+A fundamental problem with engagement-based recommendation is that the signals a platform can 
+easily optimise — clicks, watch time, retention and continued use — are not necessarily the outcomes 
+the user themselves values.
+There is clearly some correlation: people often continue watching because they enjoy something. But 
+engagement can also continue because a person is acting habitually, has been drawn into an endless 
+sequence of content, or simply has not had a natural opportunity to stop and reflect. They may spend 
+considerable time on something without afterwards feeling it was how they wanted to spend that time.
+This mismatch can also create broader risks. Systems tuned primarily for attention may reward 
+clickbait, sensationalism, misinformation, outrage or polarising material when those patterns 
+successfully attract engagement.
+The question I became interested in while designing Villow was therefore not simply:
+How do we remove recommendation algorithms?
+It was:
+How do we design an online experience in which people remain conscious participants in what 
+they are doing?
+A useful online service should make it easy to continue when a person deliberately wants to continue, 
+but it should also make disengagement natural.
+Design for stopping, not only continuing
+A chronological or following-only feed can still autoplay content, endlessly present more material, and 
+give users few natural moments to decide whether they actually want to continue.
+These are separate design choices from the recommendation algorithm itself.
+For example, Villow experiments with a finite subscriptions feed rather than loading content 
+indefinitely. The aim is that a user can eventually reach the end rather than being presented with an 
+effectively unlimited supply of material.
+Short-form video illustrates this distinction: deliberately choosing a short because it interests you is 
+very different from repeatedly swiping to reveal unknown content. The format does not necessarily 
+need to disappear; the way users move through it can be redesigned.
+Villow similarly removes autoplay in most situations. Starting another piece of content should 
+generally require another decision from the user — even a small moment to consider, “Do I actually 
+want another video?”
+Villow also avoids placing recommendations beside the video itself. Discovery can happen elsewhere, 
+but once somebody chooses a video, I want the interface to help them remain present with that 
+choice. If they no longer want to watch it, stopping should itself become a conscious decision rather 
+than immediately presenting another algorithmic path forward.
+The principle is broader than any of these individual decisions:
+Platforms should design as deliberately for the moment a person stops as they currently design 
+for the moment a person continues.
+Reflection can itself be a product feature
+Giving somebody controls is useful, but a person first needs enough information to decide whether 
+they want to change those controls.
+One feature I have experimented with asks the user, after viewing something, a very simple question:
+Was this worth your time?
+This is deliberately different from asking whether somebody “liked” a video.
+A person might enjoy something while still deciding afterwards that it was not how they wanted to 
+spend that time. Conversely, entertainment can absolutely be worthwhile even when it serves no 
+productive purpose.
+The purpose is not to decide what content is good for the user. It is to give the user a quick opportunity 
+to make that judgement for themselves.
+The interaction is designed to involve as little effort as possible. On mobile, for example, giving that 
+feedback can be reduced to a simple swipe. The aim is to make reflection feel like a natural and 
+satisfying part of using the product rather than another digital-wellbeing chore.
+That small interaction creates a moment in which the user considers what they just watched. It can 
+also produce useful information over time. Someone can see not merely how many hours they spent 
+watching videos, but what proportion of that viewing they themselves subsequently considered 
+worthwhile.
+Villow similarly exposes information about time spent watching, time spent browsing, when usage 
+occurred and patterns in how the service is opened.
+The broader principle is that user empowerment requires information as well as controls.
+However, there is another difficult balance here. Excessive warnings or wellbeing prompts can 
+become irritating, judgemental or guilt-inducing and eventually be ignored.
+The challenge is not simply showing users more information. It is to make reflection quick, intuitive, 
+useful and even enjoyable, without overwhelming them.
+Make the alternative to engagement algorithms better
+Another lesson from Villow is that giving someone the ability to turn off an algorithm does not 
+necessarily make the alternative attractive.
+If the personalised feed is highly refined while the following feed is overwhelming or poorly organised, 
+the user technically has a choice, but one option remains substantially easier to use.
+Villow therefore puts significant effort into making subscriptions themselves more manageable.
+Users can exercise much more granular control over the creators they already chose to follow. Rather 
+than treating every subscription identically, people can shape how much content they want from 
+different sources and what types of content they want to see.
+The system can also identify patterns in the user's own behaviour and make suggestions to make 
+these more granular controls more intuitive. For example, it may notice that a particular source is 
+consuming a disproportionate amount of time or that the user consistently values one type of content 
+from a creator but not another.
+Importantly, these suggestions do not silently modify the person's experience; the system explains the 
+pattern, and proposes an action. It’s up to the user to decide whether the suggestion makes sense.
+Turn intentions into commitments without removing control
+Time limits raise a deeper question than simply whether a user can set one:
+What should happen when a person's earlier intention conflicts with their immediate impulse?
+My approach with Villow is not to make limits impossible to override. The user remains in control. But I 
+also do not think a self-imposed limit is very meaningful if it can be dismissed without consequence 
+the moment it becomes inconvenient.
+Simply requiring somebody to open settings and increase a limit already exists in operating-system 
+wellbeing tools. The more interesting question is how a product can give a person's earlier decision 
+some continuing weight.
+One experiment in Villow is a “no-extension” streak.
+A user can increase their limit whenever they choose, but doing so resets a streak based on keeping to 
+the limits they previously set for themselves.
+The commitment is therefore not absolute. The person can still decide that today is different, or that 
+the original limit no longer makes sense. But overriding it becomes a conscious choice with a visible 
+consequence rather than an automatic dismissal.
+Optional social features can extend the same principle further. Users may choose to share goals or 
+limits with friends, creating accountability that they have deliberately opted into.
+This repurposes a pattern commonly seen across digital products. Instead of streaks, competition and 
+social reinforcement rewarding continued engagement, the same mechanisms can reward adherence 
+to goals the users chose themselves.
+The important principle is not friction for its own sake. A few extra clicks can easily become 
+meaningless.
+The more interesting design problem is how technology can help a person follow through on an 
+intention they themselves chose, while still preserving their ability to change their mind.
+Too little resistance makes commitments easy to abandon. Too much makes the product paternalistic 
+or frustrating. Finding the right balance requires experimentation rather than assuming that simply 
+offering a limit is enough.
+An opportunity for experimentation
+One of the strongest lessons I have taken from building Villow is how little settled design knowledge 
+there is in this area.
+There has been enormous experimentation in making digital products easier to enter, more engaging 
+and harder to leave. Designing a useful product that also succeeds when a person decides they have 
+had enough is a much less developed problem.
+Once the objective changes from “maximise engagement” to “help the user use the service in the 
+way they genuinely want”, many product decisions that currently appear inevitable suddenly 
+become open questions.
+Questions around reflection, accountability, recommendation, stopping and the balance between 
+helpful intervention and annoyance remain largely open, and the answers will differ slightly between 
+services.
+I do not think these questions can be answered well through a single set of assumptions made at the 
+beginning of the regulatory process.
+They need prototypes, user testing, iteration and independent evaluation. That experimentation 
+also requires access. Villow is possible in part because YouTube is one of the only social media 
+platforms to provides access to APIs and an embeddable player. Independent researchers and 
+prototype developers would find it much harder to prototype alternative designs for other digital 
+services. Appropriately scoped, privacy-preserving research access could help make this 
+experimentation possible.
+Different platforms will also require different solutions. Designing intentionally around YouTube has 
+made clear to me how specific many of these problems are to the structure of the service itself. 
+Different platforms will require different solutions; what works for long-form video may not work for 
+short-form, messaging or other digital environments.
+Rather than expecting platforms — or government — to already know the ideal implementation, I 
+would encourage an environment in which alternative designs can be built, tested and compared, with 
+successful approaches informing future standards and user empowerment tools.
+There may also be value in supporting independent experimentation in this area. Platforms have 
+understandable commercial incentives when designing their own engagement systems. Independent 
+projects can explore different objectives, test approaches that may run against conventional 
+engagement metrics, and contribute evidence about what users actually find useful.
+Independent experimentation does not need to be large or slow. These projects can quickly prototype 
+alternative ways of using existing platforms and test ideas that the platforms themselves may have 
+little commercial incentive to explore. Their purpose is not to replace those platforms, but to 
+demonstrate and evaluate approaches that could inform future requirements, then given clear 
+timeframes for platforms to implement them. Villow is one example of what this kind of independent 
+experimentation can produce.
+I would be very interested in contributing to that work: demonstrating Villow, sharing the reasoning 
+behind its design decisions, participating in user research, or helping test different approaches to user 
+empowerment.
+The central principle I would encourage the Government to preserve is simple:
+Giving people control over what appears in their feed is an important step. Meaningful digital 
+agency also requires helping people understand their behaviour, act deliberately on their own 
+intentions, and disengage when they choose to.
+Nicholas Nucifora
+Villow — villow.ap

@@ -1,0 +1,78 @@
+---
+import Logo from "../assets/brand/fixtheweb-logo.svg";
+import { defaultDesign, defaultDesignB } from "../scripts/home-design";
+const expanded = Astro.url.searchParams.get("preset")?.toLowerCase() !== "a";
+const initialDesign = expanded ? defaultDesignB : defaultDesign;
+---
+
+<section class:list={["development-hero", { "movement-hero": expanded }]} id="top" data-development-hero>
+  <div class="hero-content">
+    <h1 class="hero-wordmark">
+      <Logo class="hero-logo" role="img" aria-label="Fix the Web" />
+      <span class="home-identity-rest" aria-hidden="true"></span>
+    </h1>
+    <div class="hero-message" data-spider-ignore>
+      <p class="hero-description" data-hero-headline>{initialDesign.headline}</p>
+      <p class="hero-context">{expanded ? "We build alternatives and work towards digital experiences that respect our intentions, interests and relationships—and the choices that make them possible." : "Digital services should help us enjoy the time we spend, do what matters to us, and stop when we choose."}</p>
+      <div class="hero-actions">
+        <a class="hero-primary" href="#work"><span data-hero-action>{initialDesign.action}</span><span aria-hidden="true">↓</span></a>
+        <a class="hero-secondary" href="#get-involved">Get involved <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+  </div>
+  <a class="hero-scroll" href="#why" data-spider-ignore aria-label="Read why this matters"><span aria-hidden="true">↓</span></a>
+</section>
+
+<script>
+  import { applyDesign, readDesign, getDesignKey } from "../scripts/home-design";
+  const designKey = getDesignKey();
+  applyDesign(readDesign());
+  addEventListener("storage", event => { if (event.key === designKey || event.key === null) applyDesign(readDesign()); });
+</script>
+
+<style is:global>
+  .home { position: relative; z-index: 1; pointer-events: none; }
+  .home .section, .hero-message, .hero-scroll { pointer-events: auto; }
+  .development-hero { box-sizing: border-box; position: relative; min-height: 100svh; padding: 160px 32px 130px; display: grid; place-items: center; }
+  .hero-content { width: min(100%, 760px); padding-bottom: 50px; }
+  .hero-wordmark { position: relative; width: min(100%, 640px); margin: 0 auto 28px; line-height: 0; }
+  .hero-logo { display: block; width: 100%; height: auto; }
+  .hero-message { position: relative; max-width: 520px; margin-inline: auto; text-align: center; }
+  .hero-description { margin: 0; font-family: var(--heading-font); font-size: clamp(19px, 2vw, 24px); font-weight: 550; color: var(--muted); line-height: 1.45; text-wrap: balance; overflow-wrap: anywhere; }
+  .hero-context { max-width: 450px; margin: 20px auto 0; font-size: 17px; line-height: 1.7; color: var(--muted); text-wrap: pretty; }
+  .movement-hero .hero-description { color: var(--ink); font-size: clamp(24px, 3vw, 36px); font-weight: 800; letter-spacing: -.025em; line-height: 1.2; }
+  .movement-hero .hero-message { max-width: 590px; }
+  .movement-hero .hero-context { max-width: 450px; }
+  .hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 30px; margin-top: 28px; }
+  .hero-actions a { text-decoration: none; font-size: 16px; font-weight: 800; }
+  .hero-primary { display: flex; align-items: center; justify-content: space-between; gap: 26px; background: var(--accent); color: var(--bg); border-radius: 999px; padding: 15px 24px; transition: transform .18s; }
+  .hero-primary:hover { transform: translateY(-3px); }
+  .hero-secondary { color: var(--ink); padding-block: 12px; }
+  .hero-secondary span { margin-left: 8px; }
+  .hero-secondary:hover { text-decoration: underline; text-underline-offset: 5px; }
+  .home-identity-rest { position: absolute; top: calc(100% + var(--hero-thread, 150px)); left: 0; width: 72px; height: 72px; pointer-events: none; }
+  [data-home-identity] { z-index: 10; }
+  [data-home-identity] .bob::after { inset: -12px; }
+  [data-spider-size="room"] .home-identity-rest { width: 60px; height: 60px; }
+  [data-spider-size="quiet"] .home-identity-rest { width: 48px; height: 48px; }
+  .hero-scroll { display: grid; place-items: center; position: absolute; left: calc(50% - 22px); bottom: 28px; width: 44px; height: 44px; color: var(--muted); border: 1px solid var(--line); border-radius: 50%; text-decoration: none; font-size: 23px; }
+  .hero-scroll:hover { color: var(--accent); border-color: var(--accent); }
+  @media (max-width: 760px) {
+    .development-hero { padding: 135px 24px 120px; min-height: max(620px, 100svh); }
+    .hero-content { padding-bottom: 40px; }
+    .hero-wordmark { margin-bottom: 26px; }
+    .hero-message { width: calc(100% - 90px); max-width: 430px; }
+    .hero-description { font-size: 19px; }
+    .movement-hero .hero-description { font-size: 24px; }
+    .movement-hero .hero-context { padding-right: 52px; text-align: left; }
+    .hero-context { font-size: 15px; line-height: 1.6; margin-top: 16px; }
+    .hero-actions { flex-direction: column; margin-top: 22px; gap: 6px; }
+    .hero-actions a { font-size: 15px; }
+    .hero-primary { padding: 14px 18px; gap: 16px; }
+    .home-identity-rest { width: 56px; height: 56px; }
+    [data-spider-size="room"] .home-identity-rest { width: 48px; height: 48px; }
+    [data-spider-size="quiet"] .home-identity-rest { width: 38px; height: 38px; }
+  }
+  @media (max-width: 350px) { .hero-message { width: calc(100% - 48px); }.hero-primary { font-size: 14px; gap: 10px; }.hero-description { font-size: 17px; } }
+  @media (prefers-reduced-motion: reduce) { .hero-primary { transition: none; } }
+</style>

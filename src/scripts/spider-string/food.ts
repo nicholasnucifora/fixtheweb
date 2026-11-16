@@ -1,3 +1,4 @@
+import { pageColorMode } from "../color-mode";
 import { config } from "./config";
 
 /**
@@ -24,7 +25,7 @@ export interface SpiderHere {
   unit: number;
 }
 
-const dark = matchMedia("(prefers-color-scheme: dark)");
+const dark = pageColorMode();
 
 export function createFood(
   root: HTMLElement,

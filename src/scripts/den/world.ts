@@ -1,3 +1,4 @@
+import { pageColorMode } from "../color-mode";
 import { config } from "../spider-string/config";
 import { drawSnack, type Snack } from "../spider-string/food";
 import { ateSnack, trying } from "../spider-string/look";
@@ -178,7 +179,7 @@ export function createWorld(root: HTMLElement, hooks: WorldHooks) {
   const canvas = root.querySelector("canvas")!;
   const ctx = canvas.getContext("2d")!;
   const html = document.documentElement;
-  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const dark = pageColorMode();
   const tuning = import.meta.env.DEV && new URLSearchParams(location.search).has("tune");
   const web = new Web();
   const particles = new Particles();

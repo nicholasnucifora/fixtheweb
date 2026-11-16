@@ -1,3 +1,4 @@
+import { pageColorMode } from "../color-mode";
 import type { AnchorFrame } from "./anchor";
 import { config } from "./config";
 import type { Particles } from "./particles";
@@ -28,33 +29,30 @@ export function createRenderer(root: HTMLElement, canvas: HTMLCanvasElement) {
   let scaleY = 1;
   let color = "";
 
-  // Exactly one canvas pixel per device pixel, so nothing drawn on it gets resampled (blurry or shimmery).
-  const fit = (cssWidth: number, cssHeight: number, deviceWidth?: number, deviceHeight?: number) => {
+  // Zoom can change CSS dimensions without changing the device-pixel box.
+  // Measure before drawing: a device-pixel ResizeObserver need not fire then,
+  // leaving the canvas scaled away from the DOM grab target.
+  const fit = () => {
+    const { width: cssWidth, height: cssHeight } = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = deviceWidth ?? Math.round(cssWidth * dpr);
-    canvas.height = deviceHeight ?? Math.round(cssHeight * dpr);
+    const width = Math.max(1, Math.round(cssWidth * dpr));
+    const height = Math.max(1, Math.round(cssHeight * dpr));
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
     scaleX = canvas.width / (cssWidth || 1);
     scaleY = canvas.height / (cssHeight || 1);
   };
-  const observer = new ResizeObserver(([entry]) => {
-    const device = entry.devicePixelContentBoxSize?.[0];
-    fit(entry.contentRect.width, entry.contentRect.height, device?.inlineSize, device?.blockSize);
-  });
-  try {
-    observer.observe(canvas, { box: "device-pixel-content-box" });
-  } catch {
-    observer.observe(canvas);
-  }
-  fit(canvas.clientWidth, canvas.clientHeight);
+  fit();
 
   // Colour comes from CSS (`color` on the root), so it follows light/dark mode.
   const readColor = () => (color = getComputedStyle(root).color);
   readColor();
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColor);
+  pageColorMode().addEventListener("change", readColor);
 
   return {
     /** Device px per CSS px on the canvas. */
     get pixelRatio() {
+      fit();
       return scaleX;
     },
 

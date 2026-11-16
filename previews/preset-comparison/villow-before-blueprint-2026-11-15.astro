@@ -1,0 +1,141 @@
+---
+import Base from "../layouts/Base.astro";
+import VillowMark from "../components/VillowMark.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+
+const principles = [
+  {
+    id: "value", title: "Judge success by what people value.",
+    example: "Villow asks whether a video was worth your time. That is a different question from whether you clicked, liked or kept watching.",
+    implication: "Engagement can reflect enjoyment, habit or a lack of stopping points. Evaluation should include people’s own judgments. Entertainment, rest and friendship count; the goal is not simply fewer minutes online.",
+  },
+  {
+    id: "finite-feeds", title: "Design for stopping as well as continuing.",
+    example: "A following feed can still go on forever. Villow’s finite feed creates an ending, and keeps discovery separate from the video you chose.",
+    implication: "Feed choice alone does not address autoplay, endless loading or competing recommendations. People should have natural opportunities to stop or deliberately continue, whether they choose a long video or a Short.",
+  },
+  {
+    id: "intentions", title: "Give earlier decisions some weight.",
+    example: "Villow’s adjustable limits and no-extension streak explore how a plan can still matter when it becomes easy to dismiss. Changing a limit remains possible.",
+    implication: "A control should help people follow through without taking away the choice to change their minds. Extra friction is not a goal in itself; reminders and streaks can also become frustrating or pressuring.",
+  },
+  {
+    id: "reflection", title: "Make information lead to a useful choice.",
+    example: "Villow connects optional reflection and viewing patterns to explained suggestions. The person decides whether to accept a change; settings do not change silently.",
+    implication: "Controls need understandable information and a practical next step. Reflection should be quick and useful, without becoming a chore or making people feel judged.",
+  },
+  {
+    id: "subscriptions", title: "Make the alternatives worth choosing.",
+    example: "Villow puts care into organising the channels people follow, while its extension lets people keep using YouTube’s recommendations on YouTube.",
+    implication: "A switch away from personalisation offers little if the alternative is overwhelming or poorly organised. Choices need to be attractive and manageable, with settings people can understand and undo. Different people will prefer different feeds.",
+  },
+  {
+    id: "connection", title: "Keep connection separate from monitoring.",
+    example: "Sharing a video or watching together has value in its own right. In Villow, sharing selected usage information is a separate, optional choice.",
+    implication: "Social features should not make private viewing visible by default. People need to understand what friends can see and what a host can access. Accountability needs to be evaluated for pressure as well as support.",
+  },
+];
+
+const questions = [
+  ["Stopping", "Does an ending help people finish when they want to?", "Look at whether people find what they came for and feel satisfied, as well as whether they stop. Notice when unwanted browsing simply moves elsewhere."],
+  ["Intentions", "When does a commitment help—and when does it become pressure?", "Compare the usefulness of a chosen boundary with frustration, guilt and the ability to change plans. A streak should not become another reason to open an app."],
+  ["Reflection", "Does looking back lead to a useful change?", "Check whether people understand suggestions, act on them voluntarily and find reflection useful. Include irritation and skipped prompts. Optional ratings describe rated videos, not everything someone watched; measurements also differ between the app and connected browser use."],
+  ["Discovery", "Is the alternative attractive and manageable?", "Explore how easily people find good videos, understand controls and undo choices. A feed that requires constant administration is not a successful alternative."],
+  ["Connection", "Which social features add value?", "Study enjoying and sharing videos separately from accountability. Ask about pressure, comparison and privacy as well as companionship."],
+];
+---
+<Base title="Villow · A working example · Fix the Web" page="work">
+  <EditorialStyles />
+  <main class="editorial" id="main" tabindex="-1">
+    <header class="villow-hero" id="get-started">
+      <div class="villow-hero-content">
+        <h1 class="villow-identity"><a href="https://villow.app" target="_blank" rel="noopener" aria-label="Villow — visit the website"><VillowMark size={148} alt="" class="villow-hero-mark" /><span>Villow</span></a></h1>
+        <p class="villow-invitation">A different way to enjoy YouTube.</p>
+        <a class="villow-visit" href="https://villow.app" target="_blank" rel="noopener"><span>Explore Villow</span><span class="visit-arrow" aria-hidden="true">↗</span></a>
+      </div>
+      <a class="villow-scroll" href="#design-questions"><span>The ideas behind it</span><span class="scroll-arrow" aria-hidden="true">↓</span></a>
+    </header>
+
+    <section class="soft-band ftw-section" id="access"><div class="ftw-shell split">
+      <div><p class="ftw-eyebrow">Why platform access matters</p><h2>You need a way<br />to build the alternative.</h2></div>
+      <div class="prose"><p>YouTube’s <a href="https://developers.google.com/youtube/v3">API</a> and <a href="https://developers.google.com/youtube/iframe_api_reference">embedded player</a> made Villow possible: access to video and channel information, and a way to play the videos.</p><p>I haven’t found an equally practical route for the alternatives I’d like to build on other services. Even on YouTube, I still need to resolve whether its rules allow particular changes I want to make.</p><p><strong>Builders need practical access, clear permissions and a way for useful alternatives to stay available.</strong> A temporary research study only covers part of that.</p><a class="ftw-text-link" href="/notes/design-and-access">The access changes we’re asking for →</a><p class="source-note">YouTube’s <a href="https://developers.google.com/youtube/terms/developer-policies">Developer Policies</a> set requirements for API, player and data use. Technical access does not settle permission for every design.</p></div>
+    </div></section>
+
+    <section class="ftw-shell ftw-section" id="design-questions" aria-labelledby="principles-title">
+      <div class="section-heading"><p class="ftw-eyebrow">Principles for design & policy</p><h2 id="principles-title">Control means more<br />than choosing a feed.</h2><p>Villow gives these principles a working example. They apply beyond YouTube, though a video service, a game and a messaging app will need different designs.</p></div>
+      <div class="principle-list">{principles.map((principle, index) => <article class="principle" id={principle.id}>
+        <span class="principle-number" aria-hidden="true">0{index + 1}</span>
+        <h3>{principle.title}</h3>
+        <div><p>{principle.example}</p><p>{principle.implication}</p></div>
+      </article>)}</div>
+    </section>
+
+    <section class="warm-band ftw-section" id="adoption"><div class="ftw-shell split">
+      <div><p class="ftw-eyebrow">From an independent app to wider change</p><h2>Make room to test.<br />Help useful ideas spread.</h2></div>
+      <div class="prose"><p>Independent builders can explore goals beyond keeping people engaged. Platforms and policymakers should make it practical to build, compare and evaluate those designs, with consent and protection for users, creators and their data.</p><p>Access, hosting and setup affect who can use an alternative. Villow’s app needs a trusted host or your own setup; quotas affect availability, and its extension covers supported browsers rather than the native YouTube app. A host can access the stored database, separately from anything members choose to share.</p><p>Platforms can adopt useful designs directly, removing the need for a separate setup. Evidence should inform future standards and platform changes, while leaving room for different implementations and ongoing independent alternatives.</p></div>
+    </div></section>
+
+    <section class="ftw-shell ftw-section" id="learning">
+      <div class="section-heading"><p class="ftw-eyebrow">What still needs testing</p><h2>A working design<br />is a starting point.</h2><p>Villow has not established reductions in compulsive use, misinformation, polarisation or other broad harms. Its features give us specific questions we can test.</p></div>
+      <div class="evaluation-list">{questions.map(([label, question, detail]) => <details><summary><span>{label}</span><strong>{question}</strong><b aria-hidden="true">＋</b></summary><p>{detail}</p></details>)}</div>
+      <details class="evaluation-method"><summary>What a useful evaluation needs <span aria-hidden="true">＋</span></summary><div class="prose"><p>Start with a defined feature and comparison, meaningful consent and outcomes connected to people’s own goals. Combine what people report with usability observations and appropriately consented measurements. Include negative experiences, reasons for leaving and people excluded by setup requirements.</p><p>Private viewing records are not automatically sent to Fix the Web. Research needs a separate agreement about what is collected, shared, retained and published. A successful demonstration or positive comment is useful feedback, not proof of a broader effect.</p></div></details>
+      <div class="ftw-actions"><a class="ftw-text-link" href="mailto:support@villow.app?subject=Villow%20-%20help%20design%20an%20evaluation">Help design an evaluation →</a></div>
+    </section>
+
+    <section class="ftw-shell ftw-section next-step"><div><p class="ftw-eyebrow">Explore the project</p><h2>See Villow for yourself.</h2><p class="muted">The Villow website covers the app, extension, design concepts and ways to get started.</p></div><a class="ftw-button" href="https://villow.app" target="_blank" rel="noopener">Visit villow.app <span aria-hidden="true">↗</span></a></section>
+  </main>
+</Base>
+<style>
+  .villow-hero { box-sizing: border-box; position: relative; min-height: max(620px, 100svh); display: grid; place-items: center; padding: calc(var(--header-height) + 78px) 24px 124px; }
+  .villow-hero-content { width: min(100%, 760px); text-align: center; padding-bottom: 26px; }
+  .villow-identity { --mark-size: clamp(64px, 14vw, 148px); font-size: clamp(56px, 14vw, 144px); line-height: 1; letter-spacing: -.055em; margin: 0; }
+  .villow-identity a { display: inline-flex; align-items: center; justify-content: center; gap: clamp(16px, 3vw, 34px); padding: 12px; margin: -12px; color: var(--ink); text-decoration: none; border-radius: 24px; }
+  .villow-identity :global(.villow-hero-mark) { flex: none; transform-origin: 50% 70%; transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+  .villow-identity :global(.villow-hero-mark img) { height: var(--mark-size); width: auto; }
+  .villow-identity a > span { transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+  .villow-invitation { font-size: clamp(20px, 2.4vw, 28px); line-height: 1.45; color: var(--muted); margin: 32px 0 34px; text-wrap: balance; }
+  .villow-visit { display: inline-flex; align-items: center; gap: 28px; padding: 10px 11px 10px 28px; min-height: 44px; background: var(--accent); color: var(--bg); border-radius: 999px; font-size: 1rem; font-weight: 850; text-decoration: none; transition: transform .2s, box-shadow .2s; }
+  .visit-arrow { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--bg) 12%, transparent); font-size: 24px; transition: transform .2s; }
+  .villow-scroll { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; flex-direction: column; gap: 12px; color: var(--muted); text-decoration: none; font-size: .76rem; white-space: nowrap; }
+  .scroll-arrow { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 50%; font-size: 22px; transition: transform .2s, border-color .2s; }
+  .villow-scroll:hover, .villow-scroll:focus-visible { color: var(--accent); }
+  .villow-scroll:hover .scroll-arrow { transform: translateY(3px); border-color: var(--accent); }
+  .villow-identity a:focus-visible :global(.villow-hero-mark) { transform: translateY(-5px) rotate(-5deg); }
+  @media (hover: hover) and (pointer: fine) {
+    .villow-identity a:hover :global(.villow-hero-mark) { transform: translateY(-7px) rotate(-7deg); }
+    .villow-identity a:hover > span { transform: translateY(-2px); }
+    .villow-visit:hover { transform: translateY(-3px); box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 15%, transparent); }
+    .villow-visit:hover .visit-arrow { transform: translate(2px, -2px); }
+  }
+  .villow-visit:active { transform: translateY(0) scale(.98); }
+  .principle { display: grid; grid-template-columns: 36px minmax(200px, .8fr) 1.3fr; gap: 28px; border-top: 1px solid var(--line); padding: 30px 0; }
+  .principle:last-child { border-bottom: 1px solid var(--line); }
+  .principle-number { font-size: .8rem; font-weight: 850; color: var(--accent); padding-top: 4px; }
+  .principle h3 { margin: 0; font-size: clamp(1.2rem, 2vw, 1.55rem); }
+  .principle p { margin: 0 0 14px; color: var(--muted); font-size: .96rem; line-height: 1.75; }
+  .principle p:last-child { margin-bottom: 0; }
+  .evaluation-list details { border-top: 1px solid var(--line); }
+  .evaluation-list details:last-child { border-bottom: 1px solid var(--line); }
+  .evaluation-list summary { display: grid; grid-template-columns: 115px 1fr 28px; gap: 20px; cursor: pointer; list-style: none; align-items: center; padding: 25px 0; }
+  .evaluation-list summary::-webkit-details-marker, .evaluation-method summary::-webkit-details-marker { display: none; }
+  .evaluation-list summary > span { color: var(--accent); font-size: .8rem; }
+  .evaluation-list summary strong { font-size: 1.08rem; }
+  .evaluation-list summary b, .evaluation-method summary span { color: var(--accent); font-size: 23px; font-weight: 400; }
+  .evaluation-list details[open] summary b, .evaluation-method[open] summary span { transform: rotate(45deg); }
+  .evaluation-list details > p { margin: 0 48px 26px 135px; max-width: 740px; color: var(--muted); line-height: 1.7; }
+  .evaluation-method { margin-top: 32px; }
+  .evaluation-method summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; list-style: none; cursor: pointer; padding-block: 16px; font-size: 1rem; font-weight: 800; }
+  .evaluation-method .prose { padding-top: 10px; font-size: .96rem; }
+  @media (max-width: 760px) {
+    .villow-hero { padding-inline: 24px; }
+    .villow-identity { --mark-size: clamp(64px, 18vw, 100px); font-size: clamp(56px, 17vw, 92px); }
+    .villow-invitation { max-width: 290px; margin: 28px auto 30px; font-size: 21px; }
+    .villow-hero-content { padding-bottom: 18px; }
+    .principle { grid-template-columns: 28px 1fr; gap: 12px; padding-block: 24px; }
+    .principle > div { grid-column: 2; }
+    .evaluation-list summary { grid-template-columns: 1fr 24px; gap: 8px; }
+    .evaluation-list summary > span { grid-column: 1/-1; }
+    .evaluation-list details > p { margin: 0 0 24px; font-size: 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .villow-identity :global(.villow-hero-mark), .villow-identity a > span, .villow-visit, .visit-arrow, .scroll-arrow { transition: none; transform: none !important; } }
+</style>

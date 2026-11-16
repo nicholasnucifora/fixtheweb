@@ -1,0 +1,107 @@
+---
+import IncentiveStory from './IncentiveStory.astro';
+
+// Transferable principles live here; Villow's website owns the feature tour.
+const chapters = [
+  {
+    theme: "Time & attention", title: "Time well spent.\nRoom for the rest of life.",
+    principles: [
+      { id: "value", title: "Judge success by what people get from it.", body: "Learning, laughter, rest and friendship all count. Time spent alone cannot tell us whether an experience was worthwhile. Better design should help people keep what they value and reduce the use they regret." },
+      { id: "finite-feeds", title: "Make leaving a good outcome.", body: "Give people satisfying places to stop and room to decide what comes next. Online inspiration can lead to a conversation, a place to visit or something to try. A service should make space for those outcomes, even when they happen elsewhere." },
+    ],
+    connection: "In Villow, these goals shaped an ending to the feed and optional reflection on whether a video was worthwhile. Creator-suggested actions beyond watching are a further, unbuilt idea.",
+  },
+  {
+    theme: "Choice & motivation", title: "Support the change\na person chooses.",
+    principles: [
+      { id: "intentions", title: "Let people choose—and rethink—their boundaries.", body: "People want different things from the same service. Let them customise their experience, understand the trade-offs and choose boundaries that fit their lives. Support those choices, while leaving room to change plans without being shamed." },
+      { id: "motivation", title: "Make following through feel rewarding.", body: "Reminders, streaks and encouragement from friends can help people stay consistent with their own goals. Design that support to welcome time away. Check whether it helps people feel capable, or creates pressure and another reason to keep checking." },
+    ],
+    connection: "Villow’s boundary streak counts days away from the app. It is one approach to supporting intentions; its benefits and pressures still need to be evaluated.",
+  },
+  {
+    theme: "Usable choices", title: "Make the helpful choice\nan easy one.",
+    principles: [
+      { id: "reflection", title: "Make reflection part of the experience.", body: "Give people easy, optional moments to ask whether their time felt worthwhile: what did they enjoy, learn or wish they had skipped? Put a clear view of their habits and simple controls alongside that reflection, so they can act on it. Make small changes easy to try and undo." },
+      { id: "subscriptions", title: "Make calmer experiences worth choosing.", body: "A quieter feed or less distracting mode still needs to be enjoyable, useful and easy to use. Give it the same care as the experience it replaces. People should be able to find what they love without having to manage the service constantly." },
+    ],
+    connection: "Villow brings usage information closer to its controls and puts care into organising followed channels. The wider principle is to make better choices practical and appealing wherever people spend time online.",
+  },
+  {
+    theme: "Connection & trust", title: "Protect what makes\nconnection worthwhile.",
+    principles: [
+      { id: "connection", title: "Bring people closer, on their terms.", body: "Make room for shared enjoyment, conversation and mutual encouragement. Sharing usage should be a separate, informed choice. Friends’ habits can offer perspective, but cannot define a healthy life for someone else. Make privacy and the audience for each kind of sharing clear." },
+      { id: "information", title: "Help people trust, check and reconsider.", body: "Make sources easy to examine and help corrections reach people who saw the original claim. Protect real conversation from manipulation, with ways to challenge mistakes. If AI helps, keep its role visible, its use optional and people responsible for checking its work." },
+    ],
+    connection: "Villow offers ways to share and watch together. Corrections, broader viewer recommendations and optional AI assistance remain proposals. Private discussion among friends does not solve misinformation or manipulation across a platform.",
+  },
+];
+---
+
+<section class="principles-story" id="design-questions" aria-labelledby="principles-title">
+  <header class="ftw-shell principles-intro">
+    <p class="ftw-eyebrow">From one project to a better web</p>
+    <h2 id="principles-title">The principles<br />we want to build on.</h2>
+    <p>Villow gives these ideas a working example on YouTube. Fix the Web asks how they could shape social media, games, messaging and the wider web. The designs will differ. The starting point is the person using them.</p>
+  </header>
+
+  <IncentiveStory />
+
+  <div class="principle-chapters">
+    {chapters.map((chapter, index) => <section class="principle-chapter" aria-labelledby={`chapter-${index}`}>
+      <div class="ftw-shell">
+        <header class="chapter-heading"><p class="chapter-label"><span>0{index + 1}</span>{chapter.theme}</p><h3 id={`chapter-${index}`}>{chapter.title}</h3></header>
+        <div class="principle-pair">{chapter.principles.map(principle => <article id={principle.id}>
+          <h4>{principle.title}</h4>
+          <p>{principle.body}</p>
+        </article>)}</div>
+        <details class="project-connection"><summary><span>How this connects to Villow</span><span class="connection-plus" aria-hidden="true">＋</span></summary><p>{chapter.connection}</p></details>
+      </div>
+    </section>)}
+  </div>
+
+  <section class="principles-next ftw-shell" id="beyond-the-feed" aria-labelledby="beyond-title">
+    <div><p class="ftw-eyebrow">Principles into possibilities</p><h3 id="beyond-title">Different services.<br />More ways to put this into practice.</h3><p>Villow covers part of this ambition. There is more to explore: <span id="corrections">corrections that catch up with misleading claims</span>, <span id="creator-actions">actions beyond the screen</span>, considered recommendations, optional AI assistance and trustworthy discussion.</p><p>These are proposals to develop and test. The Ideas page holds their fuller explanations and open questions.</p></div>
+    <a class="ftw-text-link" href="/ideas?preset=b">Explore the wider ideas <span aria-hidden="true">→</span></a>
+  </section>
+</section>
+
+<style>
+  .principles-intro { max-width: 850px; padding-block: 88px 58px; text-align: center; }
+  .principles-intro h2 { font-size: clamp(2.3rem, 4.8vw, 3.7rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 26px; text-wrap: balance; }
+  .principles-intro > p:last-child { max-width: 700px; margin: 0 auto; font-size: 1.1rem; line-height: 1.8; color: var(--muted); }
+  .principle-chapter { padding-block: 78px; }
+  .principle-chapter:nth-child(odd) { background: var(--story-soft); }
+  .chapter-heading { margin-bottom: 42px; }
+  .chapter-label { display: flex; align-items: center; gap: 15px; color: var(--accent); font-size: .78rem; font-weight: 850; margin: 0 0 20px; }
+  .chapter-label > span { font-weight: 600; opacity: .75; }
+  .chapter-heading h3 { white-space: pre-line; font-size: clamp(2.2rem, 4vw, 3.25rem); letter-spacing: -.035em; line-height: 1.1; margin: 0; text-wrap: balance; }
+  .principle-pair { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(36px, 7vw, 100px); }
+  .principle-pair > article { scroll-margin-top: calc(var(--header-height) + 80px); }
+  .principle-pair h4 { margin: 0 0 18px; font-size: clamp(1.3rem, 2vw, 1.6rem); font-weight: 850; line-height: 1.3; letter-spacing: -.02em; max-width: 450px; text-wrap: balance; }
+  .principle-pair p { margin: 0; color: var(--muted); font-size: 1.04rem; line-height: 1.8; }
+  .project-connection { border-top: 1px solid var(--line); margin-top: 34px; }
+  .project-connection summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 19px 0 0; cursor: pointer; list-style: none; font-size: .82rem; font-weight: 750; color: var(--accent); }
+  .project-connection summary::-webkit-details-marker { display: none; }
+  .connection-plus { font-size: 24px; font-weight: 400; line-height: 1; }
+  .project-connection[open] .connection-plus { transform: rotate(45deg); }
+  .project-connection > p { color: var(--muted); max-width: 800px; font-size: .9rem; line-height: 1.8; margin: 18px 0 0; }
+  .principles-next { display: flex; align-items: end; justify-content: space-between; gap: 40px; padding-block: 80px; }
+  .principles-next > div { max-width: 760px; }
+  .principles-next h3 { font-size: clamp(2rem, 3.3vw, 2.8rem); line-height: 1.15; letter-spacing: -.035em; margin: 0 0 24px; text-wrap: balance; }
+  .principles-next p:not(.ftw-eyebrow) { color: var(--muted); line-height: 1.8; font-size: 1rem; }
+  .principles-next p:last-child { margin-bottom: 0; }
+  .principles-next > a { flex: none; }
+  @media (max-width: 900px) { .principles-next { align-items: start; flex-direction: column; gap: 16px; } }
+  @media (max-width: 700px) {
+    .principles-intro { padding-block: 60px 36px; }
+    .principles-intro > p:last-child { font-size: 1rem; }
+    .principle-chapter { padding-block: 54px; }
+    .chapter-heading { margin-bottom: 32px; }
+    .principle-pair { grid-template-columns: 1fr; gap: 32px; }
+    .principle-pair h4 { font-size: 1.35rem; margin-bottom: 13px; }
+    .principle-pair p { font-size: 1rem; }
+    .project-connection { margin-top: 28px; }
+    .principles-next { padding-block: 56px; }
+  }
+</style>

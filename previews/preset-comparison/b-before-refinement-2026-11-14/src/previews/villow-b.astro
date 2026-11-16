@@ -1,0 +1,91 @@
+---
+import Base from "../layouts/Base.astro";
+import VillowMark from "../components/VillowMark.astro";
+import EditorialStyles from "../components/EditorialStyles.astro";
+const questions = [
+  ["Stopping", "Does an ending help people finish when they want to?", "Look at whether people find what they came for and feel satisfied, as well as whether they stop. Notice when unwanted browsing simply moves elsewhere."],
+  ["Intentions", "When does a commitment help—and when does it become pressure?", "Compare the usefulness of a chosen boundary with frustration, guilt and the ability to change plans. A streak should not become another reason to open an app."],
+  ["Reflection", "Does looking back lead to a useful change?", "Examine whether people understand the information and suggestions, act on them voluntarily and find the reflection worthwhile. Record irritation and skipped prompts too."],
+  ["Discovery", "Is the alternative attractive and manageable?", "Explore how easily people find good videos, understand controls and undo choices. A feed that requires constant administration is not a successful alternative."],
+  ["Connection", "Which social features add value?", "Study enjoying and sharing videos separately from accountability. Ask about pressure, comparison and privacy as well as companionship."],
+];
+---
+<Base title="Villow · Design in practice · Fix the Web" page="work">
+  <EditorialStyles />
+  <main class="editorial" id="main" tabindex="-1">
+    <header class="ftw-shell ftw-page-intro">
+      <p class="ftw-eyebrow">Our first substantial project</p>
+      <div class="case-brand"><VillowMark size={50} alt="" /><span>Villow</span></div>
+      <h1>What changes when<br />your intentions come first?</h1>
+      <p class="ftw-lead">Villow is a working alternative for watching YouTube. It puts a different set of design choices into your hands: what to watch, how it fits your day, and what to do next.</p>
+      <nav class="topic-nav" aria-label="On this page"><a href="#finite-feeds">Choosing & stopping</a><a href="#intentions">Intentions</a><a href="#reflection">Reflection</a><a href="#subscriptions">Discovery</a><a href="#connection">Connection</a><a href="#learning">Evaluation</a><a href="#get-started">Getting started</a></nav>
+    </header>
+    <section class="soft-band ftw-section" id="finite-feeds"><div class="ftw-shell split">
+      <div><p class="ftw-eyebrow">01 / Deliberate choices</p><h2>A beginning.<br />An ending.<br />A choice in between.</h2></div>
+      <div class="prose"><p>Villow’s finite feed gives you a collection you can finish. Reaching the end creates a natural opportunity to decide whether you want more, or whether you’re done.</p><p>The app separates finding a video from watching it. It avoids placing another recommendation beside the video, so the next thing does not have to compete with the thing you chose.</p><p>This is a design choice beyond whether a feed uses personalised recommendations. A following feed can still be endless. A short video can still be chosen deliberately.</p><p><strong>Starting and stopping both deserve thoughtful design.</strong></p></div>
+    </div></section>
+    <section class="ftw-shell ftw-section split" id="intentions">
+      <div><p class="ftw-eyebrow">02 / Follow through</p><h2>Your choices should still matter when they’re easy to forget.</h2><div class="intention-example"><span>A plan you choose</span><p>“I want watching to fit around my evening.”</p><span>A decision you can revisit</span><p>“Today is different. I want to change my limit.”</p><small>Both choices belong to you.</small></div></div>
+      <div class="prose"><p>Villow brings chosen limits, schedules, bedtime reminders and breaks into the experience. You can make different plans for different days instead of relying on the same boundary everywhere.</p><p>Limits remain adjustable. The app’s no-extension streak records keeping to the limits you set, including days away; raising a limit resets that streak. An earlier intention has some visible weight, while you retain the freedom to change your mind.</p><p>The aim is not the smallest possible number. You might deliberately choose a long session or make room for Shorts. What matters is that the choice is yours, understandable and open to reconsideration.</p><p>Supporting an intention is a different design problem from making a control impossible to override. The right balance must include freedom, usefulness and the possibility that a reminder or streak becomes frustrating.</p></div>
+    </section>
+    <section class="warm-band ftw-section" id="reflection"><div class="ftw-shell">
+      <div class="split"><div><p class="ftw-eyebrow">03 / Understand & adjust</p><h2>Information should help you decide what to change.</h2></div><div class="prose"><p>After a video, you can choose to answer: <strong>was this worth your time?</strong> That is your judgment. Learning, entertainment, comfort and a good laugh all count.</p><p>The app brings those optional ratings alongside viewing patterns: watching versus browsing, when you use it, how often you open it and what you watch. A graph becomes more useful when it connects to a decision you can make.</p></div></div>
+      <ol class="reflection-loop" aria-label="The reflection and adjustment loop"><li><span>01</span><strong>Choose</strong><p>Set up a feed and boundaries that suit you.</p></li><li><span>02</span><strong>Observe</strong><p>See how your viewing actually fits your day.</p></li><li><span>03</span><strong>Reflect</strong><p>Consider what you found worthwhile.</p></li><li><span>04</span><strong>Adjust</strong><p>Keep what works. Change what does not.</p></li></ol>
+      <div class="suggestion-example"><div><p class="ftw-eyebrow">An illustrative example</p><h3>From a pattern to an option.</h3><p>You tend to watch a channel’s 5–30 minute videos and skip its other lengths.</p></div><div><span class="suggestion-arrow" aria-hidden="true">→</span><p><strong>A suggestion explains that pattern:</strong> show new videos from this channel in the 5–30 minute range.</p><p>You can accept or dismiss it. Your settings do not change silently.</p></div></div>
+      <p class="source-note">Suggestions use explained rules, not generative AI. A worthwhile percentage describes videos you rated; it cannot tell us how you felt about unrated videos. Supported connected-browser activity does not provide every measurement available inside Villow.</p>
+    </div></section>
+    <section class="ftw-shell ftw-section split" id="subscriptions">
+      <div><p class="ftw-eyebrow">04 / Attractive alternatives</p><h2>Choosing differently should still feel like a good choice.</h2></div>
+      <div class="prose"><p>Switching off personalisation is only useful if the alternative is worth using. Villow lets you shape content from channels you deliberately follow, including duration and title controls, rather than treating every subscription the same.</p><p>Discovery still has a place: your chosen channels, saved videos, friends’ recommendations and country charts. Popularity can offer a shared point of reference; it does not establish truth or quality.</p><p>If you want YouTube’s personalised recommendations, you can keep using them on YouTube with the extension. Villow’s app does not import that recommendation feed. You can combine the two experiences and choose what to bring across.</p><p><strong>Recommendations should serve the person using them.</strong> This is about making alternatives useful, not assuming every person should prefer the same feed.</p></div>
+    </section>
+    <section class="soft-band ftw-section" id="connection"><div class="ftw-shell split">
+      <div><p class="ftw-eyebrow">05 / Positive connection</p><h2>Time online can be time well spent together.</h2></div>
+      <div class="prose"><p>Send a friend a video with a personal note. Watch together with a shared queue, synchronised playback and chat. These features make space for enjoyment and relationships, not just restraint.</p><p>Accountability is a separate choice. You can opt to share selected usage information with friends, but using the social features should not mean every part of your viewing is theirs to inspect.</p><p>Whether comparison feels supportive or pressuring is an evaluation question. Choosing a host is also a distinct privacy decision: the host can access the group’s stored database. That is different from what you choose to share with ordinary members.</p><a class="ftw-text-link" href="/ideas#trust">The separate challenge of public discussion →</a></div>
+    </div></section>
+    <section class="ftw-shell ftw-section" id="learning">
+      <div class="section-heading"><p class="ftw-eyebrow">A working alternative. A starting point for learning.</p><h2>The features are real.<br />Their effects need evaluation.</h2><p>Villow makes these choices tangible. It has not established reductions in misinformation, polarisation, compulsive use or other broad harms. We want to understand what helps, for whom, and what needs to change.</p></div>
+      <div class="evaluation-list">{questions.map(([label, question, detail]) => <details><summary><span>{label}</span><strong>{question}</strong><b aria-hidden="true">＋</b></summary><p>{detail}</p></details>)}</div>
+      <div class="evaluation-method prose"><h3>What useful evidence would include</h3><p>Start with a defined feature and comparison, meaningful consent and outcomes connected to people’s own goals. Combine what people report with usability observations and appropriately consented measurements. Include negative experiences, reasons for leaving and the people setup requirements exclude.</p><p>Private viewing records are not automatically sent to Fix the Web. Any research needs a clear purpose and separate agreement about what is collected, shared, retained and published. A successful demonstration or positive comment is useful feedback, not proof of a broader effect.</p><a class="ftw-text-link" href="mailto:support@villow.app?subject=Villow%20-%20help%20design%20an%20evaluation">Help design an evaluation →</a></div>
+    </section>
+    <section class="warm-band ftw-section" id="get-started"><div class="ftw-shell">
+      <div class="section-heading"><p class="ftw-eyebrow">Using Villow</p><h2>Choose the experience<br />that fits how you watch.</h2><p>The app, extension and combined setup serve different needs.</p></div>
+      <div class="usage-routes"><div><h3>The app</h3><p>Watch through Villow’s finite feed, with reflection, insights and social features. Join a trusted person’s Villow by invitation, or set up your own.</p></div><div><h3>The extension</h3><p>Keep watching on YouTube, including its recommendations, with chosen usage controls. Used on its own, its limits and usage stay in that browser.</p></div><div><h3>Both together</h3><p>Find a video on YouTube and save it into Villow to watch later. Pair the extension to connect supported usage and limits across the two.</p></div></div>
+      <div class="prose route-details"><p>Connected browser use is not whole-device tracking. The extension does not cover the native YouTube app. Hosting and setup take some involvement, and the host’s service quotas can affect availability.</p><p>These practical constraints matter: they affect who can use an alternative and what an evaluation represents. Useful designs should also be considered for the platforms people already use, where a separate setup would not be necessary.</p></div>
+      <div class="ftw-actions"><a class="ftw-button" href="https://villow.app" target="_blank" rel="noopener">Visit the Villow website ↗</a><a class="ftw-text-link" href="mailto:support@villow.app?subject=Villow%20-%20getting%20started">Ask about getting started →</a><a class="ftw-text-link" href="/notes/design-and-access">Why access and setup matter →</a></div>
+    </div></section>
+  </main>
+</Base>
+<style>
+  .case-brand { display: flex; gap: 12px; align-items: center; font-size: 1.6rem; font-weight: 850; }
+  .intention-example { margin-top: 34px; padding: 24px 28px; border-left: 3px solid var(--accent); background: var(--story-soft); border-radius: 0 18px 18px 0; max-width: 390px; }
+  .intention-example span { font-size: .72rem; color: var(--accent); font-weight: 850; }
+  .intention-example p { font-size: 1.05rem; margin: 6px 0 20px; }
+  .intention-example small { color: var(--muted); font-size: .8rem; }
+  .reflection-loop { display: grid; grid-template-columns: repeat(4,1fr); list-style: none; padding: 0; gap: 28px; margin: 42px 0; }
+  .reflection-loop li { border-top: 1px solid var(--line); padding-top: 22px; }
+  .reflection-loop span { color: var(--accent); font-size: .75rem; font-weight: 850; margin-right: 10px; }
+  .reflection-loop strong { font-size: 1.1rem; }
+  .reflection-loop p { color: var(--muted); font-size: .92rem; }
+  .suggestion-example { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; padding: 32px; border-radius: 20px; background: var(--surface); }
+  .suggestion-example h3 { margin-top: 0; font-size: 1.4rem; }
+  .suggestion-example p { font-size: .96rem; margin-bottom: 0; }
+  .suggestion-example > div:last-child { position: relative; padding-top: 10px; }
+  .suggestion-arrow { position: absolute; left: -42px; top: 38%; color: var(--accent); font-size: 26px; }
+  .evaluation-list details { border-top: 1px solid var(--line); }
+  .evaluation-list details:last-child { border-bottom: 1px solid var(--line); }
+  .evaluation-list summary { display: grid; grid-template-columns: 115px 1fr 28px; gap: 20px; cursor: pointer; list-style: none; align-items: center; padding: 25px 0; }
+  .evaluation-list summary::-webkit-details-marker { display: none; }
+  .evaluation-list summary > span { color: var(--accent); font-size: .8rem; }
+  .evaluation-list summary strong { font-size: 1.08rem; }
+  .evaluation-list summary b { color: var(--accent); font-size: 23px; font-weight: 400; }
+  .evaluation-list details[open] summary b { transform: rotate(45deg); }
+  .evaluation-list details > p { margin: 0 48px 26px 135px; max-width: 740px; color: var(--muted); line-height: 1.7; }
+  .evaluation-method { margin: 42px 0 0 auto; }
+  .evaluation-method h3 { font-size: 1.35rem; }
+  .usage-routes { display: grid; grid-template-columns: repeat(3,1fr); gap: 36px; }
+  .usage-routes > div { border-top: 2px solid var(--accent); padding-top: 20px; }
+  .usage-routes h3 { margin: 0 0 14px; font-size: 1.2rem; }
+  .usage-routes p { color: var(--muted); font-size: .96rem; }
+  .route-details { margin-top: 30px; }
+  @media (max-width: 760px) { .reflection-loop { grid-template-columns: 1fr 1fr; gap: 18px; } .suggestion-example { grid-template-columns: 1fr; gap: 24px; padding: 24px; } .suggestion-arrow { display: none; } .suggestion-example > div:last-child { border-top: 1px solid var(--line); } .usage-routes { grid-template-columns: 1fr; gap: 20px; } .evaluation-list summary { grid-template-columns: 1fr 24px; gap: 8px; } .evaluation-list summary > span { grid-column: 1/-1; } .evaluation-list details > p { margin: 0 0 24px; font-size: 1rem; } }
+</style>

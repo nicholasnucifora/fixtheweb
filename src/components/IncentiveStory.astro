@@ -1,0 +1,162 @@
+---
+// An editorial illustration of incentives, not a mock-up of a Villow setting.
+---
+
+<section class="incentive-story ftw-shell" id="design-goals" aria-labelledby="incentive-title" data-incentive-story>
+  <div class="incentive-stage">
+    <div class="incentive-copy" id="incentive-copy">
+      <p class="incentive-kicker">Start with the incentive</p>
+      <div class="incentive-scene" data-scene="attention">
+        <h3 id="incentive-title">Your attention.<br /><em>Their payoff.</em></h3>
+        <p>A run of forgettable clips. Then one you love—funny, useful, worth sharing. The hope of another great find can keep you swiping. Rage bait can pull you in, too.</p>
+        <p class="incentive-punch">For an ad-funded feed, keeping you here means more chances to sell ads.</p>
+      </div>
+      <div class="incentive-scene" data-scene="agency" hidden>
+        <h3 id="agency-title">Your time.<br /><em>Your terms.</em></h3>
+        <p>Make reflection part of the experience: was that time worthwhile? Help people notice what they enjoyed, learned or regretted, then put choices about their feed, time and support right there.</p>
+        <p class="incentive-punch">Reflect. Choose what comes next. Leaving can be a good outcome, too.</p>
+      </div>
+      <button class="incentive-change" type="button" aria-controls="incentive-copy incentive-illustration incentive-explanation" aria-pressed="false" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15m-4-4 4 4-4 4M20 16H5m4-4-4 4 4 4" /></svg>
+        <span>Change the incentive</span>
+      </button>
+    </div>
+
+    <div class="incentive-art" id="incentive-illustration" aria-hidden="true">
+      <div class="attention-art">
+        <svg class="magnet" viewBox="0 0 500 460" fill="none">
+          <path d="M124 200v70c0 94 57 152 138 152s138-58 138-152v-70" stroke="#0f2723" stroke-width="100" />
+          <path d="M112 180v80c0 94 57 152 138 152s138-58 138-152v-80" stroke="#f18e76" stroke-width="88" />
+          <path d="M112 180v57m276-57v57" stroke="#f7f0dc" stroke-width="88" />
+          <path d="m137 121 12 25m197-25-12 25M250 135v28" stroke="#f7f0dc" stroke-width="11" stroke-linecap="round" />
+          <circle cx="250" cy="296" r="49" fill="#f7f0dc" />
+          <path d="M269 279c-5-6-13-9-21-9-11 0-19 5-19 13 0 19 41 7 41 27 0 9-9 15-21 15-9 0-17-4-23-10m23-55v75" stroke="#173c34" stroke-width="9" stroke-linecap="round" />
+        </svg>
+        <span class="bait bait-anger">Rage bait<svg viewBox="0 0 36 36" fill="none"><path d="m8 10 7 5m13-5-7 5M11 27c3-6 11-6 14 0" stroke="currentColor" stroke-width="4" stroke-linecap="round" /></svg></span>
+        <span class="bait bait-meh">Meh…<br /><b>next.</b></span>
+        <span class="bait bait-find"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 0 3.2 8.8L24 12l-8.8 3.2L12 24l-3.2-8.8L0 12l8.8-3.2z" fill="currentColor" /></svg>Great<br />find!</span>
+        <span class="payoff">More time. More ad space.</span>
+      </div>
+      <div class="agency-art" hidden>
+        <svg class="choice-dial" viewBox="0 0 500 460" fill="none">
+          <path d="M250 66c106 0 192 86 192 192s-86 192-192 192S58 364 58 258 144 66 250 66" fill="#0f2723" />
+          <circle cx="250" cy="242" r="180" fill="#a8d6bb" />
+          <path d="M250 90v17m152 135h-17M250 394v-17M98 242h17" stroke="#173c34" stroke-width="10" stroke-linecap="round" />
+          <circle cx="250" cy="242" r="118" fill="#f7f0dc" />
+          <path d="m330 150 38-22-22 38z" fill="#173c34" />
+          <path d="m110 80-9-17m290 17 9-17M424 387l14 12M76 387l-14 12" stroke="#a8d6bb" stroke-width="10" stroke-linecap="round" />
+        </svg>
+        <span class="dial-label">Worth<br />my time?</span>
+        <span class="choice-tag choice-keep">Keep what matters.</span>
+        <span class="choice-tag choice-leave">Leave when ready.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="incentive-explanation" id="incentive-explanation" aria-live="polite" aria-atomic="true">
+    <p data-explanation="attention"><strong>Change what the system rewards.</strong> Time spent is easy to count. Whether it was worth your time is a different question.</p>
+    <p data-explanation="agency" hidden><strong>Personal control is a start. The business model matters too.</strong> <a href="#access">Make room for independent alternatives</a> that can succeed when people spend less time on them. Give people a real say in what their experience is designed to do.</p>
+  </div>
+  <noscript><p class="incentive-fallback"><strong>A different incentive: your time, on your terms.</strong> Make reflection part of the experience, with accessible choices over your feed, time and boundaries close at hand. Build services that can succeed when people spend less time on them.</p></noscript>
+  <details class="incentive-evidence">
+    <summary>Why focus on incentives?</summary>
+    <p>Research has found that hostility towards political opponents can attract engagement, and that social rewards can encourage further expressions of outrage. These findings do not mean every feed or every person behaves the same way. They show why we need to ask what a service rewards.</p>
+    <p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8256037/" target="_blank" rel="noreferrer">Out-group animosity and engagement (PNAS, 2021)</a><br /><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8363141/" target="_blank" rel="noreferrer">Social learning and outrage (Science Advances, 2021)</a></p>
+  </details>
+</section>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-incentive-story]').forEach(story => {
+    const button = story.querySelector<HTMLButtonElement>('.incentive-change');
+    if (!button) return;
+    button.hidden = false;
+    button.addEventListener('click', () => {
+      const agency = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(agency));
+      story.classList.toggle('is-agency', agency);
+      story.setAttribute('aria-labelledby', agency ? 'agency-title' : 'incentive-title');
+      story.querySelectorAll<HTMLElement>('[data-scene], [data-explanation]').forEach(scene => {
+        scene.hidden = (scene.dataset.scene ?? scene.dataset.explanation) !== (agency ? 'agency' : 'attention');
+      });
+      story.querySelector<HTMLElement>('.attention-art')!.hidden = agency;
+      story.querySelector<HTMLElement>('.agency-art')!.hidden = !agency;
+    });
+  });
+</script>
+
+<style>
+  .incentive-story { --poster-ink: #173c34; --poster-paper: #f7f0dc; --poster-coral: #f18e76; --poster-mint: #a8d6bb; margin-block: 8px 78px; scroll-margin-top: 150px; overflow-anchor: none; }
+  .incentive-stage { display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 24px; padding: clamp(28px, 4vw, 56px); background: var(--poster-ink); color: var(--poster-paper); border-radius: 30px; overflow: hidden; }
+  .incentive-copy { position: relative; z-index: 1; }
+  .incentive-kicker { margin: 0 0 25px; text-transform: uppercase; letter-spacing: .13em; font-size: .7rem; font-weight: 900; color: var(--poster-mint); }
+  .incentive-scene h3 { font-family: Fredoka, sans-serif; font-weight: 650; font-size: clamp(2.9rem, 4.7vw, 4.3rem); line-height: 1.02; letter-spacing: -.035em; margin: 0 0 24px; }
+  .incentive-scene em { font-style: normal; color: var(--poster-coral); }
+  .is-agency .incentive-scene em { color: var(--poster-mint); }
+  .incentive-scene p { max-width: 430px; font-size: 1.04rem; line-height: 1.7; margin: 0 0 17px; }
+  .incentive-scene .incentive-punch { font-weight: 850; line-height: 1.5; }
+  .incentive-change { display: inline-flex; align-items: center; justify-content: center; gap: 13px; padding: 16px 23px; margin-top: 14px; background: var(--poster-paper); color: var(--poster-ink); border: 0; border-radius: 999px; font: inherit; font-size: .9rem; font-weight: 900; cursor: pointer; box-shadow: 0 5px 0 #0f2723; transition: transform .15s ease, box-shadow .15s ease; }
+  .incentive-change svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .incentive-change:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #0f2723; }
+  .incentive-change:active { transform: translateY(3px); box-shadow: 0 2px 0 #0f2723; }
+  .incentive-change:focus-visible { outline: 3px solid var(--poster-coral); outline-offset: 6px; }
+  .is-agency .incentive-change { background: var(--poster-mint); }
+  .incentive-art { min-width: 0; position: relative; aspect-ratio: 1 / 1.04; }
+  .attention-art, .agency-art { position: absolute; inset: 0; }
+  .magnet, .choice-dial { position: absolute; inset: 5% 0 auto; width: 100%; }
+  .magnet { inset: 9% 3% auto; width: 94%; }
+  .bait, .choice-tag, .payoff { position: absolute; font-weight: 950; color: var(--poster-ink); text-align: center; }
+  .bait-anger { left: 0; top: 0; display: flex; align-items: center; gap: 9px; padding: 15px 20px; border-radius: 18px 18px 3px 18px; background: var(--poster-coral); transform: rotate(-10deg); font-size: clamp(1.15rem, 2vw, 1.7rem); box-shadow: 0 7px 0 #0f2723; }
+  .bait-anger::after { content: ''; position: absolute; right: 15px; bottom: -12px; border-top: 16px solid var(--poster-coral); border-left: 18px solid transparent; }
+  .bait-anger svg { width: 33px; height: 33px; }
+  .bait-meh { right: 0; top: 0; width: 29%; aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; border-radius: 50%; background: var(--poster-paper); transform: rotate(12deg); font-size: clamp(1.2rem, 2.2vw, 1.9rem); line-height: 1.1; box-shadow: 5px 5px 0 #0f2723; }
+  .bait-meh b { font-weight: 950; }
+  .bait-find { left: 34%; top: 14%; width: 35%; box-sizing: border-box; padding: 12px 16px; border-radius: 13px; background: var(--poster-mint); transform: rotate(-6deg); font-size: clamp(1.1rem, 1.9vw, 1.55rem); line-height: 1.05; box-shadow: 4px 5px 0 #0f2723; }
+  .bait-find svg { position: absolute; width: 24px; height: 24px; left: -13px; top: -14px; color: var(--poster-mint); }
+  .payoff { bottom: 0; left: 0; right: 0; color: var(--poster-paper); font-size: clamp(.9rem, 1.5vw, 1.2rem); }
+  .choice-dial { top: 0; }
+  .dial-label { position: absolute; top: 35%; left: 25%; width: 50%; text-align: center; font: 650 clamp(1.8rem, 3.3vw, 3rem)/1 Fredoka, sans-serif; letter-spacing: -.03em; color: var(--poster-ink); transform: rotate(-7deg); }
+  .choice-tag { padding: 13px 18px; background: var(--poster-paper); font-size: clamp(.85rem, 1.45vw, 1.15rem); box-shadow: 0 6px 0 #0f2723; border-radius: 8px; }
+  .choice-keep { top: 2%; left: 1%; transform: rotate(-8deg); }
+  .choice-leave { bottom: 2%; right: -1%; transform: rotate(7deg); background: var(--poster-mint); }
+  .incentive-explanation { padding: 26px 8px 0; max-width: 850px; }
+  .incentive-explanation p, .incentive-fallback { color: var(--muted); font-size: 1rem; line-height: 1.7; margin: 0; }
+  .incentive-explanation strong { color: var(--ink); }
+  .incentive-explanation a { color: var(--accent); text-underline-offset: 4px; }
+  .incentive-evidence { margin: 18px 8px 0; max-width: 800px; color: var(--muted); font-size: .82rem; line-height: 1.7; }
+  .incentive-evidence summary { width: fit-content; cursor: pointer; font-weight: 800; text-underline-offset: 4px; }
+  .incentive-evidence summary:hover { text-decoration: underline; }
+  .incentive-evidence p { margin: 14px 0 0; }
+  .incentive-evidence a { color: var(--accent); text-underline-offset: 4px; }
+  .incentive-story [hidden] { display: none; }
+  @media (max-width: 900px) and (min-width: 701px) {
+    .incentive-stage { gap: 12px; padding: 32px; }
+    .incentive-scene h3 { font-size: 2.9rem; }
+    .incentive-art { aspect-ratio: 1 / 1.1; }
+    .bait-anger { padding: 12px; gap: 2px; }
+    .bait-anger svg { width: 26px; height: 26px; }
+    .dial-label { top: 33%; }
+  }
+  @media (max-width: 700px) {
+    .incentive-story { margin-block: 0 54px; }
+    .incentive-stage { grid-template-columns: 1fr; padding: 30px 25px; gap: 0; border-radius: 24px; }
+    .incentive-copy, .incentive-scene:not([hidden]) { display: contents; }
+    .incentive-kicker { order: 1; margin-bottom: 20px; font-size: .63rem; }
+    .incentive-scene h3 { order: 2; font-size: clamp(2.05rem, 9.5vw, 3.5rem); margin-bottom: 0; }
+    .incentive-scene p { order: 4; font-size: .97rem; }
+    .incentive-scene .incentive-punch { order: 5; margin-bottom: 0; }
+    .incentive-change { order: 6; width: 100%; padding: 15px 12px; font-size: .85rem; margin-top: 24px; }
+    .incentive-art { order: 3; width: 100%; max-width: 320px; margin: 34px auto 28px; aspect-ratio: 1 / 1.08; }
+    .bait-anger { font-size: clamp(1.05rem, 4.7vw, 1.5rem); padding: 11px 14px; gap: 5px; }
+    .bait-anger svg { width: 27px; height: 27px; }
+    .bait-meh { font-size: clamp(1.15rem, 5vw, 1.6rem); }
+    .bait-find { left: 33%; top: 22%; width: 34%; padding: 9px 10px; font-size: clamp(.95rem, 4.3vw, 1.3rem); border-radius: 10px; }
+    .bait-find svg { width: 18px; height: 18px; left: -10px; top: -11px; }
+    .payoff { font-size: .95rem; }
+    .dial-label { top: 33%; font-size: clamp(1.5rem, 6.8vw, 2.5rem); }
+    .choice-tag { font-size: clamp(.75rem, 3.5vw, 1rem); padding: 11px 14px; }
+    .choice-leave { bottom: 7%; }
+    .incentive-explanation { padding-top: 23px; }
+    .incentive-explanation p { font-size: .95rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .incentive-change { transition: none; } }
+</style>

@@ -9,9 +9,102 @@ npm install
 npm run dev
 ```
 
+The public build is a single, non-scrolling coming-soon screen: the Fix the Web logo and its
+draggable spider. The new homepage, Villow case study, design/access brief, Ideas and About
+are available only in `npm run dev`. Preview routes live in `src/previews/` and are registered only
+by the development server; production builds do not emit those pages. Query parameters cannot
+enable them on the public site. `npm run preview` shows the production coming-soon screen.
+Homepage tuning is complete and `/?tune` has no controls. Den development tuning remains at `/old-pages/den?tune`.
+
+### Per-page A/B previews
+
+Open `http://127.0.0.1:4321/?preset=b` when running on port 4321. The preview bar switches
+between pages and between **Preset A** and **Preset B**. Each page remembers its own selection
+in this browser. Explicit `?preset=a` and `?preset=b` URLs override that page's saved choice.
+B is the default on a first visit; browser back/forward and no-storage comparison links work.
+The switch keeps a corresponding section in view where possible. Homepage design controls
+also have separate A/B storage so changing a headline in B does not overwrite A.
+
+A preserves the first implementation's content on Home, Villow and Design & access, except
+for the requested removal of submission references. B
+expands the mission, capabilities, proposals and specific contribution pathways in response
+to Nicholas's supplied critique. Both share the navigation and comparison controls.
+
+- `/ideas` — new page: A gives an overview; B explains each proposal, precedent and trade-off,
+  including cross-device wellbeing, corrections, creator actions, recommendations, three AI
+  concepts and authentic discussion. These are explicitly unbuilt proposals/open questions.
+- `/about` — new page: A is a short introduction; B adds the broader story and preserves the
+  full current personal message from the unpublished Villow About source.
+
+The 14 November refinement makes B's opening and framing more direct, explains the practical
+API and permission barriers, and removes the submission page and links from both presets.
+The full founder message and detailed proposal data are unchanged. A subsequent Villow B
+refinement puts the external website invitation first and focuses this page on design
+principles, access, policy and evaluation. The 15 November opening presents Villow as
+"Our blueprint for better social media", with its own Varela Round wordmark. After consultation
+with the Villow preview chat, B now owns the transferable principles rather than repeating the
+product tour: one interactive story about attention incentives and personal agency, eight
+principles across four themes, and optional short connections to Villow. The bold incentive
+illustration replaces the earlier box-and-arrow comparison. Detailed proposals remain on Ideas. Villow A remains the original
+comparison.
+The prior B copy is saved in `previews/preset-comparison/b-before-refinement-2026-11-14/`;
+the edit record is in `previews/preset-comparison/README.md`.
+
+The expanded content map and draft are in
+`docs/strategy/2026-11-12-preset-b-content-map.md`. Preset metadata is in
+`src/lib/page-presets.ts`; the comparison UI and storage behavior are in
+`src/components/PresetSwitch.astro` and `PreviewState.astro`. Existing A bodies are retained
+as `home-a.astro`, `villow-a.astro` and `design-access-a.astro`; corresponding B files are separate.
+Development routes use request rendering to read the preset query. Production remains static
+and contains neither these routes nor the preview controls.
+
+### First implementation (Preset A)
+
+The local homepage now introduces the mission, Villow, three design questions, the path from
+building to learning and platform adoption, access, and ways to contribute. Its finite-feed
+illustration uses fictional videos and local-only interaction. It makes no account changes.
+
+- `/work/villow` — the first-project case study and expandable questions about finite feeds,
+  worthwhile reflection and usable subscription controls.
+- `/notes/design-and-access` — the independent experimentation proposal and source links.
+- `/old-pages` — the Den and Life calculator, retained separately for possible later use or removal.
+  The old `/den` and `/life` addresses still work; their new archive routes are
+  `/old-pages/den` and `/old-pages/life`. Their underlying behavior and browser data are retained.
+
+The archive is a local review area. These routes and their assets
+are excluded from the public build. `scripts/test-site-visibility.mjs` checks the separation.
+The direction and evidence behind the first implementation are recorded in `docs/strategy/`.
+
+### Local design playground
+
+The homepage's **Design** button opens options on that same page: a side panel on desktop and a
+bottom panel on smaller screens. Changes apply immediately and save in this browser, without a
+separate preview or Apply step. Old `/design` bookmarks redirect to the homepage with its panel open.
+Options include message presets, editable copy and button text, string length (60–260 px, default
+150), three spider sizes, three type treatments, and an eight-icon reference.
+The header uses the original full Fix the Web wordmark, without a second spider.
+Only its background fades in as you scroll. The large centred wordmark is the hero's heading, followed
+by the existing headline, a short explanation and an **Explore the work** button that scrolls to
+Villow. A separate Get involved link leads to contribution routes. Neither submits a signup.
+A separate down-arrow link also encourages scrolling.
+The main spider is larger, with a longer thread, using the existing stage rig and simulation.
+Canvas scaling follows current CSS dimensions and device pixel ratio each frame, keeping the
+rendered spider aligned with its grab target through browser zoom and resizing.
+
+The navigation sun/moon switch controls light and dark mode for every development page.
+It follows the device until selected, then remembers the choice separately from design preferences
+under `ftw.color-mode.v1`. Other tabs, canvas spiders and Villow mark follow that choice.
+The revised opening uses the v3 design preference key, retaining saved visual preferences and
+custom copy. The former default “Join the campaign” label updates to “Explore the work”.
+No play caption or slogan row appears.
+
+The playground and its bundled Fredoka/Nunito fonts (SIL OFL licences alongside them in
+`src/assets/fonts/`) are development-only. `/design` is not emitted by production builds.
+Development stays local unless explicitly requested otherwise: no pushing or publishing.
+
 ## Den coupon
 
-Den settings and spider dress-up share one paid-feature unlock. The den, spider details and feeding
+In the development preview, den settings and spider dress-up share one paid-feature unlock. The den, spider details and feeding
 remain available without it. The coupon prompt is accessible from Dress up, Wardrobe and the settings
 gear. Existing item-specific wardrobe unlocks still apply.
 
@@ -32,9 +125,9 @@ invalidates previous cookies. Five redemption attempts per minute per IP are all
 rate-limit binding; unavailable verification or rate limiting leaves access locked. Request bodies
 are bounded, cross-site redemption is rejected and session responses must never be cached.
 
-`npm run dev` serves the frontend only; without the Worker API, paid features stay locked. To test
-the full backend locally, build and run `npx wrangler dev`, with local secrets in an ignored
-`.dev.vars` file. Never add real secrets to a test or example file. The automated tests use isolated,
+`npm run dev` serves the frontend only; without the Worker API, paid features stay locked. The
+coupon backend is retained for the den's future release; a production build currently excludes the
+den frontend. Never add real secrets to a test or example file. The automated tests use isolated,
 test-only secrets without changing the site's configuration.
 
 Production builds exclude `?tune`, `?unlock-all` and `?lock-all` debug behavior. `npm run build` also
@@ -73,11 +166,11 @@ Static assets plus the coupon-verification Worker; config is in `wrangler.jsonc`
 A string hangs from the bottom of the logo's "b" with a draggable spider on the end. The spider is `src/assets/spider/spider.svg`, brought to life by `spider.ts`; the favicon can be swapped in (`look.showFavicon`) to compare. `src/components/SpiderString.astro` takes an `anchor` selector for the glyph to hang from; the logic is in `src/scripts/spider-string/`:
 
 - `config.ts`: every feel value with its default, range and description (length, weight, swing, sway, drag, pluck, particles…). Sizes are in multiples of the anchor glyph's height, so it all scales with the logo.
-- `tune.ts`: development-only tuning panel at `/?tune`. The homepage shortlist (`tune-schema.ts`) has **String & pull**, **Eyes & lids**, and **Motion lines**; settled face, animation and geometry settings stay in `config.ts`. Old saved overrides outside that shortlist are ignored. "Copy changes" includes actual tuning changes, excluding test positions and actions.
-- **Snap-distance test:** choose a jump size/direction and press **Test layout jump**. The logo actually moves, and the result says whether the string was carried or kept its inertia. Repeat to return, or use **Reset test**. Set the jump above and below **Snap distance** to compare.
-- **Elastic-pull test:** **Hold test pull** keeps a repeatable stationary pull while you compare body-only, whole-spider and string-only stretch. **Release test pull** shows recovery. There is no time-driven positional shudder; pull deformation is separate from impact/yawn squash, with a mild sideways squeeze and a face-preserving default.
-- **Eye/lid tests:** attention fades continuously with distance, warms in gradually, and speeds up for a close approach. Blink timing stays as approved; **Preview slow blink** makes the lid treatment easier to inspect. Closed lids can have no crease or a soft/bold filled crease.
-- **Motion-line test:** **Preview motion lines** makes a repeatable throw at the chosen speed. Their rate, opacity, length, thickness, lifetime, spread, drift, slowdown and shrink are independent of the three pluck dashes.
+- Homepage tuning is finished: `/?tune` no longer loads a panel or pull demos, even in development. The empty homepage schema ignores all old saved experiments. `tune.ts` remains available for the separate Den development tools.
+- The accepted string, drag, fling and release behaviour stays unchanged. `elasticity.ts` only handles the original smooth reel-in after a hand pull; `rope.ts` retains the original solver. Whole-spider stretch, snap distance, gradual cursor attention, clean squash blinks and motion-line defaults remain as approved.
+- **Accepted held rotation: Stretch, movement tilt, Turn amount 0.8.** It keeps the approved whole-spider stretch along the pull, with a small tilt driven only by sideways speed while held. The existing angular spring returns it level when movement stops, wherever it is around the anchor. The drag offset turns with the body to keep the grabbed material point under the cursor. Release resumes ordinary leaning. Fix the Web keeps its expressive leg motion. The earlier movement/position alternatives remain source options but have no homepage controls.
+- Integration requirements for the Villow site footer and app offline/error screens, including their fixed-leg profiles, are in [docs/SPIDER-INTEGRATION.md](docs/SPIDER-INTEGRATION.md). These are base-spider integrations without Den, customization or feeding.
+- Eye whites and pupils are clipped before drawing, with no default lid outline. Motion streaks keep their independent defaults of 0.55 opacity and 35 per second; plucks keep three dashes.
 - `anchor.ts`: finds the glyph's lowest point and tracks it on the page every frame.
 - `rope.ts`: Verlet string physics (no DOM).
 - `drag.ts`: grab/drag/release of the spider or the string. Dragging within reach lets the string go slack; past it the string gives less and less, then recoils on release. Also blocks text selection while held.
@@ -89,7 +182,7 @@ The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spid
 
 ## Your Life on Screens
 
-`/life` (under Campaign in the header, and teased on the home page) takes your age and shows the rest of your life carved up: sleep, work and study, upkeep, screens, and the free time off screens that's left. It's meant to be blunt, like a plain cigarette pack: screen time is drawn in Pantone 448 C, the colour Australia's packs are. Every number is cited, and the sources are listed at the bottom of the page.
+`/life` (under Campaign in the header) takes your age and shows the rest of your life carved up: sleep, work and study, upkeep, screens, and the free time off screens that's left. Its homepage teaser is removed while the homepage is being redesigned. It's meant to be blunt, like a plain cigarette pack: screen time is drawn in Pantone 448 C, the colour Australia's packs are. Every number is cited, and the sources are listed at the bottom of the page.
 
 - Years left come from each country's latest period life table (Australia, the US, the UK), by single year of age and sex.
 - Each year of that is split by an average day at that age from the American Time Use Survey (2025, by age band), averaged over every day of the year.
@@ -98,19 +191,19 @@ The root element emits `spider:grab`, `spider:release`, `spider:pluck` and `spid
 - The weeks already lived are split at the first iPhone's release (29 June 2007), and the whole-lives comparison shows how much of each generation's life came before smartphones.
 - The grid's colours were checked with the dataviz palette validator on the label's paper; screens stay Pantone 448 C, which reads dark and grey on purpose.
 - `src/scripts/life/data.ts`: every figure and where it came from (`SOURCES` is the page's numbered reference list). Update the life tables and time use bands here when new releases come out.
-- `src/scripts/life/model.ts`: the sums (a day at an age, years left, a whole life). The home page's teaser uses it too, so its numbers match.
+- `src/scripts/life/model.ts`: the sums (a day at an age, years left, a whole life).
 - `src/scripts/life/grid.ts`: the life drawn in weeks on a canvas, played out part by part the first time it's scrolled into view.
-- `src/pages/life.astro` and `src/scripts/life.ts`: the page and its inputs, remembered in that browser. `src/components/Cite.astro` is the footnote link.
+- `src/previews/life.astro` and `src/scripts/life.ts`: the development-only page and its inputs, remembered in that browser. `src/components/Cite.astro` is the footnote link.
 
 ## Spider Den
 
-`/den` (linked under the header's logo) has two views: **Dress up**, where you dress a spider up, and **The den**, where all your spiders live (below). Dress up has hats, eyewear, face bits, outfits, capes and wings, socks, full-body costumes, body colours and patterns, the thread's colour and a name. Snacks (a fly, ladybird, moth or cookie) are dragged to its mouth, and the tricks and moods play its animations. Whatever the main spider wears is saved in that browser and worn by every spider on the site: the one on the logo, the header's badge and the den's own.
+`/den` (linked from the header) has two views: **Dress up**, where you dress a spider up, and **The den**, where all your spiders live (below). Dress up has hats, eyewear, face bits, outfits, capes and wings, socks, full-body costumes, body colours and patterns, the thread's colour and a name. Snacks (a fly, ladybird, moth or cookie) are dragged to its mouth, and the tricks and moods play its animations. Whatever the main spider wears is saved in that browser and worn by every spider on the site: the one on the homepage logo and the den's own.
 
 - `wardrobe.ts`: the catalogue: every item, the colours they come in, and what unlocks the locked ones. Add an item here and draw it in `dress.ts`; the den lists it automatically.
 - `dress.ts`: draws what it's wearing on the spider's canvas, layer by layer (behind the legs, on the legs, on the body, over the face, on top), in body units where the body is a circle of radius 1. Pieces that stick out get the spider's dark-mode outline; hats and dangly things wobble as it swings. A costume (ghost sheet, mummy, pumpkin, bumblebee, dino onesie, astronaut) has a piece in whichever layers it needs and covers up what's worn in the layers it hides; the ghost sheet is shaped round wherever the legs are, so it moves with them. `dressPiece` draws one item on its own, for dragging it out of the wardrobe.
 - `look.ts`: what it's wearing (`worn`), what the den is trying on (`trying`), snacks eaten and unlocks, all in localStorage and kept in step across tabs.
 - `figure.ts`: the spider standing still in a look, for the den's picture tiles.
-- `src/pages/den.astro` and `src/scripts/den.ts`: the page, its two views, the spider picker, a spider's details and the wardrobe. The Dress up spider is a `SpiderString` with `stage` and `hook` (hanging from the web's hub down into a slot, and playable) and `tryOn`.
+- `src/previews/den.astro` and `src/scripts/den.ts`: the development-only page, its two views, the spider picker, a spider's details and the wardrobe. The Dress up spider is a `SpiderString` with `stage` and `hook` (hanging from the web's hub down into a slot, and playable) and `tryOn`.
 - `src/layouts/Base.astro` and `src/components/Header.astro`: the page shell and header both pages share.
 
 After the paid dress-up unlock, locked items can be tried on in the den but aren't saved until they're earned. Snack ones unlock by feeding it; `discord` and `newsletter` ones can't be earned yet. In development only, `?unlock-all` unlocks the wardrobe items (`?lock-all` locks them again); neither grants the paid feature unlock. There's a **Have a code?** box (in the wardrobe's Snacks & tricks tab, and the den's settings) for item codes; it's a placeholder for now, with no codes yet. Add those item codes to `CODES` in `look.ts`. The paid coupon is validated separately by the Worker.
@@ -134,9 +227,9 @@ All your spiders, living on webs spun in a scene: a **tree**, an open **window**
 - **The den's settings** (the ⚙ in the bar): how fast time runs (¼× to 8×), how many flies and predators come, and whether starving spiders fight. Time speed is the den's day and life: the sun and moon, hunger, growing up, hatching, how often flies and predators come by and eggs get laid, and webs fraying. Everyone still moves at nearly their usual pace (at 4×, about 1.2× as fast), so it's still nice to watch. The panel shows the time in the den and how long a day takes.
 - There can be up to 40 spiders by default (up to 150 with tuning). Every spider is a whole animated rig (legs, face, moods, string physics), so the old cap of 16 kept the den light; with 40 it runs at about 5 ms a frame, and above a threshold (tunable) spiders just sitting about are posed every other frame.
 
-The spiders are the site's own (`spider.ts`, `mood.ts`, `animation.ts`), so anything tuned on the home page with `?tune` applies to them too. What's only in the den is `src/scripts/den/`:
+The spiders are the site's own (`spider.ts`, `mood.ts`, `animation.ts`) and share its accepted defaults. Homepage tuning is complete; saved homepage experiments no longer apply. What's only in the den is `src/scripts/den/`:
 
-- `config.ts`: every den-only setting (webs, thread health, breaking and mending, catching, habits, emotes, strings snapping, jumping, hunger, growing up and old, babies, dying, genes and how much each matters, personality, predators, fights, flies), tuned live at `/den?tune`. That panel also has buttons to send in a fly, a bird, a frog or a pirate spider, start a fight, knock down, fray or mend webs, make the picked spider old or starve it, feed or starve everyone, lay or hatch eggs, grow the babies up, re-roll genes, rebuild the webs, clear the deaths log and start the den over, and a life speed for watching hours pass in seconds. Tweaks saved on the home page's panel apply at `/den?tune` too.
+- `config.ts`: every den-only setting (webs, thread health, breaking and mending, catching, habits, emotes, strings snapping, jumping, hunger, growing up and old, babies, dying, genes and how much each matters, personality, predators, fights, flies), tuned live at `/den?tune`. That panel also has buttons to send in a fly, a bird, a frog or a pirate spider, start a fight, knock down, fray or mend webs, make the picked spider old or starve it, feed or starve everyone, lay or hatch eggs, grow the babies up, re-roll genes, rebuild the webs, clear the deaths log and start the den over, and a life speed for watching hours pass in seconds.
 - With `?tune`, the den also has a ✂ in its bar (drag across threads to cut them, and watch the pieces dangle and fall), and a spider's details get a **Genes and personality** section: sliders for every trait, its colours (any spider's colours can be changed while testing), and buttons to re-roll it, make it old or starve it.
 - `colony.ts`: every spider (look, genes, personality, age, growth, hunger, plumpness, family) and egg sacs, in localStorage, and which spider is picked (if any) and being dressed. The den's clock (sped up by the settings) and dying are here. The main spider's look is `look.ts`'s `worn`.
 - `genes.ts`: genes and personality, inheriting them, and what they mean.

@@ -17,7 +17,7 @@ import {
 import { AGES, SCREENS_MAX, eraText, lifeline } from "../scripts/life";
 
 /**
- * Your Life on Screens: put in your age, and see the rest of your life carved up by sleep, work, upkeep
+ * Development-only Your Life on Screens: put in your age, and see the rest of your life carved up by sleep, work, upkeep
  * and screens, down to the free time off screens that's left. Deliberately blunt, like a plain cigarette
  * pack. The numbers and their sources are in src/scripts/life/data.ts, the sums in life/model.ts, and
  * src/scripts/life.ts makes the page follow the inputs. The markup is filled in for the default inputs,
@@ -107,8 +107,9 @@ const asks = [
 ];
 ---
 
-<Base title="Your Life on Screens · Fix the Web" page="life">
-  <main class="life" data-mode="average" data-average="adult" data-stage="start">
+<Base title="Your Life on Screens · Old pages · Fix the Web" page="life">
+  <main id="main" class="life" data-mode="average" data-average="adult" data-stage="start">
+    <p class="life-archive-note life-col"><a href="/old-pages">← Old pages</a><span>Earlier experiment, kept for later review.</span></p>
     <header class="life-intro life-col">
       <p class="eyebrow">Your life on screens</p>
       <h1>You have less life left than you think.</h1>
@@ -531,6 +532,9 @@ const asks = [
 </script>
 
 <style is:global>
+  .life .life-archive-note { display: flex; align-items: baseline; flex-wrap: wrap; gap: .5rem 1.25rem; margin-bottom: 2rem; font-size: .875rem; color: var(--muted); }
+  .life-archive-note a { color: var(--accent); font-weight: 800; text-decoration: none; }
+  .life-archive-note a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .life {
     /* The label's print colours: the same in light and dark, like a pack. Screens are Pantone 448 C. */
     --life-paper: #f3f1ea;

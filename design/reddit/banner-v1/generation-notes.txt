@@ -1,0 +1,8 @@
+Fix the Web Reddit banner v1
+Generated with the built-in imagegen tool.
+Reference: actual project wordmark on the project dark palette.
+Prompt: prompt.txt
+Generated source: C:/Users/Nebula PC/.codex/generated_images/01a1a08b-1c0c-7eb2-ab0f-2ac9e5b3e400/exec-b9f0e4d4-2697-4a01-b614-2cd12c8b84d2.png
+Export: removed generator letterboxing; resized to 2160x256 and 1080x128.
+Reddit guidance checked 2026-11-03: desktop minimum 1072x128; mobile minimum/recommended 1080x128.
+Source: https://support.reddithelp.com/hc/en-us/articles/15484339588884-Banner

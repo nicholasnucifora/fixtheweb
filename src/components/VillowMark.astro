@@ -12,8 +12,8 @@ import smallOnLight from "../assets/brand/villow-mark-small-on-light.svg?url&no-
  * as they came, and a new size or palette has to come from the kit rather than be made here.
  *
  * It comes in two palettes, one for light grounds and one for dark, and the one that shows has to
- * match what it sits on. This site has no theme of its own — it follows the OS, like its colours
- * do — so the browser picks, and both files are named up front so there's no flash of the wrong one.
+ * match what it sits on. The colour-mode controller updates the source when the navigation switch
+ * changes. Without it, the browser follows the device preference.
  *
  * The mark is a sail and a swoosh with a gap between them. Drawn small, that gap would blur shut,
  * so the kit cuts it three ways and the right one goes by the height the mark is DRAWN at:
@@ -42,7 +42,7 @@ const width = Math.round((size * 712) / 798);
 ---
 
 <picture class:list={["villow-mark", className]}>
-  <source srcset={cut.dark} media="(prefers-color-scheme: dark)" />
+  <source data-theme-source srcset={cut.dark} media="(prefers-color-scheme: dark)" />
   <img src={cut.light} alt={alt} height={size} width={width} />
 </picture>
 
