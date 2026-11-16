@@ -1,7 +1,7 @@
 ---
 // An editorial illustration of incentives, not a mock-up of a Villow setting.
-interface Props { compact?: boolean; }
-const { compact = false } = Astro.props;
+interface Props { compact?: boolean; agencyCopy?: 'existing' | 'goals'; }
+const { compact = false, agencyCopy = 'existing' } = Astro.props;
 ---
 
 <section class:list={["incentive-story ftw-shell", { "incentive-compact": compact }]} id="design-goals" aria-labelledby="incentive-title" data-incentive-story>
@@ -15,8 +15,8 @@ const { compact = false } = Astro.props;
       </div>
       <div class="incentive-scene" data-scene="agency" hidden>
         <h3 id="agency-title">Your time.<br /><em>Your terms.</em></h3>
-        <p>{compact ? "Put reflection at the centre: was that time worthwhile? Make it easy to keep what matters, change your feed and choose when to stop." : "Make reflection part of the experience: was that time worthwhile? Help people notice what they enjoyed, learned or regretted, then put choices about their feed, time and support right there."}</p>
-        <p class="incentive-punch">{compact ? "Your goals should shape the experience." : "Reflect. Choose what comes next. Leaving can be a good outcome, too."}</p>
+        <p>{agencyCopy === 'goals' ? "Know where your time goes and whether it feels well spent. Shape your feed, choose your boundaries and get the support you want—all within easy reach." : compact ? "Put reflection at the centre: was that time worthwhile? Make it easy to keep what matters, change your feed and choose when to stop." : "Make reflection part of the experience: was that time worthwhile? Help people notice what they enjoyed, learned or regretted, then put choices about their feed, time and support right there."}</p>
+        <p class="incentive-punch">{agencyCopy === 'goals' ? "Technology that helps you follow your own intentions." : compact ? "Your goals should shape the experience." : "Reflect. Choose what comes next. Leaving can be a good outcome, too."}</p>
       </div>
       <button class="incentive-change" type="button" aria-controls="incentive-copy incentive-illustration incentive-explanation" aria-pressed="false" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15m-4-4 4 4-4 4M20 16H5m4-4-4 4 4 4" /></svg>

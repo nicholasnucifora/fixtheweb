@@ -283,6 +283,40 @@ B/C section position, per-page navigation, bare-URL restoration, keyboard disclo
 320px layout without horizontal overflow. Review image: `villow-c-principles-2026-11-16.jpg`.
 Changes remain local.
 
+### Follow-up: illustrated and interactive principles · 16 November 2026
+
+Added two new Villow-only comparisons while preserving B/C:
+
+- **D — Illustrated principles:** four large editorial scenes use an open door, adjustable
+  controls, a lens with an adjustment dial, and conversation with a privacy shield. Short
+  statements carry the main ideas; fuller principles are available underneath.
+- **E — Explore the principles:** readers choose a goal or preference within each theme.
+  The illustration and explanation change together. Choices cover learning/rest/connection,
+  different kinds of chosen support, reflection, and friendship/privacy/checking information.
+  These are explorations of design principles, not live Villow settings. They save no data.
+
+Both use shorter “Your time. Your terms.” copy about understanding time, shaping a feed and
+choosing boundaries/support. Reflection remains in the dial and explanation without the
+repeated instruction to “put reflection at the centre”. The clean two-label magnet remains.
+
+Original SVG/HTML artwork extends the established forest, cream, mint and coral illustration
+style. No bitmap assets or new dependencies are needed. D alternates the editorial composition;
+E places choices next to their outcomes on desktop and immediately above them on mobile.
+There is no automatic motion. Choice buttons support keyboard operation, announce their pressed
+state and update a polite live region. Detail panels use native disclosures. Deep links to an
+individual principle reveal the enclosing panel before positioning the page.
+
+The eight full principles were extracted unchanged into `src/content/villow-principles.ts` so
+B and the new visual layouts share the same substance. Creator actions, corrections and AI
+retain proposal status. Existing access/adoption/evaluation sections remain shared. The preview
+bar now supports A–E on Villow only, with letter labels at smaller widths.
+
+Validation: expanded visibility/build tests passed 2/2, including D/E rendering, complete
+principle anchors, other-page fallback and production exclusion. Browser checks covered all
+four illustrations, interactive outcomes, keyboard operation, deep-link disclosures, saved
+page preference, D/E section position and 320px overflow/navigation. Review images:
+`villow-d-illustrated-2026-11-16.jpg` and `villow-e-explorer-2026-11-16.jpg`. Local only.
+
 ## Verification on 12 November 2026
 
 - `node --test scripts/test-site-visibility.mjs`: 2/2 passed. Builds production, verifies

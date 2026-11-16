@@ -29,9 +29,16 @@ Villow also has **Preset C** at `/work/villow?preset=c`, added on 16 November fo
 the cleaner two-label magnet, tighter incentive copy and eight principles presented as short
 dot points under four bold headings. B retains its paragraph treatment and the extra
 “Great find!” artwork. C is remembered only for Villow; other pages keep their own A/B choice.
-On narrow screens, Villow's comparison buttons shorten to A, B and C. B/C switching keeps
+On narrow screens, Villow's comparison buttons shorten to letters. B/C switching keeps
 the corresponding principle theme in view. The project opening, access and evaluation
 sections are shared between B and C.
+
+Two further Villow comparisons are available: **D** (`?preset=d`) uses four large original
+illustrations with short statements, while **E** (`?preset=e`) lets readers explore goals
+and preferences through changing illustrations and explanations. Both use revised
+“Your time. Your terms.” copy about understanding time, shaping the feed and choosing support.
+Full principles remain in expandable panels, including proposal and evaluation limits.
+B, C, D and E share theme anchors; all five choices remain specific to Villow.
 
 A preserves the first implementation's content on Home, Villow and Design & access, except
 for the requested removal of submission references. B
