@@ -3,6 +3,11 @@ import Base from "../layouts/Base.astro";
 import VillowMark from "../components/VillowMark.astro";
 import EditorialStyles from "../components/EditorialStyles.astro";
 import VillowPrinciples from "../components/VillowPrinciples.astro";
+import VillowPrinciplesC from "../components/VillowPrinciplesC.astro";
+
+interface Props { principlesPreset?: "b" | "c"; }
+// Share the project, access and evaluation sections while comparing the principles.
+const Principles = Astro.props.principlesPreset === "c" ? VillowPrinciplesC : VillowPrinciples;
 
 const questions = [
   ["Stopping", "Does an ending help people finish when they want to?", "Look at whether people find what they came for and feel satisfied, as well as whether they stop. Notice when unwanted browsing simply moves elsewhere."],
@@ -25,7 +30,7 @@ const questions = [
       <a class="villow-scroll" href="#design-questions"><span>See the principles behind it</span><span class="scroll-arrow" aria-hidden="true">↓</span></a>
     </header>
 
-    <VillowPrinciples />
+    <Principles />
 
     <section class="soft-band ftw-section" id="access"><div class="ftw-shell split">
       <div><p class="ftw-eyebrow">Why platform access matters</p><h2>You need a way<br />to build the alternative.</h2></div>

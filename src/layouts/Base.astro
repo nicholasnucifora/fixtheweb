@@ -16,9 +16,10 @@ interface Props {
 }
 
 const { title, page } = Astro.props;
+const previewPreset = import.meta.env.DEV ? (await import("../lib/page-presets")).getPagePreset(Astro.url) : undefined;
 ---
 
-<html lang="en" data-coming-soon={!import.meta.env.DEV || undefined} data-preview-preset={import.meta.env.DEV ? (Astro.url.searchParams.get("preset")?.toLowerCase() === "a" ? "a" : "b") : undefined}>
+<html lang="en" data-coming-soon={!import.meta.env.DEV || undefined} data-preview-preset={previewPreset}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

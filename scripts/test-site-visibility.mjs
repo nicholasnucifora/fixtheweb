@@ -27,7 +27,7 @@ test("production contains only the coming-soon screen and refuses development ro
       path.join(root, "node_modules/astro/bin/astro.mjs"), "build", "--outDir", directory, "--silent",
     ], { cwd: root, env: { ...process.env, NODE_ENV: "production" }, timeout: 30000, windowsHide: true });
     production = await preview({ root, outDir: directory, server, logLevel: "silent" });
-    for (const route of ["/", "/?tune&unlock-all&preview=1", "/?preset=a", "/?preset=b"]) {
+    for (const route of ["/", "/?tune&unlock-all&preview=1", "/?preset=a", "/?preset=b", "/?preset=c"]) {
       const response = await get(production.port, route);
       assert.equal(response.status, 200);
       const html = await response.text();
@@ -39,7 +39,7 @@ test("production contains only the coming-soon screen and refuses development ro
       assert.equal((html.match(/data-spider-string/g) ?? []).length, 1);
       assert.doesNotMatch(html, /<header\b|<nav\b|<a\b|class="section\b|TBD|Villow|Your life on screens|To be decided|preset-bar|page-preset/i);
     }
-    for (const route of [...developmentRoutes, ...removedRoutes].flatMap(route => [route, `${route}/`, `${route}/index.html`, `${route}?preview=1&tune`])) {
+    for (const route of [...developmentRoutes, ...removedRoutes].flatMap(route => [route, `${route}/`, `${route}/index.html`, `${route}?preview=1&tune`, `${route}?preset=c`])) {
       assert.equal((await get(production.port, route)).status, 404, route);
     }
     assert.ok(!(await readdir(directory)).some(name => ["den", "life", "design", "old-pages", "work", "notes", "ideas", "about"].includes(name)));
@@ -102,6 +102,30 @@ test("development serves the new direction and keeps earlier experiments in Old 
       assert.match(defaultPage, /data-preset="b"/);
       rendered.set(`${route}?preset=a`, a);
       rendered.set(`${route}?preset=b`, b);
+      const cResponse = await get(development.address.port, `${route}?preset=c`);
+      assert.equal(cResponse.status, 200);
+      const c = await cResponse.text();
+      if (route === "/work/villow") {
+        assert.match(c, /data-preset="c"/);
+        assert.match(c, /data-preview-preset="c"/);
+        assert.match(c, /aria-label="Preset C"/);
+        assert.match(c, /principles-glance/);
+        assert.match(c, /Notice\. Reflect\. Adjust\./);
+        assert.match(c, /<ul\b/);
+        assert.match(c, /the hope of a great next clip/);
+        assert.doesNotMatch(c, /<span class="bait bait-find"/);
+        assert.match(b, /<span class="bait bait-find"/);
+        assert.match(b, /A run of forgettable clips/);
+        for (const id of ["design-goals", "value", "finite-feeds", "intentions", "motivation", "reflection", "subscriptions", "connection", "information", "access", "adoption", "learning", "principle-theme-0", "principle-theme-3"]) {
+          assert.ok(b.includes(`id="${id}"`) && c.includes(`id="${id}"`), `B/C share ${id} for comparison`);
+        }
+        rendered.set(`${route}?preset=c`, c);
+      } else {
+        assert.match(c, /data-preset="b"/);
+        assert.ok(c.includes(bText), `${route} falls back to B for unsupported C`);
+        assert.doesNotMatch(c, /data-preset-choice="c"/);
+        assert.doesNotMatch(b, /data-preset-choice="c"/);
+      }
     }
     // Mixed presets must not strand visitors on missing section anchors.
     for (const [address, html] of rendered) {
@@ -111,7 +135,7 @@ test("development serves the new direction and keeps earlier experiments in Old 
         if (url.origin !== "http://preview.local" || !url.hash) continue;
         const targetPath = url.pathname.replace(/\/$/, "") || "/";
         if (!comparisons.some(([route]) => route === targetPath)) continue;
-        const presets = url.searchParams.has("preset") ? [url.searchParams.get("preset")] : ["a", "b"];
+        const presets = url.searchParams.has("preset") ? [url.searchParams.get("preset")] : targetPath === "/work/villow" ? ["a", "b", "c"] : ["a", "b"];
         for (const preset of presets) {
           const target = rendered.get(`${targetPath}?preset=${preset}`);
           assert.ok(target?.includes(`id="${decodeURIComponent(url.hash.slice(1))}"`), `${address} -> ${targetPath} preset ${preset}${url.hash}`);

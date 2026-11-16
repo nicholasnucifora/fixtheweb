@@ -16,7 +16,7 @@ by the development server; production builds do not emit those pages. Query para
 enable them on the public site. `npm run preview` shows the production coming-soon screen.
 Homepage tuning is complete and `/?tune` has no controls. Den development tuning remains at `/old-pages/den?tune`.
 
-### Per-page A/B previews
+### Per-page previews
 
 Open `http://127.0.0.1:4321/?preset=b` when running on port 4321. The preview bar switches
 between pages and between **Preset A** and **Preset B**. Each page remembers its own selection
@@ -24,6 +24,14 @@ in this browser. Explicit `?preset=a` and `?preset=b` URLs override that page's 
 B is the default on a first visit; browser back/forward and no-storage comparison links work.
 The switch keeps a corresponding section in view where possible. Homepage design controls
 also have separate A/B storage so changing a headline in B does not overwrite A.
+
+Villow also has **Preset C** at `/work/villow?preset=c`, added on 16 November for comparison:
+the cleaner two-label magnet, tighter incentive copy and eight principles presented as short
+dot points under four bold headings. B retains its paragraph treatment and the extra
+“Great find!” artwork. C is remembered only for Villow; other pages keep their own A/B choice.
+On narrow screens, Villow's comparison buttons shorten to A, B and C. B/C switching keeps
+the corresponding principle theme in view. The project opening, access and evaluation
+sections are shared between B and C.
 
 A preserves the first implementation's content on Home, Villow and Design & access, except
 for the requested removal of submission references. B

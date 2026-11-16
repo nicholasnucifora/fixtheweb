@@ -1,20 +1,22 @@
 ---
 // An editorial illustration of incentives, not a mock-up of a Villow setting.
+interface Props { compact?: boolean; }
+const { compact = false } = Astro.props;
 ---
 
-<section class="incentive-story ftw-shell" id="design-goals" aria-labelledby="incentive-title" data-incentive-story>
+<section class:list={["incentive-story ftw-shell", { "incentive-compact": compact }]} id="design-goals" aria-labelledby="incentive-title" data-incentive-story>
   <div class="incentive-stage">
     <div class="incentive-copy" id="incentive-copy">
       <p class="incentive-kicker">Start with the incentive</p>
       <div class="incentive-scene" data-scene="attention">
         <h3 id="incentive-title">Your attention.<br /><em>Their payoff.</em></h3>
-        <p>A run of forgettable clips. Then one you love—funny, useful, worth sharing. The hope of another great find can keep you swiping. Rage bait can pull you in, too.</p>
-        <p class="incentive-punch">For an ad-funded feed, keeping you here means more chances to sell ads.</p>
+        <p>{compact ? "In an ad-funded feed, more time means more ads to sell. Outrage can keep you watching. So can the hope of a great next clip." : "A run of forgettable clips. Then one you love—funny, useful, worth sharing. The hope of another great find can keep you swiping. Rage bait can pull you in, too."}</p>
+        <p class="incentive-punch">{compact ? "Keeping you here can pay—even when you wish you’d left." : "For an ad-funded feed, keeping you here means more chances to sell ads."}</p>
       </div>
       <div class="incentive-scene" data-scene="agency" hidden>
         <h3 id="agency-title">Your time.<br /><em>Your terms.</em></h3>
-        <p>Make reflection part of the experience: was that time worthwhile? Help people notice what they enjoyed, learned or regretted, then put choices about their feed, time and support right there.</p>
-        <p class="incentive-punch">Reflect. Choose what comes next. Leaving can be a good outcome, too.</p>
+        <p>{compact ? "Put reflection at the centre: was that time worthwhile? Make it easy to keep what matters, change your feed and choose when to stop." : "Make reflection part of the experience: was that time worthwhile? Help people notice what they enjoyed, learned or regretted, then put choices about their feed, time and support right there."}</p>
+        <p class="incentive-punch">{compact ? "Your goals should shape the experience." : "Reflect. Choose what comes next. Leaving can be a good outcome, too."}</p>
       </div>
       <button class="incentive-change" type="button" aria-controls="incentive-copy incentive-illustration incentive-explanation" aria-pressed="false" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15m-4-4 4 4-4 4M20 16H5m4-4-4 4 4 4" /></svg>
@@ -34,7 +36,7 @@
         </svg>
         <span class="bait bait-anger">Rage bait<svg viewBox="0 0 36 36" fill="none"><path d="m8 10 7 5m13-5-7 5M11 27c3-6 11-6 14 0" stroke="currentColor" stroke-width="4" stroke-linecap="round" /></svg></span>
         <span class="bait bait-meh">Meh…<br /><b>next.</b></span>
-        <span class="bait bait-find"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 0 3.2 8.8L24 12l-8.8 3.2L12 24l-3.2-8.8L0 12l8.8-3.2z" fill="currentColor" /></svg>Great<br />find!</span>
+        {!compact && <span class="bait bait-find"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 0 3.2 8.8L24 12l-8.8 3.2L12 24l-3.2-8.8L0 12l8.8-3.2z" fill="currentColor" /></svg>Great<br />find!</span>}
         <span class="payoff">More time. More ad space.</span>
       </div>
       <div class="agency-art" hidden>
@@ -104,6 +106,7 @@
   .attention-art, .agency-art { position: absolute; inset: 0; }
   .magnet, .choice-dial { position: absolute; inset: 5% 0 auto; width: 100%; }
   .magnet { inset: 9% 3% auto; width: 94%; }
+  .incentive-compact .magnet { inset: 5% 0 auto; width: 100%; }
   .bait, .choice-tag, .payoff { position: absolute; font-weight: 950; color: var(--poster-ink); text-align: center; }
   .bait-anger { left: 0; top: 0; display: flex; align-items: center; gap: 9px; padding: 15px 20px; border-radius: 18px 18px 3px 18px; background: var(--poster-coral); transform: rotate(-10deg); font-size: clamp(1.15rem, 2vw, 1.7rem); box-shadow: 0 7px 0 #0f2723; }
   .bait-anger::after { content: ''; position: absolute; right: 15px; bottom: -12px; border-top: 16px solid var(--poster-coral); border-left: 18px solid transparent; }

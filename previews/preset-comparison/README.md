@@ -258,6 +258,31 @@ no horizontal overflow. The new sticker and dial text were adjusted for the narr
 Review images: `villow-b-good-finds-2026-11-16.jpg` and
 `villow-b-reflection-2026-11-16.jpg`. Local only.
 
+### Follow-up: Villow preset C · 16 November 2026
+
+Added a separate comparison at `/work/villow?preset=c`. The user liked the bold artwork
+but preferred the earlier, simpler magnet and wanted a more readable alternative to the
+principle paragraphs. C removes the “Great find!” sticker, restores the original magnet
+proportions and tightens the incentive copy. The occasional good clip remains in one short
+sentence; reflection stays central to the second scene. B retains its latest content/art.
+
+`VillowPrinciplesC.astro` presents all eight principles as short dot points across four
+themes: life beyond the screen, chosen goals, reflection and usable choices, connection and
+trust. Large Fredoka headings and solid numbered shapes echo the approved artwork. Project
+connections stay expandable; proposal status stays explicit. No feature-demo illustrations
+were added. The shared project opening, access, adoption and evaluation remain unchanged.
+
+Preset resolution and saved preferences accept C only on Villow. The preview bar includes a
+third choice on that page and uses A/B/C labels at narrow widths, with full accessible names.
+B and C share theme IDs so switching retains the section. Unsupported C links on other pages
+render B. First-visit B and the public coming-soon boundary remain intact.
+
+Validation: expanded `test-site-visibility.mjs` passes 2/2, covering C rendering, B content,
+unsupported-page fallback, shared anchors and production exclusion. Browser checks verified
+B/C section position, per-page navigation, bare-URL restoration, keyboard disclosures and
+320px layout without horizontal overflow. Review image: `villow-c-principles-2026-11-16.jpg`.
+Changes remain local.
+
 ## Verification on 12 November 2026
 
 - `node --test scripts/test-site-visibility.mjs`: 2/2 passed. Builds production, verifies

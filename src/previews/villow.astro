@@ -1,7 +1,9 @@
 ---
 import A from "./villow-a.astro";
 import B from "./villow-b.astro";
+import C from "./villow-c.astro";
 import { getPagePreset } from "../lib/page-presets";
-const Page = getPagePreset(Astro.url) === "a" ? A : B;
+// C is available only on this page; other routes retain their A/B comparisons.
+const Page = { a: A, b: B, c: C }[getPagePreset(Astro.url)];
 ---
 <Page />

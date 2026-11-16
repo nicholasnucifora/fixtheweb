@@ -48,7 +48,7 @@ const chapters = [
   <IncentiveStory />
 
   <div class="principle-chapters">
-    {chapters.map((chapter, index) => <section class="principle-chapter" aria-labelledby={`chapter-${index}`}>
+    {chapters.map((chapter, index) => <section class="principle-chapter" id={`principle-theme-${index}`} aria-labelledby={`chapter-${index}`}>
       <div class="ftw-shell">
         <header class="chapter-heading"><p class="chapter-label"><span>0{index + 1}</span>{chapter.theme}</p><h3 id={`chapter-${index}`}>{chapter.title}</h3></header>
         <div class="principle-pair">{chapter.principles.map(principle => <article id={principle.id}>
