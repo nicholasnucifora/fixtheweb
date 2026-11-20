@@ -2,10 +2,14 @@
 import A from "./villow-a.astro";
 import B from "./villow-b.astro";
 import C from "./villow-c.astro";
+import C2 from "./villow-c2.astro";
+import C3 from "./villow-c3.astro";
+import C4 from "./villow-c4.astro";
+import C5 from "./villow-c5.astro";
 import D from "./villow-d.astro";
 import E from "./villow-e.astro";
 import { getPagePreset } from "../lib/page-presets";
-// C/D/E are available only on this page; other routes retain their A/B comparisons.
-const Page = { a: A, b: B, c: C, d: D, e: E }[getPagePreset(Astro.url)];
+// C–C5/D/E are available only on this page; other routes retain their A/B comparisons.
+const Page = { a: A, b: B, c: C, c2: C2, c3: C3, c4: C4, c5: C5, d: D, e: E }[getPagePreset(Astro.url)];
 ---
 <Page />

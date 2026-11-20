@@ -1,0 +1,155 @@
+---
+import IncentiveStory from './IncentiveStory.astro';
+import PrincipleStamp from './PrincipleStamp.astro';
+import { villowPrinciples } from '../content/villow-principles';
+
+interface Props { layout?: 'rows' | 'tiles'; }
+const { layout = 'rows' } = Astro.props;
+// All eight ideas are visible. Full shared principles preserve the qualifications
+// and project context in the disclosures beneath each pair.
+const chapters = [
+  { title: 'Make room for life.', principles: [
+    { title: 'Keep what’s worthwhile.', body: 'Learning, laughter, rest, friendship. Help people keep what they value and reduce the time they regret.' },
+    { title: 'Make leaving a good outcome.', body: 'Give feeds a satisfying end. Leave room for conversations, plans and things to try beyond the screen.' },
+  ] },
+  { title: 'Your goals. Your choice.', principles: [
+    { title: 'Choose your own boundaries.', body: 'Let people shape their experience and follow the limits they set for themselves—with room to change their minds.' },
+    { title: 'Make progress feel rewarding.', body: 'Offer reminders, streaks and encouragement people choose. Count time away as success; watch for pressure and guilt.' },
+  ] },
+  { title: 'Notice. Reflect. Adjust.', principles: [
+    { title: 'Put understanding within reach.', body: 'Show where time goes and whether it feels worthwhile. Keep reflection optional, with simple controls right there to act on it.' },
+    { title: 'Make the calmer choice appealing.', body: 'Keep the fun and usefulness. Make helpful tools easy to find, easy to use and easy to undo.' },
+  ] },
+  { title: 'More connection. More trust.', principles: [
+    { title: 'Bring people closer, on their terms.', body: 'Make room for shared enjoyment. Keep usage sharing optional, with clear privacy choices; friends offer perspective, never a health benchmark.' },
+    { title: 'Make it easier to check and trust.', body: 'Make sources easy to check and corrections easy to find. Protect conversation from manipulation; keep AI optional and checked by people.' },
+  ] },
+];
+---
+<section class="visual-principles" data-principles-layout={layout} id="design-questions" aria-labelledby="principles-title">
+  <header class="ftw-shell principles-intro">
+    <p class="ftw-eyebrow">From one project to a better web</p>
+    <h2 id="principles-title">The principles<br />we want to build on.</h2>
+    <p>Villow is one starting point. These principles guide what we want to build across social media and the wider web.</p>
+  </header>
+  <IncentiveStory compact agencyCopy="goals" />
+
+  <div class="principle-chapters ftw-shell">
+    {chapters.map((chapter, index) => <section class="visual-chapter" id={`principle-theme-${index}`} aria-labelledby={`chapter-${index}`}>
+      <header class="chapter-heading">
+        <p class="chapter-label"><span class="chapter-number">0{index + 1}</span>{villowPrinciples[index].theme}</p>
+        <h3 id={`chapter-${index}`}>{chapter.title}</h3>
+        <div class="chapter-stamp"><PrincipleStamp theme={index} /></div>
+      </header>
+      <div class="chapter-body">
+        <div class="principle-pair">{chapter.principles.map((principle, principleIndex) => <article id={villowPrinciples[index].principles[principleIndex].id}>
+          <h4>{principle.title}</h4><p>{principle.body}</p>
+        </article>)}</div>
+        <details class="principle-detail">
+          <summary><span>Read more <span class="sr-only">about {villowPrinciples[index].theme.toLowerCase()}</span></span><span class="detail-plus" aria-hidden="true">+</span></summary>
+          <div class="detail-principles">{villowPrinciples[index].principles.map(principle => <div><h4>{principle.title}</h4><p>{principle.body}</p></div>)}</div>
+          <div class="project-connection"><h4>How this connects to Villow</h4><p>{villowPrinciples[index].connection}</p></div>
+        </details>
+      </div>
+    </section>)}
+  </div>
+
+  <section class="principles-next ftw-shell" id="beyond-the-feed" aria-labelledby="beyond-title">
+    <div><p class="ftw-eyebrow">Principles into possibilities</p><h3 id="beyond-title">A starting point.<br />More to build.</h3><p><span id="corrections">Corrections that catch up with misleading claims</span>, <span id="creator-actions">creator-suggested actions beyond the screen</span>, considered recommendations, optional AI and trustworthy discussion are proposals to develop and test.</p></div>
+    <a class="ftw-text-link" href="/ideas?preset=b">Explore the wider ideas <span aria-hidden="true">→</span></a>
+  </section>
+</section>
+
+<style>
+  .principles-intro { max-width: 850px; padding-block: 88px 58px; text-align: center; }
+  .principles-intro h2 { font-size: clamp(2.3rem, 4.8vw, 3.7rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 26px; text-wrap: balance; }
+  .principles-intro > p:last-child { max-width: 600px; margin: 0 auto; font-size: 1.1rem; line-height: 1.7; color: var(--muted); }
+  .principle-chapters { padding-block: 12px 24px; }
+  .visual-chapter { --chapter-accent: var(--accent); display: grid; grid-template-columns: minmax(220px, .85fr) 2fr; gap: clamp(30px, 5vw, 70px); padding-block: 36px; border-top: 3px solid var(--line); }
+  .chapter-heading { position: relative; }
+  .chapter-label { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: .72rem; font-weight: 850; line-height: 1.4; color: var(--chapter-accent); }
+  .chapter-number { flex: none; display: inline-grid; place-items: center; width: 29px; height: 25px; background: #173c34; color: #f7f0dc; border-radius: 8px 8px 8px 2px; font: 650 .88rem/1 Fredoka, sans-serif; }
+  .chapter-heading h3 { font: 650 clamp(1.8rem, 3vw, 2.4rem)/1.06 Fredoka, sans-serif; letter-spacing: -.025em; text-wrap: balance; margin: 0; max-width: 290px; }
+  .chapter-stamp { width: 78px; margin-top: 18px; transform: rotate(-6deg); }
+  .visual-chapter:nth-child(even) .chapter-stamp { transform: rotate(5deg); }
+  .chapter-body { min-width: 0; }
+  .principle-pair { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 3.5vw, 48px); padding-top: 6px; }
+  .principle-pair h4 { font-size: 1.14rem; line-height: 1.25; font-weight: 900; letter-spacing: -.02em; margin: 0 0 11px; }
+  .principle-pair h4::before { content: ''; display: block; width: 30px; height: 6px; border-radius: 6px; background: #a8d6bb; margin-bottom: 15px; transform: rotate(-4deg); }
+  .principle-pair article:nth-child(2) h4::before { background: #f18e76; transform: rotate(3deg); }
+  .principle-pair p { margin: 0; font-size: 1rem; line-height: 1.6; color: var(--muted); }
+  .principle-detail { margin-top: 16px; }
+  .principle-detail summary { display: flex; align-items: center; gap: 10px; width: fit-content; min-height: 40px; padding-block: 6px; color: var(--chapter-accent); font-size: .79rem; font-weight: 850; cursor: pointer; list-style: none; }
+  .principle-detail summary::-webkit-details-marker { display: none; }
+  .detail-plus { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 19px; line-height: 1; background: var(--story-soft); }
+  .principle-detail[open] .detail-plus { transform: rotate(45deg); }
+  .detail-principles { display: grid; gap: 20px; padding-block: 16px 22px; }
+  .detail-principles h4, .project-connection h4 { font-size: 1rem; line-height: 1.4; margin: 0 0 8px; }
+  .detail-principles p, .project-connection p { color: var(--muted); font-size: .95rem; line-height: 1.7; margin: 0; }
+  .project-connection { border-left: 4px solid var(--chapter-accent); padding-left: 18px; }
+  .project-connection h4 { font-size: .8rem; color: var(--chapter-accent); }
+  .project-connection p { font-size: .9rem; }
+  .principles-next { display: flex; justify-content: space-between; align-items: end; gap: 36px; padding-block: 48px 72px; }
+  .principles-next > div { max-width: 740px; }
+  .principles-next h3 { font: 650 clamp(2.1rem, 4vw, 3rem)/1.08 Fredoka, sans-serif; letter-spacing: -.025em; margin: 0 0 22px; }
+  .principles-next p:not(.ftw-eyebrow) { color: var(--muted); font-size: 1.02rem; line-height: 1.75; margin: 0; }
+  .principles-next > a { flex: none; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* E is a compact collection of printed tiles, using the same visible content. */
+  [data-principles-layout="tiles"] .principle-chapters { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 22px; }
+  [data-principles-layout="tiles"] .visual-chapter { --ink: #173c34; --muted: #34584b; --chapter-accent: #173c34; --story-soft: #c6dfc9; display: block; padding: 28px 30px 20px; border: 0; border-radius: 8px 28px 28px 28px; background: #d9e9d5; color: var(--ink); }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(2) { --story-soft: #e7dcc4; background: #f7f0dc; border-radius: 28px 8px 28px 28px; }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(3) { --story-soft: #ebbea6; background: #f1d3bf; border-radius: 28px 28px 28px 8px; }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(4) { --ink: #f7f0dc; --muted: #d1e2d4; --chapter-accent: #a8d6bb; --story-soft: #31574b; background: #173c34; border-radius: 28px 28px 8px 28px; }
+  [data-principles-layout="tiles"] .chapter-heading { padding-right: 78px; min-height: 96px; margin-bottom: 18px; }
+  [data-principles-layout="tiles"] .chapter-label { margin-bottom: 12px; font-size: .7rem; }
+  [data-principles-layout="tiles"] .chapter-heading h3 { font-size: clamp(1.8rem, 2.7vw, 2.2rem); max-width: 310px; }
+  [data-principles-layout="tiles"] .chapter-stamp { position: absolute; right: -4px; top: 20px; width: 72px; margin: 0; }
+  [data-principles-layout="tiles"] .principle-pair { grid-template-columns: 1fr; gap: 20px; padding-top: 0; }
+  [data-principles-layout="tiles"] .principle-pair h4 { font-size: 1.12rem; margin-bottom: 7px; }
+  [data-principles-layout="tiles"] .principle-pair h4::before { display: none; }
+  [data-principles-layout="tiles"] .principle-detail { margin-top: 12px; }
+  [data-principles-layout="tiles"] .chapter-number { background: var(--chapter-accent); color: #f7f0dc; }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(4) .chapter-number { color: #173c34; }
+  [data-principles-layout="tiles"] :focus-visible { outline-color: var(--chapter-accent); }
+
+  @media (max-width: 1000px) {
+    .visual-chapter { grid-template-columns: 1fr; gap: 25px; padding-block: 30px; }
+    .chapter-heading { padding-right: 90px; min-height: 75px; }
+    .chapter-heading h3 { max-width: none; }
+    .chapter-stamp { position: absolute; right: 2px; top: 0; margin: 0; }
+    .principle-pair { padding-top: 0; }
+    [data-principles-layout="tiles"] .visual-chapter { padding: 24px 24px 16px; }
+    [data-principles-layout="tiles"] .chapter-heading { padding-right: 62px; min-height: 110px; }
+    [data-principles-layout="tiles"] .chapter-stamp { width: 58px; }
+  }
+  @media (max-width: 900px) { .principles-next { align-items: start; flex-direction: column; gap: 22px; } }
+  @media (max-width: 700px) {
+    .principles-intro { padding-block: 60px 36px; }
+    .principles-intro > p:last-child { font-size: 1rem; }
+    .principle-chapters { padding-block: 8px 12px; }
+    .visual-chapter { gap: 20px; padding-block: 28px; }
+    .chapter-heading { padding-right: 70px; min-height: 68px; }
+    .chapter-label { font-size: .65rem; margin-bottom: 12px; gap: 8px; }
+    .chapter-heading h3 { font-size: clamp(1.8rem, 6.5vw, 2.1rem); }
+    .chapter-stamp { width: 60px; top: 12px; }
+    .principle-pair { grid-template-columns: 1fr; gap: 19px; }
+    .principle-pair h4 { font-size: 1.12rem; margin-bottom: 7px; }
+    .principle-pair h4::before { display: none; }
+    .principle-pair p { font-size: .98rem; }
+    .principle-detail { margin-top: 10px; }
+    .principles-next { padding-block: 30px 54px; }
+    [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: 1fr; gap: 16px; }
+    [data-principles-layout="tiles"] .chapter-heading { min-height: 84px; margin-bottom: 20px; }
+    [data-principles-layout="tiles"] .chapter-heading h3 { font-size: 1.9rem; }
+    [data-principles-layout="tiles"] .chapter-label { font-size: .65rem; }
+  }
+  @media (max-width: 380px) {
+    [data-principles-layout="tiles"] .visual-chapter { padding: 22px 20px 14px; }
+    [data-principles-layout="tiles"] .chapter-heading { padding-right: 50px; }
+    [data-principles-layout="tiles"] .chapter-stamp { width: 46px; top: 37px; }
+    [data-principles-layout="tiles"] .chapter-heading h3 { font-size: 1.75rem; }
+    [data-principles-layout="tiles"] .chapter-label { margin-right: -50px; }
+  }
+</style>

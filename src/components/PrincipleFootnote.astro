@@ -1,0 +1,65 @@
+---
+import type { PrincipleSource } from '../content/villow-design-principles';
+
+/** A [n] marker whose sources and findings open on hover, keyboard focus or tap. */
+interface Props { n: number; sources: PrincipleSource[]; }
+const { n, sources } = Astro.props;
+const id = `principle-note-${n}`;
+---
+<span class="footnote" data-footnote><button type="button" class="footnote-ref" aria-expanded="false" aria-controls={id} aria-label={`Note ${n}: sources`}>[{n}]</button><span class="footnote-note" id={id} role="note"><span class="footnote-card">{sources.map(source => <span class="footnote-source"><a href={source.href} target="_blank" rel="noopener">{source.label}</a>{source.journal && <span class="footnote-journal">, {source.journal}</span>}<span class="footnote-finding">{source.finding}</span></span>)}</span></span></span>
+
+<style>
+  .footnote { position: relative; }
+  .footnote-ref { appearance: none; margin: 0 0 0 1px; padding: 0 2px; border: 0; border-radius: 4px; background: none; color: var(--accent); font: inherit; font-size: .72em; font-weight: 850; line-height: 1; vertical-align: super; cursor: pointer; }
+  .footnote-ref:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Transparent top padding bridges the gap so the pointer can move from marker to links. */
+  .footnote-note { display: none; position: absolute; z-index: 30; top: 100%; left: 50%; width: min(22rem, calc(100vw - 32px)); padding-top: 8px; transform: translateX(calc(-50% + var(--nudge, 0px))); text-align: left; white-space: normal; }
+  @media (hover: hover) { .footnote:hover .footnote-note { display: block; } }
+  .footnote:has(:focus-visible) .footnote-note, .footnote[data-open] .footnote-note { display: block; }
+  .footnote[data-dismissed] .footnote-note { display: none; }
+  .footnote[data-above] .footnote-note { top: auto; bottom: 100%; padding: 0 0 8px; }
+  .footnote-card { display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 32px color-mix(in srgb, var(--ink) 16%, transparent); color: var(--muted); font-size: .86rem; font-weight: 500; line-height: 1.5; }
+  .footnote-source { display: block; }
+  .footnote-source a { color: var(--ink); font-weight: 800; text-underline-offset: 2px; }
+  .footnote-finding { display: block; margin-top: 3px; }
+</style>
+
+<script>
+  const footnotes = [...document.querySelectorAll<HTMLElement>('[data-footnote]')];
+  const gutter = 16;
+  // Keep the card inside the viewport: nudge it sideways near either edge, and open it
+  // above the marker when there's more room there than below.
+  const place = (footnote: HTMLElement) => {
+    const note = footnote.querySelector<HTMLElement>('.footnote-note');
+    if (!note) return;
+    note.style.setProperty('--nudge', '0px');
+    footnote.removeAttribute('data-above');
+    const rect = note.getBoundingClientRect();
+    if (!rect.width) return;
+    const right = document.documentElement.clientWidth - gutter;
+    note.style.setProperty('--nudge', `${rect.left < gutter ? gutter - rect.left : rect.right > right ? right - rect.right : 0}px`);
+    const marker = footnote.getBoundingClientRect();
+    if (rect.bottom > innerHeight - gutter && marker.top - gutter > innerHeight - marker.bottom - gutter) footnote.setAttribute('data-above', '');
+  };
+  const setOpen = (footnote: HTMLElement, open: boolean) => {
+    footnote.toggleAttribute('data-open', open);
+    footnote.removeAttribute('data-dismissed');
+    footnote.querySelector('.footnote-ref')?.setAttribute('aria-expanded', String(open));
+    if (open) place(footnote);
+  };
+  for (const footnote of footnotes) {
+    const reveal = () => { place(footnote); requestAnimationFrame(() => place(footnote)); };
+    footnote.addEventListener('pointerenter', reveal);
+    footnote.addEventListener('focusin', reveal);
+    footnote.addEventListener('pointerleave', () => footnote.removeAttribute('data-dismissed'));
+    footnote.addEventListener('focusout', () => footnote.removeAttribute('data-dismissed'));
+    footnote.querySelector('.footnote-ref')?.addEventListener('click', () => setOpen(footnote, !footnote.hasAttribute('data-open')));
+  }
+  document.addEventListener('click', event => {
+    for (const footnote of footnotes) if (!footnote.contains(event.target as Node)) setOpen(footnote, false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    for (const footnote of footnotes) { setOpen(footnote, false); footnote.setAttribute('data-dismissed', ''); }
+  });
+</script>

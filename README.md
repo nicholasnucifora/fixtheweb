@@ -25,20 +25,28 @@ B is the default on a first visit; browser back/forward and no-storage compariso
 The switch keeps a corresponding section in view where possible. Homepage design controls
 also have separate A/B storage so changing a headline in B does not overwrite A.
 
-Villow also has **Preset C** at `/work/villow?preset=c`, added on 16 November for comparison:
-the cleaner two-label magnet, tighter incentive copy and eight principles presented as short
-dot points under four bold headings. B retains its paragraph treatment and the extra
-“Great find!” artwork. C is remembered only for Villow; other pages keep their own A/B choice.
-On narrow screens, Villow's comparison buttons shorten to letters. B/C switching keeps
-the corresponding principle theme in view. The project opening, access and evaluation
-sections are shared between B and C.
+Villow's **C/D/E** comparisons were rewritten on 18 November around six direct principles:
+personal customisation, manageable recommendations and appealing subscriptions,
+useful reflection, social connection, life beyond the screen, and fighting misinformation. Each has two
+or three short points. There are no principle disclosures or repeated category headings.
 
-Two further Villow comparisons are available: **D** (`?preset=d`) uses four large original
-illustrations with short statements, while **E** (`?preset=e`) lets readers explore goals
-and preferences through changing illustrations and explanations. Both use revised
-“Your time. Your terms.” copy about understanding time, shaping the feed and choosing support.
-Full principles remain in expandable panels, including proposal and evaluation limits.
-B, C, D and E share theme anchors; all five choices remain specific to Villow.
+- **C** (`/work/villow?preset=c`) is an open, two-column reading layout with six equally
+  weighted principles. The watch-free illustration now belongs on the Villow homepage,
+  below “Learn from what you watch”, rather than inside these principles.
+- **D** (`?preset=d`) uses compact numbered rows.
+- **E** (`?preset=e`) uses six small illustrated tiles.
+
+All three share their copy in `src/content/villow-design-principles.ts`, the large incentive
+illustration and revised “Your time. Your terms.” copy. Misinformation and bot proposals are
+explicitly a future direction. The transferred illustration uses fictional data and local
+weekday selection; its original animation was checked with the disconnect web app agent.
+The unused illustration components remain as source reference, outside the rendered page.
+B retains its earlier
+long-form content and extra “Great find!” artwork.
+The project opening, access and evaluation sections remain shared. Old principle/theme
+anchors still resolve, and C/D/E switching follows the same principle across layouts.
+Choices C/D/E are remembered only for Villow; other pages retain their own A/B choice.
+On narrow screens, Villow's comparison buttons shorten to letters.
 
 A preserves the first implementation's content on Home, Villow and Design & access, except
 for the requested removal of submission references. B

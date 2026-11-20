@@ -1,204 +1,123 @@
 ---
 import IncentiveStory from './IncentiveStory.astro';
-import PrincipleArt from './PrincipleArt.astro';
-import { villowPrinciples } from '../content/villow-principles';
+import PrincipleStamp from './PrincipleStamp.astro';
+import PointText from './PrinciplePointText.astro';
+import { villowDesignPrinciples, type DesignPrinciple, type PrinciplePoint } from '../content/villow-design-principles';
 
-interface Props { interactive?: boolean; }
-const { interactive = false } = Astro.props;
-const stories = [
-  {
-    title: 'More to life.\nMore from your time.',
-    exploreTitle: 'Make room for life.',
-    summary: 'Keep the learning, laughter and connection. Give people a satisfying place to stop, and something to take into the rest of their lives.',
-    takeaway: 'Leaving satisfied counts as success.', question: 'What did you come here for?',
-    options: [
-      { label: 'Learn something', title: 'Take the idea with you.', body: 'Help people find something useful, then give it room to become something they try, make or understand.' },
-      { label: 'Unwind', title: 'Rest is worthwhile, too.', body: 'An enjoyable break can be enough. Let people finish feeling satisfied, with a clear place to stop.' },
-      { label: 'Catch up', title: 'Make room for connection.', body: 'A conversation or shared laugh can be the point. More minutes in the feed need not be the goal.' },
-    ],
-  },
-  {
-    title: 'Your goals.\nYour hands on the controls.',
-    exploreTitle: 'Your goals. Your choice.',
-    summary: 'Choose boundaries that fit your life. Make following through feel rewarding, with support you can adjust as your plans change.',
-    takeaway: 'Encouragement should work on your terms.', question: 'What support would suit you?',
-    options: [
-      { label: 'A gentle nudge', title: 'A reminder, when you want it.', body: 'Offer a timely moment to reconsider, with an easy way to change or dismiss the support.' },
-      { label: 'A firm commitment', title: 'Give your earlier choice some weight.', body: 'Help people follow the limits they chose. Make the trade-offs clear, with a considered way to revise a plan.' },
-      { label: 'Find my own pace', title: 'Make the tools an invitation.', body: 'Keep support easy to find. Let people decide which boundaries and encouragement they want, without guilt or shame.' },
-    ],
-  },
-  {
-    title: 'See your habits.\nShape what happens next.',
-    exploreTitle: 'Understand. Then adjust.',
-    summary: 'Help people understand where their time goes and what they get from it. Put useful choices within reach of that understanding.',
-    takeaway: 'Make a better experience easy to choose.', question: 'How did that time feel?',
-    options: [
-      { label: 'Worthwhile', title: 'Keep what worked.', body: 'Help people recognise what they enjoyed or learned, with easy access to the choices that shape their experience.' },
-      { label: 'A bit of both', title: 'Make a small adjustment.', body: 'Put feed, time and support controls next to reflection. Keep changes understandable and easy to undo.' },
-      { label: 'Time I’d change', title: 'Offer a way forward.', body: 'Make a calmer experience appealing and easy to try. A moment of regret should lead to useful options, without blame.' },
-    ],
-  },
-  {
-    title: 'Closer to people.\nIn control of what you share.',
-    exploreTitle: 'Connection on your terms.',
-    summary: 'Make connection enjoyable, sharing a choice and information easier to check. People need room to trust, question and change their minds.',
-    takeaway: 'Connection needs privacy and trust.', question: 'What do you want to do?',
-    options: [
-      { label: 'Enjoy it together', title: 'Start with the connection.', body: 'Make room for shared enjoyment and conversation. Friendship should not automatically expose someone’s viewing habits.' },
-      { label: 'Share my habits', title: 'Choose what others can see.', body: 'Keep usage sharing separate and optional, with clear audiences. Friends can offer perspective, not a definition of healthy use.' },
-      { label: 'Check a claim', title: 'Make checking easier.', body: 'Show sources, help corrections reach earlier viewers and let people challenge mistakes. Keep AI optional and checked by people.' },
-    ],
-  },
-];
+// C2–C5 pass their own copy and a note pointing feature detail to villow.app.
+// Points whose sources carry findings become numbered footnotes, in reading order.
+interface Props { layout?: 'list' | 'rows' | 'tiles'; principles?: DesignPrinciple[]; scopeNote?: boolean; }
+const { layout = 'list', principles = villowDesignPrinciples, scopeNote = false } = Astro.props;
+const footnoted = principles.flatMap(principle => principle.points).filter(point => typeof point !== 'string' && point.sources.every(source => source.finding));
+const noteNumber = (point: PrinciplePoint) => footnoted.indexOf(point) + 1;
 ---
-
-<section class:list={['visual-principles', { 'visual-explorer': interactive }]} id="design-questions" aria-labelledby="principles-title">
+<section class:list={['compact-principles', { 'principles-glance': layout === 'list' }]} data-principles-layout={layout} id="design-questions" aria-labelledby="principles-title">
   <header class="ftw-shell principles-intro">
     <p class="ftw-eyebrow">From one project to a better web</p>
     <h2 id="principles-title">The principles<br />we want to build on.</h2>
-    <p>Villow is one starting point. These principles guide what we want to build across social media and the wider web.</p>
+    <p>What we want social platforms to do, with Villow as a starting point.</p>
+    {scopeNote && <p class="principles-scope">These are the ideas, not a feature list. <a href="https://villow.app" target="_blank" rel="noopener">See how Villow puts them into practice <span aria-hidden="true">↗</span></a></p>}
   </header>
-
   <IncentiveStory compact agencyCopy="goals" />
 
-  {interactive && <div class="ftw-shell explorer-intro"><p class="ftw-eyebrow">Explore the possibilities</p><h3>A different goal.<br />A different design.</h3><p>Choose a goal or preference below to explore what a service should support.</p></div>}
+  <div class="principle-chapters ftw-shell">
+    {principles.map((principle, index) => <section class:list={['visual-chapter', { 'future-principle': principle.future }]} id={principle.id} data-principle aria-labelledby={`principle-heading-${index}`}>
+      {principle.aliases.map(id => <span class="anchor-alias" id={id} aria-hidden="true"></span>)}
+      {principle.future && <p class="future-label">Future direction · beyond today’s Villow</p>}
+      <header class="principle-heading">
+        <span class="principle-number" aria-hidden="true">0{index + 1}</span>
+        <h3 id={`principle-heading-${index}`}>{principle.title}</h3>
+        {layout === 'tiles' && <div class="principle-stamp"><PrincipleStamp theme={principle.art} /></div>}
+      </header>
+      <ul>{principle.points.map(point => <li><PointText point={point} note={noteNumber(point)} /></li>)}</ul>
+    </section>)}
+  </div>
 
-  {stories.map((story, index) => <section class="visual-chapter" id={`principle-theme-${index}`} aria-labelledby={`chapter-${index}`} data-visual-mode={interactive ? 'explore' : 'poster'} data-selection="0">
-    <div class="ftw-shell">
-      <div class="visual-stage">
-        <div class="visual-copy">
-          <p class="visual-kicker"><span>0{index + 1}</span>{villowPrinciples[index].theme}</p>
-          <h3 id={`chapter-${index}`}>{interactive ? story.exploreTitle : story.title}</h3>
-          {!interactive && <><p class="visual-summary">{story.summary}</p><p class="visual-takeaway">{story.takeaway}</p></>}
-          {interactive && <div class="explore-controls" data-explore-controls hidden>
-            <p class="choice-question" id={`question-${index}`}>{story.question}</p>
-            <div class="explore-options" role="group" aria-labelledby={`question-${index}`}>
-              {story.options.map((option, optionIndex) => <button type="button" data-story-option={optionIndex} aria-pressed={optionIndex === 0 ? 'true' : 'false'} aria-controls={`outcome-${index}`}>{option.label}</button>)}
-            </div>
-          </div>}
-        </div>
-        <div class="visual-image"><PrincipleArt theme={index} /></div>
-        {interactive && <div class="explore-result" id={`outcome-${index}`} aria-live="polite" aria-atomic="true">
-          {story.options.map((option, optionIndex) => <div data-story-result={optionIndex} hidden={optionIndex !== 0}>
-            <h4>{option.title}</h4><p>{option.body}</p>
-          </div>)}
-        </div>}
-      </div>
-
-      <details class="visual-detail">
-        <summary><span>The principles behind this</span><span class="detail-plus" aria-hidden="true">＋</span></summary>
-        <div class="detail-principles">{villowPrinciples[index].principles.map(principle => <article id={principle.id}><h4>{principle.title}</h4><p>{principle.body}</p></article>)}</div>
-        <div class="project-connection"><h4>How this connects to Villow</h4><p>{villowPrinciples[index].connection}</p></div>
-      </details>
-    </div>
-  </section>)}
-
-  <section class="principles-next ftw-shell" id="beyond-the-feed" aria-labelledby="beyond-title">
-    <div><p class="ftw-eyebrow">Principles into possibilities</p><h3 id="beyond-title">A starting point.<br />More to build.</h3><p><span id="corrections">Corrections that catch up with misleading claims</span>, <span id="creator-actions">creator-suggested actions beyond the screen</span>, considered recommendations, optional AI and trustworthy discussion are proposals to develop and test.</p></div>
-    <a class="ftw-text-link" href="/ideas?preset=b">Explore the wider ideas <span aria-hidden="true">→</span></a>
-  </section>
+  <div class="principles-next ftw-shell" id="beyond-the-feed">
+    <p><span id="creator-actions">Creator-suggested activities</span>, <span id="corrections">corrections</span> and AI assistance remain proposals to develop and test.</p>
+    <a class="ftw-text-link" href="/ideas?preset=b">Explore the proposals <span aria-hidden="true">→</span></a>
+  </div>
 </section>
-
-<script>
-  document.querySelectorAll<HTMLElement>('[data-visual-mode="explore"]').forEach(chapter => {
-    const controls = chapter.querySelector<HTMLElement>('[data-explore-controls]');
-    if (!controls) return;
-    controls.hidden = false;
-    chapter.querySelectorAll<HTMLButtonElement>('[data-story-option]').forEach(button => {
-      button.addEventListener('click', () => {
-        const selection = button.dataset.storyOption!;
-        chapter.dataset.selection = selection;
-        chapter.querySelectorAll<HTMLButtonElement>('[data-story-option]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
-        chapter.querySelectorAll<HTMLElement>('[data-story-result]').forEach(result => { result.hidden = result.dataset.storyResult !== selection; });
-      });
-    });
-  });
-
-  // Deep links from other presets should reveal the full principle inside its disclosure.
-  const revealPrinciple = () => {
-    let id: string;
-    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
-    const target = document.getElementById(id);
-    const detail = target?.closest<HTMLDetailsElement>('.visual-detail');
-    if (detail && !detail.open) {
-      detail.open = true;
-      requestAnimationFrame(() => target?.scrollIntoView({ block: 'start' }));
-    }
-  };
-  revealPrinciple();
-  addEventListener('hashchange', revealPrinciple);
-</script>
 
 <style>
   .principles-intro { max-width: 850px; padding-block: 88px 58px; text-align: center; }
   .principles-intro h2 { font-size: clamp(2.3rem, 4.8vw, 3.7rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 26px; text-wrap: balance; }
-  .principles-intro > p:last-child { max-width: 600px; margin: 0 auto; font-size: 1.1rem; line-height: 1.7; color: var(--muted); }
-  .visual-chapter { padding-block: 24px 42px; }
-  .visual-stage { display: grid; grid-template-columns: 1.08fr 1fr; gap: 28px; align-items: center; padding: clamp(30px, 4vw, 55px); border-radius: 32px; background: #173c34; color: #f7f0dc; overflow: hidden; }
-  .visual-copy { min-width: 0; }
-  .visual-kicker { display: flex; gap: 14px; align-items: center; font-size: .73rem; font-weight: 850; color: #a8d6bb; margin: 0 0 25px; }
-  .visual-kicker span { font: 650 1.5rem/1 Fredoka, sans-serif; }
-  .visual-copy h3 { font-family: Fredoka, sans-serif; font-weight: 650; white-space: pre-line; font-size: clamp(2.2rem, 3.65vw, 3.35rem); line-height: 1.06; letter-spacing: -.025em; margin: 0 0 26px; text-wrap: balance; }
-  .visual-summary { font-size: 1.08rem; line-height: 1.75; max-width: 420px; margin: 0; }
-  .visual-takeaway { font-size: 1.02rem; font-weight: 900; line-height: 1.5; color: #a8d6bb; margin: 23px 0 0; max-width: 390px; }
-  .visual-image { min-width: 0; }
-  .visual-chapter[data-visual-mode="poster"]:nth-of-type(odd) .visual-copy { order: 2; }
-  .visual-chapter[data-visual-mode="poster"]:nth-of-type(odd) .visual-image { order: 1; }
-  .visual-detail { margin: 0 6px; }
-  .visual-detail summary { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 22px 0; color: var(--accent); font-size: .87rem; font-weight: 850; cursor: pointer; list-style: none; }
-  .visual-detail summary::-webkit-details-marker { display: none; }
-  .detail-plus { font-size: 24px; line-height: 1; }
-  .visual-detail[open] .detail-plus { transform: rotate(45deg); }
-  .detail-principles { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; padding-block: 8px 24px; }
-  .detail-principles h4, .project-connection h4 { font-size: 1.12rem; line-height: 1.4; margin: 0 0 12px; }
-  .detail-principles p, .project-connection p { color: var(--muted); font-size: .98rem; line-height: 1.8; margin: 0; }
-  .project-connection { padding: 22px; background: var(--story-soft); border-radius: 18px; }
-  .project-connection h4 { font-size: .82rem; color: var(--accent); }
-  .project-connection p { font-size: .9rem; }
-  .principles-next { display: flex; justify-content: space-between; align-items: end; gap: 36px; padding-block: 48px 72px; }
-  .principles-next > div { max-width: 740px; }
-  .principles-next h3, .explorer-intro h3 { font: 650 clamp(2.1rem, 4vw, 3rem)/1.08 Fredoka, sans-serif; letter-spacing: -.025em; margin: 0 0 22px; }
-  .principles-next p:not(.ftw-eyebrow), .explorer-intro > p:last-child { color: var(--muted); font-size: 1.02rem; line-height: 1.75; margin: 0; }
-  .principles-next > a { flex: none; }
-  .explorer-intro { margin-bottom: 34px; }
-  .explorer-intro > p:last-child { max-width: 590px; }
-  [data-visual-mode="explore"] .visual-stage { grid-template-columns: 1fr 1.05fr; column-gap: 42px; row-gap: 26px; }
-  [data-visual-mode="explore"] .visual-image { grid-column: 1; grid-row: 1 / 3; }
-  [data-visual-mode="explore"] .visual-copy { grid-column: 2; }
-  [data-visual-mode="explore"] .visual-copy h3 { font-size: clamp(2rem, 3vw, 2.7rem); margin-bottom: 26px; }
-  .choice-question { font-size: .9rem; font-weight: 850; line-height: 1.4; margin: 0 0 13px; }
-  .explore-options { display: flex; flex-wrap: wrap; gap: 9px; }
-  .explore-options button { font: 850 .82rem/1.3 Nunito, sans-serif; color: #f7f0dc; background: #31574b; border: 0; border-radius: 999px; padding: 12px 15px; cursor: pointer; }
-  .explore-options button[aria-pressed="true"] { background: #a8d6bb; color: #173c34; box-shadow: 0 4px 0 #0f2723; }
-  .explore-options button:hover { background: #f7f0dc; color: #173c34; }
-  .explore-options button:focus-visible { outline: 3px solid #f18e76; outline-offset: 4px; }
-  .explore-result { grid-column: 2; align-self: start; min-height: 155px; }
-  .explore-result h4 { font: 650 clamp(1.5rem, 2.2vw, 1.9rem)/1.15 Fredoka, sans-serif; margin: 0 0 12px; color: #a8d6bb; }
-  .explore-result p { font-size: 1rem; line-height: 1.7; margin: 0; }
-  .visual-principles [hidden] { display: none; }
-  @media (max-width: 900px) { .principles-next { align-items: start; flex-direction: column; gap: 22px; } .visual-stage, [data-visual-mode="explore"] .visual-stage { padding: 30px; gap: 24px; } }
+  .principles-intro > p:not(.ftw-eyebrow) { max-width: 600px; margin: 0 auto; font-size: 1.1rem; line-height: 1.7; color: var(--muted); }
+  .principles-intro > p.principles-scope { max-width: 520px; margin-top: 18px; font-size: .95rem; line-height: 1.6; }
+  .principles-scope a { color: var(--accent); font-weight: 800; text-underline-offset: 3px; white-space: nowrap; }
+  .principle-chapters { display: grid; grid-template-columns: 1fr 1fr; gap: 0 64px; padding-block: 12px 16px; }
+  .visual-chapter { position: relative; min-width: 0; padding-block: 28px 32px; border-top: 3px solid var(--line); }
+  .anchor-alias { position: absolute; top: 0; left: 0; }
+  .principle-heading { display: grid; grid-template-columns: 36px 1fr; align-items: start; gap: 13px; margin-bottom: 19px; }
+  .principle-number { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px 12px 12px 3px; background: #173c34; color: #a8d6bb; font: 650 1rem/1 Fredoka, sans-serif; transform: rotate(-5deg); }
+  .visual-chapter:nth-child(even) .principle-number { background: #a8d6bb; color: #173c34; transform: rotate(4deg); }
+  .principle-heading h3 { font: 650 clamp(1.6rem, 2.5vw, 1.95rem)/1.12 Fredoka, sans-serif; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+  .visual-chapter ul { margin: 0; padding-left: 1.1em; display: grid; gap: 9px; color: var(--muted); font-size: 1rem; line-height: 1.55; }
+  .visual-chapter li { padding-left: 4px; }
+  .visual-chapter li::marker { color: var(--accent); }
+  .principles-next { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding-block: 18px 64px; }
+  .principles-next p { max-width: 660px; margin: 0; font-size: .9rem; line-height: 1.6; color: var(--muted); }
+  .principles-next a { flex: none; font-size: .9rem; }
+  .future-label { grid-column:1/-1; margin:0 0 12px; font-size:.68rem; line-height:1.4; font-weight:850; color:var(--accent); }
+
+  /* D reads as one compact statement per row, with a stronger typographic rhythm. */
+  [data-principles-layout="rows"] .principle-chapters { display: block; }
+  [data-principles-layout="rows"] .visual-chapter { display: grid; grid-template-columns: 1fr 1.25fr; gap: clamp(28px, 5vw, 70px); padding-block: 25px; }
+  [data-principles-layout="rows"] .principle-heading { grid-template-columns: 44px 1fr; align-items: start; gap: 18px; margin: 0; }
+  [data-principles-layout="rows"] .visual-chapter .principle-number { font-size: 1.5rem; width: 44px; height: 44px; background: transparent; color: var(--accent); transform: none; }
+  [data-principles-layout="rows"] h3 { font-size: clamp(1.65rem, 2.8vw, 2.1rem); max-width: 340px; }
+  [data-principles-layout="rows"] ul { gap: 7px; padding-left: 1.05em; }
+  [data-principles-layout="rows"] .visual-chapter:nth-child(3n + 2) { border-top-color: #a8d6bb; }
+  [data-principles-layout="rows"] .visual-chapter:nth-child(3n) { border-top-color: #f18e76; }
+  [data-principles-layout="rows"] .future-principle { row-gap:14px; }
+  [data-principles-layout="rows"] .future-label { margin:0; }
+
+  /* E adds small, supporting stamps. Each tile still has just one principle. */
+  [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  [data-principles-layout="tiles"] .visual-chapter { --ink: #173c34; --muted: #34584b; --accent: #173c34; border: 0; border-radius: 7px 25px 25px 25px; background: #d9e9d5; padding: 24px; color: var(--ink); }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(3n + 2) { background: #f7f0dc; border-radius: 25px 7px 25px 25px; }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(3n) { background: #f1d3bf; border-radius: 25px 25px 7px 25px; }
+  [data-principles-layout="tiles"] .visual-chapter:last-child { --ink: #f7f0dc; --muted: #d1e2d4; --accent: #a8d6bb; background: #173c34; }
+  [data-principles-layout="tiles"] .principle-heading { grid-template-columns: 1fr 51px; gap: 13px 10px; align-items: center; }
+  [data-principles-layout="tiles"] .visual-chapter .principle-number { grid-column: 1; grid-row: 1; justify-self: start; width: auto; height: auto; border-radius: 0; background: transparent; color: var(--accent); font-size: .9rem; transform: none; }
+  [data-principles-layout="tiles"] .principle-stamp { width: 51px; grid-column: 2; grid-row: 1 / 3; align-self: start; transform: rotate(-5deg); }
+  [data-principles-layout="tiles"] h3 { grid-column: 1; grid-row: 2; font-size: 1.7rem; }
+  [data-principles-layout="tiles"] ul { font-size: .97rem; gap: 11px; }
+
+  @media (max-width: 1000px) {
+    .principle-chapters { column-gap: 32px; }
+    [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: 1fr 1fr; }
+    [data-principles-layout="rows"] .visual-chapter { grid-template-columns: .95fr 1.15fr; gap: 30px; }
+    [data-principles-layout="rows"] .principle-heading { grid-template-columns: 30px 1fr; gap: 12px; }
+    [data-principles-layout="rows"] .visual-chapter .principle-number { width: 30px; height: 34px; font-size: 1.2rem; }
+    .principles-next { align-items: start; flex-direction: column; gap: 12px; }
+  }
   @media (max-width: 700px) {
     .principles-intro { padding-block: 60px 36px; }
-    .principles-intro > p:last-child { font-size: 1rem; }
-    .visual-chapter { padding-block: 8px 30px; }
-    .visual-stage, [data-visual-mode="explore"] .visual-stage { display: flex; flex-direction: column; align-items: stretch; padding: 28px 23px; gap: 26px; border-radius: 25px; }
-    .visual-copy, .visual-chapter[data-visual-mode="poster"]:nth-of-type(odd) .visual-copy { order: 0; }
-    .visual-image, .visual-chapter[data-visual-mode="poster"]:nth-of-type(odd) .visual-image { order: 1; width: 100%; max-width: 380px; margin: 0 auto; }
-    .visual-kicker { margin-bottom: 20px; font-size: .67rem; gap: 12px; }
-    .visual-copy h3, [data-visual-mode="explore"] .visual-copy h3 { font-size: clamp(1.95rem, 8vw, 2.6rem); margin-bottom: 22px; }
-    .visual-summary { font-size: .98rem; line-height: 1.7; }
-    .visual-takeaway { font-size: .95rem; margin-top: 18px; }
-    .visual-detail summary { font-size: .8rem; padding-block: 19px; }
-    .detail-principles { grid-template-columns: 1fr; gap: 26px; }
-    .detail-principles p { font-size: .95rem; }
-    .principles-next { padding-block: 28px 54px; }
-    .explorer-intro { margin-bottom: 22px; }
-    [data-visual-mode="explore"] .visual-image { order: 2; }
-    .explore-result { order: 1; min-height: 190px; }
-    .explore-result h4 { font-size: 1.65rem; }
-    .explore-result p { font-size: .96rem; }
-    .explore-options { gap: 8px; }
-    .explore-options button { font-size: .78rem; padding: 11px 12px; }
+    .principles-intro > p:not(.ftw-eyebrow) { font-size: 1rem; }
+    .principles-intro > p.principles-scope { font-size: .92rem; }
+    .principles-scope a { white-space: normal; }
+    .principle-chapters, [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: 1fr; padding-block: 8px 12px; }
+    .visual-chapter { padding-block: 24px 27px; }
+    .principle-heading { gap: 12px; margin-bottom: 16px; grid-template-columns: 31px 1fr; }
+    .principle-number { width: 31px; height: 31px; font-size: .88rem; border-radius: 10px 10px 10px 3px; }
+    .principle-heading h3 { font-size: 1.7rem; }
+    .visual-chapter ul { font-size: .98rem; gap: 9px; }
+    .principles-next { padding-block: 18px 46px; }
+    [data-principles-layout="list"] .future-principle { display:block; }
+    [data-principles-layout="list"] .future-principle .future-label { margin-bottom:14px; }
+    [data-principles-layout="rows"] .visual-chapter { display: block; padding-block: 22px; }
+    [data-principles-layout="rows"] .principle-heading { margin-bottom: 15px; }
+    [data-principles-layout="rows"] .future-label { margin-bottom:14px; }
+    [data-principles-layout="rows"] h3 { font-size: 1.7rem; }
+    [data-principles-layout="tiles"] .principle-chapters { gap: 14px; }
+    [data-principles-layout="tiles"] .visual-chapter { padding: 22px; }
+    [data-principles-layout="tiles"] h3 { font-size: 1.7rem; }
+  }
+  @media (max-width: 380px) {
+    [data-principles-layout="tiles"] .principle-heading { grid-template-columns: 1fr 40px; gap: 10px; }
+    [data-principles-layout="tiles"] .principle-stamp { width: 40px; }
+    [data-principles-layout="tiles"] .visual-chapter { padding: 20px; }
+    [data-principles-layout="tiles"] h3 { font-size: 1.55rem; }
   }
 </style>

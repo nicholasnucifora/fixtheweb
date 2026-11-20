@@ -1,0 +1,106 @@
+---
+import IncentiveStory from './IncentiveStory.astro';
+import PrincipleStamp from './PrincipleStamp.astro';
+import { villowDesignPrinciples } from '../content/villow-design-principles';
+
+interface Props { layout?: 'list' | 'rows' | 'tiles'; }
+const { layout = 'list' } = Astro.props;
+---
+<section class:list={['compact-principles', { 'principles-glance': layout === 'list' }]} data-principles-layout={layout} id="design-questions" aria-labelledby="principles-title">
+  <header class="ftw-shell principles-intro">
+    <p class="ftw-eyebrow">From one project to a better web</p>
+    <h2 id="principles-title">The principles<br />we want to build on.</h2>
+    <p>What we want social platforms to do, with Villow as a starting point.</p>
+  </header>
+  <IncentiveStory compact agencyCopy="goals" />
+
+  <div class="principle-chapters ftw-shell">
+    {villowDesignPrinciples.map((principle, index) => <section class="visual-chapter" id={principle.id} data-principle aria-labelledby={`principle-heading-${index}`}>
+      {principle.aliases.map(id => <span class="anchor-alias" id={id} aria-hidden="true"></span>)}
+      <header class="principle-heading">
+        <span class="principle-number" aria-hidden="true">0{index + 1}</span>
+        <h3 id={`principle-heading-${index}`}>{principle.title}</h3>
+        {layout === 'tiles' && <div class="principle-stamp"><PrincipleStamp theme={principle.art} /></div>}
+      </header>
+      <ul>{principle.points.map(point => <li>{point}</li>)}</ul>
+    </section>)}
+  </div>
+
+  <div class="principles-next ftw-shell" id="beyond-the-feed">
+    <p><span id="creator-actions">Creator-suggested activities</span>, <span id="corrections">corrections</span> and AI assistance remain proposals to develop and test.</p>
+    <a class="ftw-text-link" href="/ideas?preset=b">Explore the proposals <span aria-hidden="true">→</span></a>
+  </div>
+</section>
+
+<style>
+  .principles-intro { max-width: 850px; padding-block: 88px 58px; text-align: center; }
+  .principles-intro h2 { font-size: clamp(2.3rem, 4.8vw, 3.7rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 26px; text-wrap: balance; }
+  .principles-intro > p:last-child { max-width: 600px; margin: 0 auto; font-size: 1.1rem; line-height: 1.7; color: var(--muted); }
+  .principle-chapters { display: grid; grid-template-columns: 1fr 1fr; gap: 0 64px; padding-block: 12px 16px; }
+  .visual-chapter { position: relative; min-width: 0; padding-block: 28px 32px; border-top: 3px solid var(--line); }
+  .anchor-alias { position: absolute; top: 0; left: 0; }
+  .principle-heading { display: grid; grid-template-columns: 36px 1fr; align-items: start; gap: 13px; margin-bottom: 19px; }
+  .principle-number { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px 12px 12px 3px; background: #173c34; color: #a8d6bb; font: 650 1rem/1 Fredoka, sans-serif; transform: rotate(-5deg); }
+  .visual-chapter:nth-child(even) .principle-number { background: #a8d6bb; color: #173c34; transform: rotate(4deg); }
+  .principle-heading h3 { font: 650 clamp(1.6rem, 2.5vw, 1.95rem)/1.12 Fredoka, sans-serif; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+  .visual-chapter ul { margin: 0; padding-left: 1.1em; display: grid; gap: 9px; color: var(--muted); font-size: 1rem; line-height: 1.55; }
+  .visual-chapter li { padding-left: 4px; }
+  .visual-chapter li::marker { color: var(--accent); }
+  .principles-next { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding-block: 18px 64px; }
+  .principles-next p { max-width: 660px; margin: 0; font-size: .9rem; line-height: 1.6; color: var(--muted); }
+  .principles-next a { flex: none; font-size: .9rem; }
+
+  /* D reads as one compact statement per row, with a stronger typographic rhythm. */
+  [data-principles-layout="rows"] .principle-chapters { display: block; }
+  [data-principles-layout="rows"] .visual-chapter { display: grid; grid-template-columns: 1fr 1.25fr; gap: clamp(28px, 5vw, 70px); padding-block: 25px; }
+  [data-principles-layout="rows"] .principle-heading { grid-template-columns: 44px 1fr; align-items: start; gap: 18px; margin: 0; }
+  [data-principles-layout="rows"] .visual-chapter .principle-number { font-size: 1.5rem; width: 44px; height: 44px; background: transparent; color: var(--accent); transform: none; }
+  [data-principles-layout="rows"] h3 { font-size: clamp(1.65rem, 2.8vw, 2.1rem); max-width: 340px; }
+  [data-principles-layout="rows"] ul { gap: 7px; padding-left: 1.05em; }
+  [data-principles-layout="rows"] .visual-chapter:nth-child(3n + 2) { border-top-color: #a8d6bb; }
+  [data-principles-layout="rows"] .visual-chapter:nth-child(3n) { border-top-color: #f18e76; }
+
+  /* E adds small, supporting stamps. Each tile still has just one principle. */
+  [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  [data-principles-layout="tiles"] .visual-chapter { --ink: #173c34; --muted: #34584b; --accent: #173c34; border: 0; border-radius: 7px 25px 25px 25px; background: #d9e9d5; padding: 24px; color: var(--ink); }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(3n + 2) { background: #f7f0dc; border-radius: 25px 7px 25px 25px; }
+  [data-principles-layout="tiles"] .visual-chapter:nth-child(3n) { background: #f1d3bf; border-radius: 25px 25px 7px 25px; }
+  [data-principles-layout="tiles"] .visual-chapter:last-child { --ink: #f7f0dc; --muted: #d1e2d4; --accent: #a8d6bb; background: #173c34; }
+  [data-principles-layout="tiles"] .principle-heading { grid-template-columns: 1fr 51px; gap: 13px 10px; align-items: center; }
+  [data-principles-layout="tiles"] .visual-chapter .principle-number { grid-column: 1; grid-row: 1; justify-self: start; width: auto; height: auto; border-radius: 0; background: transparent; color: var(--accent); font-size: .9rem; transform: none; }
+  [data-principles-layout="tiles"] .principle-stamp { width: 51px; grid-column: 2; grid-row: 1 / 3; align-self: start; transform: rotate(-5deg); }
+  [data-principles-layout="tiles"] h3 { grid-column: 1; grid-row: 2; font-size: 1.7rem; }
+  [data-principles-layout="tiles"] ul { font-size: .97rem; gap: 11px; }
+
+  @media (max-width: 1000px) {
+    .principle-chapters { column-gap: 32px; }
+    [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: 1fr 1fr; }
+    [data-principles-layout="rows"] .visual-chapter { grid-template-columns: .95fr 1.15fr; gap: 30px; }
+    [data-principles-layout="rows"] .principle-heading { grid-template-columns: 30px 1fr; gap: 12px; }
+    [data-principles-layout="rows"] .visual-chapter .principle-number { width: 30px; height: 34px; font-size: 1.2rem; }
+    .principles-next { align-items: start; flex-direction: column; gap: 12px; }
+  }
+  @media (max-width: 700px) {
+    .principles-intro { padding-block: 60px 36px; }
+    .principles-intro > p:last-child { font-size: 1rem; }
+    .principle-chapters, [data-principles-layout="tiles"] .principle-chapters { grid-template-columns: 1fr; padding-block: 8px 12px; }
+    .visual-chapter { padding-block: 24px 27px; }
+    .principle-heading { gap: 12px; margin-bottom: 16px; grid-template-columns: 31px 1fr; }
+    .principle-number { width: 31px; height: 31px; font-size: .88rem; border-radius: 10px 10px 10px 3px; }
+    .principle-heading h3 { font-size: 1.7rem; }
+    .visual-chapter ul { font-size: .98rem; gap: 9px; }
+    .principles-next { padding-block: 18px 46px; }
+    [data-principles-layout="rows"] .visual-chapter { display: block; padding-block: 22px; }
+    [data-principles-layout="rows"] .principle-heading { margin-bottom: 15px; }
+    [data-principles-layout="rows"] h3 { font-size: 1.7rem; }
+    [data-principles-layout="tiles"] .principle-chapters { gap: 14px; }
+    [data-principles-layout="tiles"] .visual-chapter { padding: 22px; }
+    [data-principles-layout="tiles"] h3 { font-size: 1.7rem; }
+  }
+  @media (max-width: 380px) {
+    [data-principles-layout="tiles"] .principle-heading { grid-template-columns: 1fr 40px; gap: 10px; }
+    [data-principles-layout="tiles"] .principle-stamp { width: 40px; }
+    [data-principles-layout="tiles"] .visual-chapter { padding: 20px; }
+    [data-principles-layout="tiles"] h3 { font-size: 1.55rem; }
+  }
+</style>

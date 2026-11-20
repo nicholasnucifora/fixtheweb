@@ -1,0 +1,40 @@
+---
+// Astro port of disconnect/src/components/WatchFreeTimeDemo.tsx. Keep its
+// clipping layers, device-specific gestures and original animation timeline.
+import Curve from './VillowDemoCurve.astro';
+import { demoCurve, demoScenes, sampleHours } from '../lib/villow-demo-curve';
+import '../styles/villow-watch-free-demo.css';
+const curve = demoCurve(sampleHours);
+const variants = ['drag','tap'] as const;
+const sceneStyle = (variant:keyof typeof demoScenes) => {
+  const scene = demoScenes[variant];
+  const [start,from,end] = [scene.start,scene.from,scene.end].map(curve.point);
+  return `--wfd-x0:${start.x}%;--wfd-y0:${start.y}%;--wfd-from:${from.x}%;--wfd-from-y:${from.y}%;--wfd-x1:${end.x}%;--wfd-y1:${end.y}%`;
+};
+---
+<div class="watch-free-demo" aria-hidden="true">
+  {variants.map(variant => <div class="watch-free-demo-scene" data-variant={variant} style={sceneStyle(variant)}>
+    <div class="watch-free-demo-card">
+      {[['100%',0],['50%',.5],['0%',1]].map(([label,at])=><span class="watch-free-demo-y" style={`--wfd-at:${at}`}>{label}</span>)}
+      <div class="watch-free-demo-plot">
+        {[0,50,100].map(at=><span class="watch-free-demo-rule" style={`--wfd-at:${at}%`}></span>)}
+        <span class="watch-free-demo-axis"></span>
+        <div class="watch-free-demo-layer watch-free-demo-outside"><Curve id={`ftw-${variant}-outside`} /></div>
+        <div class="watch-free-demo-layer watch-free-demo-inside">
+          <Curve id={`ftw-${variant}-inside`} class="watch-free-demo-inside-base" />
+          <Curve id={`ftw-${variant}-band`} band class="watch-free-demo-band" />
+        </div>
+        {variant==='drag' && <span class="watch-free-demo-place-x watch-free-demo-press-point"><span class="watch-free-demo-place-y"><span class="watch-free-demo-ripple watch-free-demo-drag-ripple"></span></span></span>}
+        <span class="watch-free-demo-place-x watch-free-demo-start-point"><span class="watch-free-demo-place-y"><span class="watch-free-demo-handle"></span></span></span>
+        <span class="watch-free-demo-place-x watch-free-demo-end-point"><span class="watch-free-demo-place-y"><span class="watch-free-demo-handle"></span>{variant==='tap' && <span class="watch-free-demo-finger watch-free-demo-drag-finger"></span>}</span></span>
+      </div>
+      <div class="watch-free-demo-x-axis">{['12AM','6AM','12PM','6PM','12AM'].map((label,index)=><span style={`--wfd-at:${index*25}%`}>{label}</span>)}</div>
+      <div class="watch-free-demo-drawer">
+        <span class="watch-free-demo-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" focusable="false"><circle cx="12" cy="12" r="9" /><path d="m5.75 5.75 12.5 12.5" /></svg><span>New watch-free time</span></span>
+        <span class="watch-free-demo-days" data-watch-free-days>for every day</span>
+        <span class="watch-free-demo-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m5 12 4 4L19 6" /></svg><span>Add<span class="watch-free-demo-add-more"> watch-free time</span></span><span class="watch-free-demo-ripple watch-free-demo-add-ripple"></span>{variant==='tap' && <span class="watch-free-demo-finger watch-free-demo-save-finger"></span>}</span>
+      </div>
+    </div>
+    {variant==='tap' ? <span class="watch-free-demo-open">Add watch-free time<span class="watch-free-demo-ripple watch-free-demo-open-ripple"></span><span class="watch-free-demo-finger watch-free-demo-open-finger"></span></span> : <div class="watch-free-demo-actors"><span class="watch-free-demo-place-x watch-free-demo-pointer"><span class="watch-free-demo-place-y"><svg class="watch-free-demo-cursor" viewBox="0 0 14 21" focusable="false"><path d="M1.5 1.5v15.2l3.9-3.6 2.6 6.1 2.6-1.1-2.6-6h5.2z" /></svg></span></span></div>}
+  </div>)}
+</div>

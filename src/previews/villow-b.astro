@@ -4,11 +4,15 @@ import VillowMark from "../components/VillowMark.astro";
 import EditorialStyles from "../components/EditorialStyles.astro";
 import VillowPrinciples from "../components/VillowPrinciples.astro";
 import VillowPrinciplesC from "../components/VillowPrinciplesC.astro";
+import VillowPrinciplesC2 from "../components/VillowPrinciplesC2.astro";
+import VillowPrinciplesC3 from "../components/VillowPrinciplesC3.astro";
+import VillowPrinciplesC4 from "../components/VillowPrinciplesC4.astro";
+import VillowPrinciplesC5 from "../components/VillowPrinciplesC5.astro";
 import VillowPrinciplesVisual from "../components/VillowPrinciplesVisual.astro";
 
-interface Props { principlesPreset?: "b" | "c" | "d" | "e"; }
+interface Props { principlesPreset?: "b" | "c" | "c2" | "c3" | "c4" | "c5" | "d" | "e"; }
 // Share the project, access and evaluation sections while comparing the principles.
-const Principles = Astro.props.principlesPreset === "c" ? VillowPrinciplesC : VillowPrinciples;
+const Principles = { c: VillowPrinciplesC, c2: VillowPrinciplesC2, c3: VillowPrinciplesC3, c4: VillowPrinciplesC4, c5: VillowPrinciplesC5 }[Astro.props.principlesPreset ?? "b"] ?? VillowPrinciples;
 const visualPrinciples = Astro.props.principlesPreset === "d" || Astro.props.principlesPreset === "e";
 
 const questions = [
@@ -32,7 +36,7 @@ const questions = [
       <a class="villow-scroll" href="#design-questions"><span>See the principles behind it</span><span class="scroll-arrow" aria-hidden="true">↓</span></a>
     </header>
 
-    {visualPrinciples ? <VillowPrinciplesVisual interactive={Astro.props.principlesPreset === "e"} /> : <Principles />}
+    {visualPrinciples ? <VillowPrinciplesVisual layout={Astro.props.principlesPreset === "e" ? "tiles" : "rows"} /> : <Principles />}
 
     <section class="soft-band ftw-section" id="access"><div class="ftw-shell split">
       <div><p class="ftw-eyebrow">Why platform access matters</p><h2>You need a way<br />to build the alternative.</h2></div>

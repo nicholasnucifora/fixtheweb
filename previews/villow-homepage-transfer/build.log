@@ -1,0 +1,72 @@
+
+> build:local
+> astro build && node scripts/check-build.mjs
+
+17:28:55 [types] Generated 54ms
+17:28:55 [build] output: "static"
+17:28:55 [build] mode: "static"
+17:28:55 [build] directory: C:\Users\Nebula PC\Development\villow-site\dist\
+17:28:55 [build] Collecting build info...
+17:28:55 [build] ✓ Completed in 94ms.
+17:28:56 [build] Building static entrypoints...
+17:28:56 [vite] ✓ built in 232ms
+17:28:56 [vite] ✓ built in 39ms
+17:28:56 [build] Rearranging server assets...
+
+ generating static routes 
+17:28:56   ├─ /404.html (+20ms) 
+17:28:56   ├─ /extension-privacy.html (+4ms) 
+17:28:56   ├─ /robots.txt (+2ms) 
+17:28:56   ├─ /sitemap.xml (+2ms) 
+17:28:56   ├─ /about.html (+3ms) 
+17:28:56   ├─ /ai.html (+12ms) 
+17:28:56   ├─ /app-privacy.html (+8ms) 
+17:28:56   ├─ /creators.html (+3ms) 
+17:28:56   ├─ /demo.html (+3ms) 
+17:28:56   ├─ /developers.html (+11ms) 
+17:28:56   ├─ /download.html (+3ms) 
+17:28:56   ├─ /extension.html (+3ms) 
+17:28:56   ├─ /faq.html (+3ms) 
+17:28:56   ├─ /features.html (+4ms) 
+17:28:56   ├─ /hosting-help.html (+3ms) 
+17:28:56   ├─ /index.html (+3ms) 
+17:28:56   ├─ /principles.html (+2ms) 
+17:28:56   ├─ /privacy-overview.html (+2ms) 
+17:28:56   ├─ /privacy.html (+1ms) 
+17:28:56   ├─ /roadmap.html (+2ms) 
+17:28:56   ├─ /running-villow.html (+2ms) 
+17:28:56   ├─ /site-privacy.html (+2ms) 
+17:28:56   ├─ /support.html (+2ms) 
+17:28:56   ├─ /terms.html (+2ms) 
+17:28:56   ├─ /youtube-could-do-this.html (+2ms) 
+17:28:56   ├─ /setup-instructions.html (+2ms) 
+17:28:56   ├─ /previews/hosting-b.html (+2ms) 
+17:28:56   ├─ /previews/hosting-c.html (+3ms) 
+17:28:56   ├─ /previews/concepts-b.html (+2ms) 
+17:28:56   ├─ /previews/concepts-c.html (+2ms) 
+17:28:56   ├─ /previews/concepts-d.html (+2ms) 
+17:28:56   ├─ /previews/concepts-e.html (+2ms) 
+17:28:56   ├─ /previews/concepts-f.html (+2ms) 
+17:28:56   ├─ /design-concepts.html (+2ms) 
+17:28:56   ├─ /previews/concepts-h.html (+2ms) 
+17:28:56   ├─ /get-involved.html (+2ms) 
+17:28:56   ├─ /previews/support-quotes.html (+2ms) 
+17:28:56   ├─ /previews/support-paper.html (+2ms) 
+17:28:56   ├─ /previews/support-bubbles.html (+2ms) 
+17:28:56   ├─ /contact.html (+2ms) 
+17:28:56   ├─ /previews/support-compact.html (+2ms) 
+17:28:56   ├─ /previews/concepts-g.html (+2ms) 
+17:28:56   ├─ /previews/support-original.html (+2ms) 
+17:28:56   ├─ /previews/support-wide.html (+2ms) 
+17:28:56   ├─ /previews/support-still.html (+2ms) 
+17:28:56   ├─ /previews/support-words.html (+2ms) 
+17:28:56   ├─ /previews/support-spotlight.html (+2ms) 
+17:28:56   ├─ /previews/support-letters.html (+2ms) 
+17:28:56   ├─ /previews/support-garden.html (+2ms) 
+17:28:56   ├─ /hosting-details.html (+2ms) 
+17:28:56 ✓ Completed in 267ms.
+
+17:28:56 [build] ✓ Completed in 574ms.
+17:28:56 [build] 48 page(s) built in 1.03s
+17:28:56 [build] Complete!
+✓ Build checks passed: policy hash verified; 48 pages and their internal links/anchors checked.

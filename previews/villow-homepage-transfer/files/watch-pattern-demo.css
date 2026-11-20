@@ -1,0 +1,507 @@
+/* Tools & reminders → Watch-free times, while none exist: a looping sketch of
+ * adding one on When you watch → Time of day. WatchFreeTimeDemo.tsx supplies
+ * the geometry (plot percentages); this file owns the timing. Colours, the
+ * dashed band and the white handles follow HourlySplineAreaChart.
+ *
+ * Each 10s loop plays the whole process and returns to the plain chart, one
+ * step at a time. The loop was asked for explicitly, so like loading and Rate
+ * recent it keeps playing when the system asks for reduced motion: the moves
+ * are slow glides and fades, with nothing flashing or zooming. The static
+ * styles below are a single frame from the middle of the process (the band
+ * drawn, its handles and the New watch-free time drawer open), shown wherever
+ * the animations do not run. */
+.watch-free-demo {
+  --wfd-loop: 10s;
+  --wfd-plot-left: 3rem;
+  --wfd-plot-right: 1rem;
+  --wfd-plot-top: .875rem;
+  --wfd-plot-height: 5.25rem;
+  /* Plot bottom to the drawer: the hour labels and a little room. */
+  --wfd-axis-space: 1.875rem;
+  --wfd-drawer-height: 2.75rem;
+  --wfd-drawer-pad: .625rem;
+  --wfd-rule: color-mix(in srgb, var(--app-text) 20%, transparent);
+  --wfd-line: #000;
+  --wfd-area: #000;
+  --wfd-area-top: .12;
+  --wfd-area-bottom: .06;
+  --wfd-band: #64748b;
+  --wfd-band-top: .18;
+  --wfd-band-bottom: .06;
+  --wfd-band-line: #000;
+  --wfd-band-line-opacity: .18;
+  --wfd-handle-ring: #111827;
+  position: relative;
+  max-width: 30rem;
+  /* Room for the drawer is always kept, so the card never changes height. */
+  height: calc(var(--wfd-plot-top) + var(--wfd-plot-height) + var(--wfd-axis-space) + var(--wfd-drawer-height));
+  overflow: hidden;
+  container: watch-free-demo / inline-size;
+  pointer-events: none;
+  user-select: none;
+}
+html[data-color-mode='dark'] .watch-free-demo {
+  --wfd-line: #f9fafb;
+  --wfd-area: #f9fafb;
+  --wfd-area-top: .16;
+  --wfd-area-bottom: .08;
+  --wfd-band: #9ca3af;
+  --wfd-band-top: .28;
+  --wfd-band-bottom: .1;
+  --wfd-band-line: #d1d5db;
+  --wfd-band-line-opacity: .52;
+  --wfd-handle-ring: #9ca3af;
+}
+.watch-free-demo-scene {
+  --wfd-drag-y: 50%;
+  --wfd-add-width: 4.25rem;
+  /* The Add button's centre in plot coordinates, where the pointer clicks. */
+  --wfd-add-x: calc(100% + var(--wfd-plot-right) - var(--wfd-drawer-pad) - var(--wfd-add-width) / 2);
+  --wfd-add-y: calc(100% + var(--wfd-axis-space) + var(--wfd-drawer-height) / 2);
+  /* The plain curve outside the band, and the band itself, from the band's
+   * first end (`from`) to its last (`x1`). */
+  --wfd-hole-from: polygon(-3% -15%, var(--wfd-x0) -15%, var(--wfd-x0) 115%, var(--wfd-from) 115%, var(--wfd-from) -15%, 103% -15%, 103% 115%, -3% 115%);
+  --wfd-hole-to: polygon(-3% -15%, var(--wfd-x0) -15%, var(--wfd-x0) 115%, var(--wfd-x1) 115%, var(--wfd-x1) -15%, 103% -15%, 103% 115%, -3% 115%);
+  --wfd-band-from: polygon(var(--wfd-x0) -15%, var(--wfd-from) -15%, var(--wfd-from) 115%, var(--wfd-x0) 115%);
+  --wfd-band-to: polygon(var(--wfd-x0) -15%, var(--wfd-x1) -15%, var(--wfd-x1) 115%, var(--wfd-x0) 115%);
+  position: absolute;
+  inset: 0;
+}
+/* The same breakpoint as the written instructions and Time's phone-only Add
+ * watch-free time button. */
+.watch-free-demo-scene[data-variant='tap'] { display: none; }
+@media (max-width: 639px) {
+  .watch-free-demo-scene[data-variant='drag'] { display: none; }
+  .watch-free-demo-scene[data-variant='tap'] { display: block; }
+}
+.watch-free-demo-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--app-text) 3.5%, transparent);
+  clip-path: inset(0 round 16px);
+}
+
+.watch-free-demo-y,
+.watch-free-demo-x-axis > span {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.watch-free-demo-y {
+  right: calc(100% - var(--wfd-plot-left) + .4375rem);
+  top: calc(var(--wfd-plot-top) + var(--wfd-plot-height) * var(--wfd-at));
+  translate: 0 -50%;
+  color: var(--app-text-secondary);
+}
+.watch-free-demo-plot,
+.watch-free-demo-actors,
+.watch-free-demo-x-axis {
+  position: absolute;
+  left: var(--wfd-plot-left);
+  right: var(--wfd-plot-right);
+}
+.watch-free-demo-plot,
+.watch-free-demo-actors {
+  top: var(--wfd-plot-top);
+  height: var(--wfd-plot-height);
+}
+.watch-free-demo-actors { z-index: 2; }
+.watch-free-demo-x-axis {
+  top: calc(var(--wfd-plot-top) + var(--wfd-plot-height) + .3125rem);
+  height: 1rem;
+}
+.watch-free-demo-x-axis > span {
+  top: 0;
+  left: var(--wfd-at);
+  translate: -50% 0;
+  color: var(--app-accent-text);
+}
+.watch-free-demo-x-axis > span:first-child { translate: none; }
+.watch-free-demo-x-axis > span:last-child { translate: -100% 0; }
+.watch-free-demo-rule,
+.watch-free-demo-axis {
+  position: absolute;
+  background: var(--wfd-rule);
+}
+.watch-free-demo-rule {
+  left: 0;
+  right: 0;
+  top: var(--wfd-at);
+  height: 1px;
+  translate: 0 -50%;
+}
+.watch-free-demo-axis {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  translate: -50% 0;
+}
+
+.watch-free-demo-layer,
+.watch-free-demo-layer > svg {
+  position: absolute;
+  inset: 0;
+}
+.watch-free-demo-layer > svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.watch-free-demo-outside { clip-path: var(--wfd-hole-to); }
+.watch-free-demo-inside { clip-path: var(--wfd-band-to); }
+.watch-free-demo-inside-base { opacity: 0; }
+.watch-free-demo-line,
+.watch-free-demo-band-line {
+  fill: none;
+  stroke-width: 2.5px;
+  vector-effect: non-scaling-stroke;
+}
+.watch-free-demo-line {
+  stroke: var(--wfd-line);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.watch-free-demo-band-line {
+  stroke: var(--wfd-band-line);
+  stroke-opacity: var(--wfd-band-line-opacity);
+  stroke-dasharray: 6 5;
+}
+.watch-free-demo-area-top { stop-color: var(--wfd-area); stop-opacity: var(--wfd-area-top); }
+.watch-free-demo-area-bottom { stop-color: var(--wfd-area); stop-opacity: var(--wfd-area-bottom); }
+.watch-free-demo-band-top { stop-color: var(--wfd-band); stop-opacity: var(--wfd-band-top); }
+.watch-free-demo-band-bottom { stop-color: var(--wfd-band); stop-opacity: var(--wfd-band-bottom); }
+
+/* Points on the plot: an x track and a y track, so translate percentages are
+ * fractions of the plot's own width and height. */
+.watch-free-demo-place-x,
+.watch-free-demo-place-y {
+  position: absolute;
+  inset: 0;
+}
+.watch-free-demo-place-x { transform: translateX(var(--wfd-at-x)); }
+.watch-free-demo-place-y { transform: translateY(var(--wfd-at-y)); }
+.watch-free-demo-start-point { --wfd-at-x: var(--wfd-x0); --wfd-at-y: var(--wfd-y0); }
+.watch-free-demo-end-point { --wfd-at-x: var(--wfd-x1); --wfd-at-y: var(--wfd-y1); }
+.watch-free-demo-press-point { --wfd-at-x: var(--wfd-x0); --wfd-at-y: var(--wfd-drag-y); }
+.watch-free-demo-pointer { --wfd-at-x: var(--wfd-x1); --wfd-at-y: var(--wfd-drag-y); }
+.watch-free-demo-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: .75rem;
+  height: .75rem;
+  margin: -.375rem 0 0 -.375rem;
+  border: 2px solid var(--wfd-handle-ring);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 5px rgb(0 0 0 / .18);
+}
+.watch-free-demo-cursor {
+  position: absolute;
+  left: -1.5px;
+  top: -1.5px;
+  width: 14px;
+  height: 21px;
+  overflow: visible;
+  transform-origin: 1.5px 1.5px;
+  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / .3));
+}
+.watch-free-demo-cursor path {
+  fill: #fff;
+  stroke: #111827;
+  stroke-width: 1.3px;
+  stroke-linejoin: round;
+}
+.watch-free-demo-finger,
+.watch-free-demo-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 999px;
+}
+.watch-free-demo-place-y > :is(.watch-free-demo-finger, .watch-free-demo-ripple) {
+  left: 0;
+  top: 0;
+}
+/* A touch, readable on the card and on the filled buttons in both themes. */
+.watch-free-demo-finger {
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: -.6875rem 0 0 -.6875rem;
+  background: rgb(255 255 255 / .55);
+  box-shadow: 0 0 0 1.5px rgb(17 24 39 / .5), 0 2px 6px rgb(0 0 0 / .2);
+  opacity: 0;
+}
+.watch-free-demo-drag-finger { opacity: 1; }
+.watch-free-demo-ripple {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -.875rem 0 0 -.875rem;
+  background: color-mix(in srgb, var(--app-accent-text) 30%, transparent);
+  opacity: 0;
+}
+
+.watch-free-demo-drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  height: var(--wfd-drawer-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: 0 var(--wfd-drawer-pad) 0 .875rem;
+  border-top: 1px solid color-mix(in srgb, var(--app-text) 10%, transparent);
+}
+.watch-free-demo-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: .375rem;
+  color: var(--app-text);
+  font-size: .8125rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.watch-free-demo-title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.watch-free-demo-title > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--wfd-band);
+}
+.watch-free-demo-add,
+.watch-free-demo-open {
+  color: var(--app-primary-foreground);
+  background: var(--app-primary);
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+.watch-free-demo-add {
+  position: relative;
+  display: inline-flex;
+  width: var(--wfd-add-width);
+  height: 1.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  border-radius: .625rem;
+}
+.watch-free-demo-add > svg {
+  width: .875rem;
+  height: .875rem;
+  flex: none;
+}
+.watch-free-demo-add-more { display: none; }
+/* The real button's full label once there is room for it beside the title. */
+@container watch-free-demo (min-width: 23rem) {
+  .watch-free-demo-scene { --wfd-add-width: 10rem; }
+  .watch-free-demo-add-more { display: inline; }
+}
+/* Time's phone-only Add watch-free time button, waiting where the drawer opens. */
+.watch-free-demo-open {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - var(--wfd-drawer-height) / 2);
+  padding: .4375rem .75rem;
+  translate: -50% -50%;
+  border-radius: .375rem;
+  opacity: 0;
+}
+
+.watch-free-demo-scene * { animation-duration: var(--wfd-loop); animation-iteration-count: infinite; animation-timing-function: linear; }
+.watch-free-demo-ripple { animation-name: wfd-ripple; animation-delay: calc(var(--wfd-loop) * (var(--wfd-ripple-at) - 1)); }
+.watch-free-demo-drag-ripple { --wfd-ripple-at: .155; }
+[data-variant='drag'] .watch-free-demo-add-ripple { --wfd-ripple-at: .56; }
+.watch-free-demo-open-ripple { --wfd-ripple-at: .115; }
+[data-variant='tap'] .watch-free-demo-add-ripple { --wfd-ripple-at: .585; }
+
+/* Pointer: glide in, press at 6 PM, drag to 11 PM, then click Add. */
+[data-variant='drag'] .watch-free-demo-outside { animation-name: wfd-drag-hole; }
+[data-variant='drag'] .watch-free-demo-inside { animation-name: wfd-drag-band-clip; }
+[data-variant='drag'] .watch-free-demo-band { animation-name: wfd-drag-band; }
+[data-variant='drag'] .watch-free-demo-inside-base { animation-name: wfd-drag-base; }
+[data-variant='drag'] .watch-free-demo-handle { animation-name: wfd-drag-handle; }
+[data-variant='drag'] .watch-free-demo-card { animation-name: wfd-drag-card; }
+[data-variant='drag'] .watch-free-demo-drawer { animation-name: wfd-drag-drawer; }
+[data-variant='drag'] .watch-free-demo-add { animation-name: wfd-drag-add; }
+.watch-free-demo-pointer { animation-name: wfd-drag-pointer-x; }
+.watch-free-demo-pointer > .watch-free-demo-place-y { animation-name: wfd-drag-pointer-y; }
+.watch-free-demo-cursor { animation-name: wfd-drag-cursor; }
+
+/* Finger: tap Add watch-free time, drag the noon band's end handle, tap Add. */
+[data-variant='tap'] .watch-free-demo-outside { animation-name: wfd-tap-hole; }
+[data-variant='tap'] .watch-free-demo-inside { animation-name: wfd-tap-band-clip; }
+[data-variant='tap'] .watch-free-demo-band { animation-name: wfd-tap-band; }
+[data-variant='tap'] .watch-free-demo-inside-base { animation-name: wfd-tap-base; }
+[data-variant='tap'] .watch-free-demo-handle { animation-name: wfd-tap-handle; }
+[data-variant='tap'] .watch-free-demo-end-point { animation-name: wfd-tap-end-x; }
+[data-variant='tap'] .watch-free-demo-end-point > .watch-free-demo-place-y { animation-name: wfd-tap-end-y; }
+[data-variant='tap'] .watch-free-demo-card { animation-name: wfd-tap-card; }
+[data-variant='tap'] .watch-free-demo-drawer { animation-name: wfd-tap-drawer; }
+[data-variant='tap'] .watch-free-demo-add { animation-name: wfd-tap-add; }
+.watch-free-demo-open { animation-name: wfd-tap-open; }
+.watch-free-demo-open-finger { animation-name: wfd-tap-open-finger; }
+.watch-free-demo-drag-finger { animation-name: wfd-tap-drag-finger; }
+.watch-free-demo-save-finger { animation-name: wfd-tap-save-finger; }
+
+/* One burst, placed in the loop by --wfd-ripple-at. */
+@keyframes wfd-ripple {
+  0% { opacity: .55; transform: scale(.45); }
+  7% { opacity: 0; transform: scale(1.6); }
+  7.01%, 100% { opacity: 0; transform: scale(.45); }
+}
+
+@keyframes wfd-drag-hole {
+  0%, 18% { clip-path: var(--wfd-hole-from); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  38%, 100% { clip-path: var(--wfd-hole-to); }
+}
+@keyframes wfd-drag-band-clip {
+  0%, 18% { clip-path: var(--wfd-band-from); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  38%, 100% { clip-path: var(--wfd-band-to); }
+}
+/* After the save the band stays a while, then gently gives way to the plain
+ * curve before the loop begins again. */
+@keyframes wfd-drag-band {
+  0%, 84% { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+@keyframes wfd-drag-base {
+  0%, 84% { opacity: 0; }
+  94%, 100% { opacity: 1; }
+}
+@keyframes wfd-drag-handle {
+  0%, 38.5% { opacity: 0; transform: scale(.4); animation-timing-function: ease-out; }
+  42%, 58% { opacity: 1; transform: scale(1); }
+  62%, 100% { opacity: 0; transform: scale(.75); }
+}
+/* Release opens the drawer; Add closes it again. */
+@keyframes wfd-drag-card {
+  0%, 39.5% { clip-path: inset(0 0 var(--wfd-drawer-height) 0 round 16px); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  45%, 58.5% { clip-path: inset(0 0 0 0 round 16px); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  64%, 100% { clip-path: inset(0 0 var(--wfd-drawer-height) 0 round 16px); }
+}
+@keyframes wfd-drag-drawer {
+  0%, 40.5% { opacity: 0; animation-timing-function: ease-out; }
+  45.5%, 58.5% { opacity: 1; animation-timing-function: ease-in; }
+  62%, 100% { opacity: 0; }
+}
+@keyframes wfd-drag-add {
+  0%, 52% { transform: scale(1); filter: brightness(1); }
+  54%, 55% { transform: scale(1); filter: brightness(1.08); }
+  56.5% { transform: scale(.95); filter: brightness(1.08); }
+  58%, 100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes wfd-drag-pointer-x {
+  0% { transform: translateX(calc(var(--wfd-x0) - 16%)); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  14%, 18% { transform: translateX(var(--wfd-x0)); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  38%, 44% { transform: translateX(var(--wfd-x1)); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  54%, 58% { transform: translateX(var(--wfd-add-x)); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  67%, 100% { transform: translateX(calc(var(--wfd-add-x) + .75rem)); }
+}
+@keyframes wfd-drag-pointer-y {
+  0% { transform: translateY(92%); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  14%, 44% { transform: translateY(var(--wfd-drag-y)); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  54%, 58% { transform: translateY(var(--wfd-add-y)); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  67%, 100% { transform: translateY(calc(var(--wfd-add-y) + .625rem)); }
+}
+@keyframes wfd-drag-cursor {
+  0% { opacity: 0; transform: scale(1); }
+  5%, 15% { opacity: 1; transform: scale(1); }
+  16.5%, 38% { opacity: 1; transform: scale(.86); }
+  39.5%, 55% { opacity: 1; transform: scale(1); }
+  56.5% { opacity: 1; transform: scale(.86); }
+  58%, 60% { opacity: 1; transform: scale(1); }
+  67%, 100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes wfd-tap-hole {
+  0%, 28% { clip-path: var(--wfd-hole-from); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  46%, 100% { clip-path: var(--wfd-hole-to); }
+}
+@keyframes wfd-tap-band-clip {
+  0%, 28% { clip-path: var(--wfd-band-from); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  46%, 100% { clip-path: var(--wfd-band-to); }
+}
+@keyframes wfd-tap-band {
+  0%, 13% { opacity: 0; }
+  18%, 84% { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+@keyframes wfd-tap-base {
+  0%, 13% { opacity: 1; }
+  18%, 84% { opacity: 0; }
+  94%, 100% { opacity: 1; }
+}
+@keyframes wfd-tap-handle {
+  0%, 13% { opacity: 0; transform: scale(.4); animation-timing-function: ease-out; }
+  17.5%, 60% { opacity: 1; transform: scale(1); }
+  64%, 100% { opacity: 0; transform: scale(.75); }
+}
+@keyframes wfd-tap-end-x {
+  0%, 28% { transform: translateX(var(--wfd-from)); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  46%, 100% { transform: translateX(var(--wfd-x1)); }
+}
+@keyframes wfd-tap-end-y {
+  0%, 28% { transform: translateY(var(--wfd-from-y)); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  46%, 100% { transform: translateY(var(--wfd-y1)); }
+}
+@keyframes wfd-tap-card {
+  0%, 13.5% { clip-path: inset(0 0 var(--wfd-drawer-height) 0 round 16px); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  19%, 60.5% { clip-path: inset(0 0 0 0 round 16px); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  66%, 100% { clip-path: inset(0 0 var(--wfd-drawer-height) 0 round 16px); }
+}
+@keyframes wfd-tap-drawer {
+  0%, 14.5% { opacity: 0; animation-timing-function: ease-out; }
+  19.5%, 60.5% { opacity: 1; animation-timing-function: ease-in; }
+  64%, 100% { opacity: 0; }
+}
+@keyframes wfd-tap-add {
+  0%, 57% { transform: scale(1); }
+  58.5% { transform: scale(.95); }
+  60%, 100% { transform: scale(1); }
+}
+@keyframes wfd-tap-open {
+  0%, 10% { opacity: 1; transform: scale(1); }
+  11.5% { opacity: 1; transform: scale(.95); }
+  13% { opacity: 1; transform: scale(1); }
+  16.5%, 64% { opacity: 0; transform: scale(1); }
+  70%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes wfd-tap-open-finger {
+  0%, 6% { opacity: 0; transform: scale(1.2); }
+  9%, 10% { opacity: 1; transform: scale(1); }
+  11.5% { opacity: 1; transform: scale(.8); }
+  13% { opacity: .9; transform: scale(.92); }
+  15.5%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes wfd-tap-drag-finger {
+  0%, 21% { opacity: 0; transform: scale(1.2); }
+  24%, 25.5% { opacity: 1; transform: scale(1); }
+  27%, 46% { opacity: 1; transform: scale(.8); }
+  47.5% { opacity: .9; transform: scale(.92); }
+  50%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes wfd-tap-save-finger {
+  0%, 53% { opacity: 0; transform: scale(1.2); }
+  56%, 57% { opacity: 1; transform: scale(1); }
+  58.5% { opacity: 1; transform: scale(.8); }
+  60% { opacity: .9; transform: scale(.92); }
+  62.5%, 100% { opacity: 0; transform: scale(1.12); }
+}
+
+@media (forced-colors: active) {
+  .watch-free-demo { display: none; }
+}

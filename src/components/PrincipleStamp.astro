@@ -1,0 +1,40 @@
+---
+interface Props { theme: number; }
+const { theme } = Astro.props;
+---
+<svg class="principle-stamp" viewBox="0 0 96 96" fill="none" aria-hidden="true" focusable="false">
+  {theme === 0 && <>
+    <path d="M8 70C1 45 11 12 39 9c29-4 51 11 50 38S67 89 41 87C24 85 13 84 8 70" fill="#a8d6bb" />
+    <circle cx="68" cy="28" r="15" fill="#f18e76" />
+    <path d="M24 78V26c0-4 3-7 7-7h27v59" fill="#173c34" /><path d="m31 27 20 6v45H31z" fill="#f7f0dc" />
+    <path d="M43 52v7M17 79h48" stroke="#173c34" stroke-width="6" stroke-linecap="round" /><path d="M65 66c0-10 5-15 16-15 0 10-6 15-16 15" fill="#173c34" />
+  </>}
+  {theme === 1 && <>
+    <rect x="9" y="10" width="78" height="76" rx="23" fill="#a8d6bb" transform="rotate(-5 48 48)" />
+    <path d="M25 30h46M25 49h46M25 68h46" stroke="#173c34" stroke-width="7" stroke-linecap="round" />
+    <circle cx="37" cy="30" r="10" fill="#f7f0dc" stroke="#173c34" stroke-width="5" /><circle cx="61" cy="49" r="10" fill="#f18e76" stroke="#173c34" stroke-width="5" /><circle cx="43" cy="68" r="10" fill="#f7f0dc" stroke="#173c34" stroke-width="5" />
+  </>}
+  {theme === 2 && <>
+    <path d="M11 30C17 4 62 1 81 23c18 23 6 60-22 64C28 91 4 60 11 30" fill="#a8d6bb" />
+    <path d="m60 61 19 20" stroke="#173c34" stroke-width="17" stroke-linecap="round" /><path d="m64 65 12 13" stroke="#f18e76" stroke-width="10" stroke-linecap="round" />
+    <circle cx="42" cy="41" r="27" fill="#f7f0dc" stroke="#173c34" stroke-width="7" /><path d="M42 26v16l11 6" stroke="#173c34" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" /><circle cx="42" cy="41" r="4" fill="#f18e76" />
+  </>}
+  {theme === 3 && <>
+    <path d="M38 38h37c8 0 13 6 13 13v17c0 7-5 13-13 13h-6l-1 9-15-9H38c-7 0-13-6-13-13V51c0-7 6-13 13-13" fill="#f18e76" />
+    <path d="M20 9h37c8 0 14 6 14 14v20c0 8-6 14-14 14H39L23 68V57h-3c-8 0-14-6-14-14V23c0-8 6-14 14-14" fill="#a8d6bb" stroke="#173c34" stroke-width="5" stroke-linejoin="round" />
+    <path d="M39 44S24 36 24 28c0-9 11-12 15-4 4-8 15-5 15 4 0 8-15 16-15 16" fill="#173c34" /><path d="m58 66 5 5 10-10" stroke="#173c34" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  </>}
+  {theme === 4 && <>
+    <path d="M10 70C2 45 13 10 42 8c30-3 49 21 45 45S64 91 38 86C21 83 15 81 10 70" fill="#a8d6bb" />
+    <path d="M25 69V53m20 16V42m20 27V31" stroke="#173c34" stroke-width="11" stroke-linecap="round" />
+    <path d="m34 10 4 11 12 2-10 7 1 12-10-7-11 5 3-12-8-9 12-1z" fill="#f18e76" stroke="#173c34" stroke-width="4" stroke-linejoin="round" />
+  </>}
+  {theme === 5 && <>
+    <rect x="13" y="10" width="56" height="73" rx="12" fill="#a8d6bb" transform="rotate(-7 41 47)" />
+    <path d="M27 28h25M27 41h15M27 55h10" stroke="#173c34" stroke-width="6" stroke-linecap="round" />
+    <path d="m69 68 13 15" stroke="#173c34" stroke-width="12" stroke-linecap="round" />
+    <circle cx="59" cy="55" r="20" fill="#f7f0dc" stroke="#173c34" stroke-width="6" />
+    <path d="m50 55 6 6 12-12" stroke="#173c34" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  </>}
+</svg>
+<style>.principle-stamp { display: block; width: 100%; height: auto; overflow: visible; }</style>

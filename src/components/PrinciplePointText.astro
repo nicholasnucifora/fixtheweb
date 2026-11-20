@@ -1,0 +1,18 @@
+---
+import Footnote from './PrincipleFootnote.astro';
+import type { PrinciplePoint } from '../content/villow-design-principles';
+// `note` is the footnote number for a point whose sources carry findings (C3–C5); 0 cites inline (C2).
+interface Props { point: PrinciplePoint; note?: number; }
+const { point, note = 0 } = Astro.props;
+// The marker is a button, which browsers will wrap away from the text, so it stays with the last word.
+const split = typeof point === 'string' ? -1 : point.text.lastIndexOf(' ') + 1;
+---
+{typeof point === 'string' ? point
+  : note > 0 ? <>{point.text.slice(0, split)}<span class="footnote-keep">{point.text.slice(split)}<Footnote n={note} sources={point.sources} /></span>{point.after && ` ${point.after}`}</>
+  : <>{point.text} <span class="point-sources">({point.sources.map((source, i) => <>{i > 0 && '; '}<a href={source.href} target="_blank" rel="noopener">{source.label}</a></>)})</span>{point.after && ` ${point.after}`}</>}
+
+<style>
+  .footnote-keep { white-space: nowrap; }
+  .point-sources { font-size: .85em; }
+  .point-sources a { color: inherit; text-underline-offset: 2px; white-space: nowrap; }
+</style>

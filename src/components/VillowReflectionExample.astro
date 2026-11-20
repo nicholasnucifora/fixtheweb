@@ -1,0 +1,20 @@
+---
+// Fix the Web's compact, preview-only adaptation; the Villow app is unchanged.
+import WatchFreeDemo from './VillowWatchFreeDemo.astro';
+import '../styles/villow-reflection.css';
+const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+---
+<figure class="reflection-demo" data-reflection-demo aria-label="When you watch: an animated example from Villow, using fictional activity">
+  <fieldset class="reflection-days" disabled>
+    <legend class="demo-sr-only">Days shown in viewing pattern</legend>
+    <button type="button" data-pattern-all aria-pressed="true">All</button>
+    {days.map((day,index)=><button type="button" data-pattern-day={index} aria-label={day} aria-pressed="false">{day.slice(0,3)}</button>)}
+  </fieldset>
+  <WatchFreeDemo />
+  <p class="demo-sr-only" data-pattern-status aria-live="polite">All days shown. New watch-free time for every day.</p>
+  <figcaption class="demo-sr-only">The animation adds watch-free time to the days you choose. On a phone it begins with Add watch-free time.</figcaption>
+</figure>
+<script>
+  import { initialiseReflectionDemos } from '../scripts/villow-reflection';
+  initialiseReflectionDemos();
+</script>

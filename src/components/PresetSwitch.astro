@@ -56,7 +56,16 @@ const hrefFor = (value: string) => {
         if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         if (link.dataset.presetChoice === bar.dataset.preset) { event.preventDefault(); return; }
         link.hash = location.hash;
-        const section = [...document.querySelectorAll<HTMLElement>("main section[id], main header[id]")].reverse().find(node => node.getBoundingClientRect().top <= 180);
+        // Side-by-side themes can share a top edge. Keep the linked theme when
+        // comparing layouts; otherwise prefer the first one in reading order.
+        const section = [...document.querySelectorAll<HTMLElement>("main section[id], main header[id]")]
+          .filter(node => node.getBoundingClientRect().top <= 180)
+          .reduce<HTMLElement | undefined>((best, node) => {
+            if (!best) return node;
+            const difference = node.getBoundingClientRect().top - best.getBoundingClientRect().top;
+            return difference > 1 || (Math.abs(difference) <= 1 && `#${node.id}` === location.hash) ? node : best;
+          }, undefined);
+        if ((section?.hasAttribute("data-principle") || section?.id.startsWith("principle-theme-")) && bar.dataset.preset !== "a" && link.dataset.presetChoice !== "a") link.hash = section.id;
         try {
           sessionStorage.setItem("ftw.preset-scroll", JSON.stringify({ path, preset: link.dataset.presetChoice, section: section?.id, offset: section ? 150 - section.getBoundingClientRect().top : 0, ratio: scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight), at: Date.now() }));
         } catch { /* Switching itself does not depend on storage. */ }
@@ -97,4 +106,6 @@ const hrefFor = (value: string) => {
   @media (max-width: 700px) { .preset-bar { gap: 8px; } .preset-kicker, .preset-description { display: none; } .preset-page { margin-right: auto; min-width: 0; } .preset-page select { width: 100%; max-width: 180px; } .preset-options a { padding-inline: 10px; } .preset-bar ~ main .ftw-page-intro { padding-top: 158px; } .preset-bar ~ main .development-hero { padding-top: 170px; } }
   @media (max-width: 1000px) { .preset-bar[data-extended-presets] .preset-word { display: none; } }
   @media (max-width: 420px) { .preset-bar[data-extended-presets] .preset-options a { padding-inline: 9px; } }
+  /* Villow's eight presets leave the page select room for its label. */
+  @media (max-width: 420px) { .preset-bar[data-extended-presets] .preset-options { gap: 1px; } .preset-bar[data-extended-presets] .preset-options a { padding-inline: 7px; } }
 </style>

@@ -1,0 +1,86 @@
+---
+// A small app-styled window into Villow, with local illustrative state only.
+import WatchFreeDemo from './VillowWatchFreeDemo.astro';
+import Curve from './VillowDemoCurve.astro';
+import '../styles/villow-reflection.css';
+const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const recorded = [40,70,55,35,80,65,50];
+---
+<figure class="reflection-demo" data-reflection-demo data-active="pattern" data-mode="animation" data-paused="false" aria-label="Animated examples from Villow’s Time usage">
+  <figcaption><span class="villow-demo-name">Villow <span>Time usage</span></span><span>Illustrative data</span></figcaption>
+  <div class="reflection-tabs" role="tablist" aria-label="Reflection examples" hidden>
+    <button type="button" role="tab" id="pattern-tab" aria-controls="pattern-example" aria-selected="true" data-example-tab="pattern">When you watch</button>
+    <button type="button" role="tab" id="daily-tab" aria-controls="daily-example" aria-selected="false" tabindex="-1" data-example-tab="daily">Daily use</button>
+  </div>
+  <div class="reflection-panels">
+    <section class="reflection-panel" id="pattern-example" aria-labelledby="pattern-tab" data-example-panel="pattern">
+      <div class="reflection-chart-heading"><h4>Time of day</h4><span data-pattern-days>All days</span></div>
+      <fieldset class="reflection-days" data-pattern-picker disabled><legend class="demo-sr-only">Days shown in viewing pattern</legend>
+        <button type="button" data-pattern-all aria-pressed="true">All</button>
+        {days.map((day,index)=><button type="button" data-pattern-day={index} aria-label={day} aria-pressed="false">{day.slice(0,3)}</button>)}
+      </fieldset>
+      <div class="watch-free-stage">
+        <div class="guided-watch-free"><WatchFreeDemo /></div>
+        <div class="manual-watch-free" aria-hidden="true" inert>
+          <div class="watch-free-demo manual-chart" data-manual-chart data-has-band="false" role="img" aria-label="Example hourly viewing pattern. Use Add watch-free time below, or drag on the chart.">
+            <div class="watch-free-demo-card">
+              {[['100%',0],['50%',.5],['0%',1]].map(([label,at])=><span class="watch-free-demo-y" style={`--wfd-at:${at}`}>{label}</span>)}
+              <div class="watch-free-demo-plot" data-manual-plot>
+                {[0,50,100].map(at=><span class="watch-free-demo-rule" style={`--wfd-at:${at}%`}></span>)}
+                <span class="watch-free-demo-axis"></span>
+                <div class="watch-free-demo-layer manual-outside"><Curve id="ftw-manual-outside" /></div>
+                <div class="watch-free-demo-layer manual-inside"><Curve id="ftw-manual-band" band /></div>
+                <span class="manual-handle" data-manual-start></span><span class="manual-handle" data-manual-end></span>
+              </div>
+              <div class="watch-free-demo-x-axis">{['12AM','6AM','12PM','6PM','12AM'].map((label,index)=><span style={`--wfd-at:${index*25}%`}>{label}</span>)}</div>
+            </div>
+          </div>
+          <div class="manual-editor">
+            <button type="button" class="villow-primary" data-manual-add>Add watch-free time</button>
+            <form data-manual-form hidden>
+              <label>From<input type="time" data-manual-from value="12:00" step="900" required aria-label="Watch-free start" /></label>
+              <label>Until<input type="time" data-manual-until value="13:00" step="900" required aria-label="Watch-free end" /></label>
+              <button class="villow-primary" type="submit">Add</button>
+              <button class="villow-quiet" type="button" data-manual-cancel aria-label="Cancel watch-free time">×</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <p class="reflection-caption" data-pattern-caption>Pick days to see your pattern. Watch how a time becomes watch-free.</p>
+      <p class="demo-sr-only" data-pattern-status aria-live="polite"></p>
+      <p class="demo-sr-only">The animation draws a time range, opens its editor, adds it and holds the saved band. On a phone it starts with Add watch-free time. The animation repeats.</p>
+    </section>
+    <section class="reflection-panel" id="daily-example" aria-labelledby="daily-tab" data-example-panel="daily">
+      <div class="reflection-chart-heading"><h4>Daily limits</h4><span>One example week</span></div>
+      <fieldset class="reflection-days daily-day-picker" disabled><legend class="demo-sr-only">Day whose limit is being adjusted</legend>
+        {days.map((day,index)=><button type="button" data-daily-day={index} aria-label={day} aria-pressed={index===1?'true':'false'}>{day.slice(0,3)}</button>)}
+      </fieldset>
+      <div class="daily-limit-demo" style="--daily-day:1" aria-hidden="true">
+        <div class="daily-demo-card">
+          <div class="daily-axis"><span>2h</span><span>1h</span><span>0</span></div>
+          <div class="daily-demo-plot">
+            <div class="daily-grid"></div><div class="daily-historic-limit"></div>
+            <div class="daily-bars">{recorded.map((minutes,index)=><div data-daily-column={index} data-selected={index===1?'true':'false'}><span class="daily-recorded-bar" style={`height:${minutes/120*100}%`}><span>{minutes}m</span></span></div>)}</div>
+            <div class="daily-adjustment-column"><div class="daily-adjustment-shade"></div><div class="daily-adjustment-line"></div></div>
+          </div>
+          <div class="daily-chart-labels">{days.map(day=><span>{day.slice(0,3)}</span>)}</div>
+          <div class="daily-mini-editor">
+            <span><strong data-daily-name>Tuesday</strong><small>Custom limit</small></span>
+            <span class="daily-duration"><span class="duration-number"><b class="duration-stage stage-0">1</b><b class="duration-stage stage-1">0</b><b class="duration-stage stage-2">0</b><b class="duration-stage stage-3">0</b></span><span>h</span><span class="duration-number"><b class="duration-stage stage-0">00</b><b class="duration-stage stage-1">55</b><b class="duration-stage stage-2">50</b><b class="duration-stage stage-3">45</b></span><span>m</span><span class="daily-stepper"><span>⌃</span><span>⌄</span><i class="daily-tap"></i></span></span>
+          </div>
+        </div>
+      </div>
+      <p class="daily-legend"><span><i></i>Historic limit</span><span><i></i>Your adjustment</span></p>
+      <p class="reflection-caption" data-daily-caption>Choose a day. Its limit changes from 60 to 45 minutes; recorded use stays the same.</p>
+      <p class="demo-sr-only" data-daily-status aria-live="polite">Tuesday selected. The animation lowers its limit from 60 to 45 minutes. Recorded use remains 70 minutes.</p>
+    </section>
+  </div>
+  <div class="reflection-actions" hidden>
+    <button type="button" class="villow-quiet" data-demo-play aria-pressed="false"><span data-play-icon aria-hidden="true">Ⅱ</span><span data-play-label>Pause animation</span></button>
+    <button type="button" class="villow-quiet" data-demo-mode>Try it yourself <span aria-hidden="true">↗</span></button>
+  </div>
+</figure>
+<script>
+  import { initialiseReflectionDemos } from '../scripts/villow-reflection';
+  initialiseReflectionDemos();
+</script>

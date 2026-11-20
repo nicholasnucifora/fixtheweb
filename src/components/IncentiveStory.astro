@@ -57,14 +57,8 @@ const { compact = false, agencyCopy = 'existing' } = Astro.props;
 
   <div class="incentive-explanation" id="incentive-explanation" aria-live="polite" aria-atomic="true">
     <p data-explanation="attention"><strong>Change what the system rewards.</strong> Time spent is easy to count. Whether it was worth your time is a different question.</p>
-    <p data-explanation="agency" hidden><strong>Personal control is a start. The business model matters too.</strong> <a href="#access">Make room for independent alternatives</a> that can succeed when people spend less time on them. Give people a real say in what their experience is designed to do.</p>
   </div>
   <noscript><p class="incentive-fallback"><strong>A different incentive: your time, on your terms.</strong> Make reflection part of the experience, with accessible choices over your feed, time and boundaries close at hand. Build services that can succeed when people spend less time on them.</p></noscript>
-  <details class="incentive-evidence">
-    <summary>Why focus on incentives?</summary>
-    <p>Research has found that hostility towards political opponents can attract engagement, and that social rewards can encourage further expressions of outrage. These findings do not mean every feed or every person behaves the same way. They show why we need to ask what a service rewards.</p>
-    <p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8256037/" target="_blank" rel="noreferrer">Out-group animosity and engagement (PNAS, 2021)</a><br /><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8363141/" target="_blank" rel="noreferrer">Social learning and outrage (Science Advances, 2021)</a></p>
-  </details>
 </section>
 
 <script>
@@ -124,12 +118,6 @@ const { compact = false, agencyCopy = 'existing' } = Astro.props;
   .incentive-explanation { padding: 26px 8px 0; max-width: 850px; }
   .incentive-explanation p, .incentive-fallback { color: var(--muted); font-size: 1rem; line-height: 1.7; margin: 0; }
   .incentive-explanation strong { color: var(--ink); }
-  .incentive-explanation a { color: var(--accent); text-underline-offset: 4px; }
-  .incentive-evidence { margin: 18px 8px 0; max-width: 800px; color: var(--muted); font-size: .82rem; line-height: 1.7; }
-  .incentive-evidence summary { width: fit-content; cursor: pointer; font-weight: 800; text-underline-offset: 4px; }
-  .incentive-evidence summary:hover { text-decoration: underline; }
-  .incentive-evidence p { margin: 14px 0 0; }
-  .incentive-evidence a { color: var(--accent); text-underline-offset: 4px; }
   .incentive-story [hidden] { display: none; }
   @media (max-width: 900px) and (min-width: 701px) {
     .incentive-stage { gap: 12px; padding: 32px; }

@@ -1,0 +1,15 @@
+---
+import { demoCurve, sampleHours } from '../lib/villow-demo-curve';
+interface Props { id:string; band?:boolean; class?:string; }
+const { id, band=false, class:className } = Astro.props;
+const curve = demoCurve(sampleHours);
+const tone = band ? 'band' : 'area';
+---
+<svg class={className} viewBox="0 0 240 100" preserveAspectRatio="none" focusable="false">
+  <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" class={`watch-free-demo-${tone}-top`} />
+    <stop offset="100%" class={`watch-free-demo-${tone}-bottom`} />
+  </linearGradient></defs>
+  <path data-demo-area d={curve.area} fill={`url(#${id})`} />
+  <path data-demo-line d={curve.line} class={band ? 'watch-free-demo-band-line' : 'watch-free-demo-line'} />
+</svg>

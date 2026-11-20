@@ -1,0 +1,191 @@
+---
+// Simplified, local-only illustrations of Villow's Time Usage interactions.
+// See previews/preset-comparison/README.md for the source consultation.
+const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const recorded = [40, 70, 55, 35, 80, 65, 50];
+const clock = (hour: number) => hour === 24 ? 'Midnight' : `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'pm' : 'am'}`;
+const curve = 'M0 94 C12 95 18 99 30 98 S48 98 60 96 S78 85 90 89 S108 93 120 90 S138 85 150 80 S168 67 180 55 S198 43 210 38 S228 56 240 78';
+---
+<figure class="reflection-demo" data-reflection-demo aria-label="Two examples of reflection and controls in Villow">
+  <figcaption><span>Villow in practice</span><span>Illustration · fictional activity</span></figcaption>
+  <div class="demo-tabs" role="tablist" aria-label="Reflection examples" hidden>
+    <button type="button" role="tab" id="pattern-tab" aria-controls="pattern-example" aria-selected="true" data-example-tab="pattern">When you watch</button>
+    <button type="button" role="tab" id="daily-tab" aria-controls="daily-example" aria-selected="false" tabindex="-1" data-example-tab="daily">Daily use</button>
+  </div>
+
+  <section class="example-panel" id="pattern-example" aria-labelledby="pattern-tab" data-example-panel="pattern">
+    <h4>See a pattern. Make time watch-free.</h4>
+    <div class="chart-heading"><span>Average share of each hour spent watching</span><span>All days</span></div>
+    <div class="hourly-chart">
+      <div class="chart-axis" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>
+      <div class="hourly-plot" role="img" aria-label="Fictional viewing pattern, rising in the evening. A draft watch-free band covers 6pm to 8pm on weekdays." data-pattern-description>
+        <div class="chart-grid" aria-hidden="true"></div>
+        <svg viewBox="0 0 240 100" preserveAspectRatio="none" aria-hidden="true"><path d={`${curve} L240 100 L0 100Z`} fill="#a8d6bb" fill-opacity=".7" /><path d={curve} fill="none" stroke="#173c34" stroke-width="3" vector-effect="non-scaling-stroke" /></svg>
+        <div class="watch-free-band" data-watch-free-band style="left:75%;width:8.3333%" aria-hidden="true"><span></span><span></span></div>
+        <div class="hour-labels" aria-hidden="true"><span>12am</span><span>6am</span><span>Noon</span><span>6pm</span><span>12am</span></div>
+      </div>
+    </div>
+    <p class="chart-key"><span class="key-item"><span class="key-dot recorded-key"></span>Recorded pattern</span><span class="key-item"><span class="key-dot band-key" data-band-key></span><span data-band-legend>Watch-free on some days</span></span></p>
+    <fieldset class="pattern-controls" disabled>
+      <legend>Adjust the watch-free time</legend>
+      <label>From<select data-band-start aria-label="Watch-free start time">{[16,17,18,19,20,21,22].map(hour=><option value={hour} selected={hour===18}>{clock(hour)}</option>)}</select></label>
+      <label>Until<select data-band-end aria-label="Watch-free end time">{[17,18,19,20,21,22,23,24].map(hour=><option value={hour} selected={hour===20} disabled={hour<=18}>{clock(hour)}</option>)}</select></label>
+      <label>On<select data-band-days aria-label="Watch-free days"><option value="weekdays">Mon–Fri</option><option value="all">Every day</option></select></label>
+    </fieldset>
+    <p class="example-explanation" data-pattern-summary aria-live="polite" aria-atomic="true">6pm–8pm on Mon–Fri. The amber band applies to some of the days shown.</p>
+  </section>
+
+  <section class="example-panel" id="daily-example" aria-labelledby="daily-tab" data-example-panel="daily">
+    <h4>Change a limit beside your activity.</h4>
+    <div class="chart-heading"><span>Recorded use · one example week</span><span>Minutes</span></div>
+    <div class="daily-chart">
+      <div class="chart-axis" aria-hidden="true"><span>120</span><span>60</span><span>0</span></div>
+      <div class="daily-plot" role="img" aria-label="Fictional daily usage from Monday to Sunday: 40, 70, 55, 35, 80, 65 and 50 minutes. Earlier limits stay at 60 minutes." data-daily-description>
+        <div class="chart-grid" aria-hidden="true"></div>
+        <div class="historic-limit" aria-hidden="true"></div>
+        <div class="daily-bars" aria-hidden="true">{recorded.map((minutes, index)=><div class="day-column" data-day-column={index} data-selected={index===1 ? 'true':'false'}>
+          <span class="recorded-bar" style={`height:${minutes/120*100}%`}><span>{minutes}</span></span>
+          <span class="adjustment-fill" data-adjustment-fill={index} hidden={index!==1} style="bottom:37.5%;height:12.5%"></span>
+          <span class="adjusted-limit" data-adjusted-limit={index} hidden={index!==1} style="bottom:37.5%"></span>
+        </div>)}</div>
+      </div>
+    </div>
+    <fieldset class="day-picker" disabled><legend class="sr-only">Choose the day to adjust</legend>{weekdays.map((day,index)=><button type="button" data-usage-day={index} aria-label={day} aria-pressed={index===1 ? 'true':'false'}>{day.slice(0,3)}</button>)}</fieldset>
+    <p class="chart-key"><span class="key-item"><span class="key-dot recorded-key"></span>Recorded use</span><span class="key-item"><span class="key-line historic-key"></span>Earlier limit</span><span class="key-item"><span class="key-line adjusted-key"></span>Adjustment</span></p>
+    <fieldset class="daily-controls" disabled>
+      <legend><span data-limit-day>Tuesday</span> limit <output for="example-daily-limit" data-limit-value>45 min</output></legend>
+      <label class="sr-only" for="example-daily-limit">Daily limit in minutes</label>
+      <input id="example-daily-limit" type="range" min="15" max="120" step="15" value="45" aria-valuetext="45 minutes" />
+      <div class="range-labels" aria-hidden="true"><span>15 min</span><span>2 hours</span></div>
+    </fieldset>
+    <p class="example-explanation" data-daily-summary aria-live="polite" aria-atomic="true">Tuesday’s limit: 60 → 45 min. Its recorded 70 minutes stays unchanged.</p>
+  </section>
+  <div class="demo-footer"><span>Try the controls. Changes stay in this example.</span><button type="button" data-example-reset hidden>Reset</button></div>
+</figure>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-reflection-demo]').forEach(root => {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-example-tab]')];
+    const panels = [...root.querySelectorAll<HTMLElement>('[data-example-panel]')];
+    const showPanel = (name: string) => {
+      tabs.forEach(tab => { const selected = tab.dataset.exampleTab === name; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1; });
+      panels.forEach(panel => { panel.hidden = panel.dataset.examplePanel !== name; panel.setAttribute('role','tabpanel'); });
+    };
+    root.querySelector<HTMLElement>('.demo-tabs')!.hidden = false;
+    root.querySelectorAll<HTMLFieldSetElement>('fieldset').forEach(fieldset => { fieldset.disabled = false; });
+    tabs.forEach((tab,index) => {
+      tab.addEventListener('click',()=>showPanel(tab.dataset.exampleTab!));
+      tab.addEventListener('keydown',event=>{
+        let next: number;
+        if (event.key==='ArrowRight') next=(index+1)%tabs.length;
+        else if (event.key==='ArrowLeft') next=(index+tabs.length-1)%tabs.length;
+        else if (event.key==='Home') next=0;
+        else if (event.key==='End') next=tabs.length-1;
+        else return;
+        event.preventDefault(); showPanel(tabs[next].dataset.exampleTab!); tabs[next].focus();
+      });
+    });
+    showPanel('pattern');
+
+    const start = root.querySelector<HTMLSelectElement>('[data-band-start]')!;
+    const end = root.querySelector<HTMLSelectElement>('[data-band-end]')!;
+    const days = root.querySelector<HTMLSelectElement>('[data-band-days]')!;
+    const band = root.querySelector<HTMLElement>('[data-watch-free-band]')!;
+    const formatHour = (hour: number) => hour===24 ? 'midnight' : `${hour>12 ? hour-12 : hour}${hour>=12?'pm':'am'}`;
+    const updatePattern = () => {
+      const from = Number(start.value);
+      if (Number(end.value)<=from) end.value=String(from+1);
+      [...end.options].forEach(option=>{ option.disabled=Number(option.value)<=from; });
+      const until=Number(end.value), all=days.value==='all';
+      band.style.left=`${from/24*100}%`; band.style.width=`${(until-from)/24*100}%`;
+      band.dataset.coverage=all?'all':'some';
+      root.querySelector<HTMLElement>('[data-band-key]')!.dataset.coverage=band.dataset.coverage;
+      root.querySelector<HTMLElement>('[data-band-legend]')!.textContent=all?'Watch-free on all days':'Watch-free on some days';
+      root.querySelector<HTMLElement>('[data-pattern-summary]')!.textContent=`${formatHour(from)}–${formatHour(until)} ${all?'every day':'on Mon–Fri'}. ${all?'The band now applies to every day shown.':'The amber band applies to some of the days shown.'}`;
+      root.querySelector<HTMLElement>('[data-pattern-description]')!.setAttribute('aria-label',`Fictional viewing pattern, rising in the evening. Draft watch-free time from ${formatHour(from)} to ${formatHour(until)}, ${all?'every day':'Monday to Friday'}. Recorded activity is unchanged.`);
+    };
+    [start,end,days].forEach(control=>control.addEventListener('change',updatePattern));
+
+    const weekdayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const observed=[40,70,55,35,80,65,50];
+    const limits=[60,45,60,60,60,60,60];
+    let selectedDay=1;
+    const range=root.querySelector<HTMLInputElement>('#example-daily-limit')!;
+    const dayButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-usage-day]')];
+    const updateDaily=()=>{
+      dayButtons.forEach((button,index)=>button.setAttribute('aria-pressed',String(index===selectedDay)));
+      root.querySelectorAll<HTMLElement>('[data-day-column]').forEach((column,index)=>{ column.dataset.selected=String(index===selectedDay); });
+      root.querySelectorAll<HTMLElement>('[data-adjusted-limit]').forEach((line,index)=>{ line.hidden=limits[index]===60; line.style.bottom=`${limits[index]/120*100}%`; });
+      root.querySelectorAll<HTMLElement>('[data-adjustment-fill]').forEach((fill,index)=>{ fill.hidden=limits[index]===60; fill.style.bottom=`${Math.min(limits[index],60)/120*100}%`; fill.style.height=`${Math.abs(limits[index]-60)/120*100}%`; });
+      range.value=String(limits[selectedDay]); range.setAttribute('aria-valuetext',`${limits[selectedDay]} minutes`);
+      root.querySelector<HTMLElement>('[data-limit-day]')!.textContent=weekdayNames[selectedDay];
+      root.querySelector<HTMLOutputElement>('[data-limit-value]')!.textContent=`${limits[selectedDay]} min`;
+      root.querySelector<HTMLElement>('[data-daily-summary]')!.textContent=`${weekdayNames[selectedDay]}’s limit: ${limits[selectedDay]===60?'60 min (unchanged)':`60 → ${limits[selectedDay]} min`}. Its recorded ${observed[selectedDay]} minutes stays unchanged.`;
+      root.querySelector<HTMLElement>('[data-daily-description]')!.setAttribute('aria-label',`Fictional daily use, Monday to Sunday: ${observed.join(', ')} minutes. Earlier limits: 60 minutes each day. Adjusted limits: ${limits.join(', ')} minutes. ${weekdayNames[selectedDay]} selected.`);
+    };
+    dayButtons.forEach((button,index)=>button.addEventListener('click',()=>{ selectedDay=index; updateDaily(); }));
+    range.addEventListener('input',()=>{ limits[selectedDay]=Number(range.value); updateDaily(); });
+    const reset=root.querySelector<HTMLButtonElement>('[data-example-reset]')!;
+    reset.hidden=false;
+    reset.addEventListener('click',()=>{ start.value='18'; end.value='20'; days.value='weekdays'; updatePattern(); selectedDay=1; limits.fill(60); limits[1]=45; updateDaily(); });
+  });
+</script>
+
+<style>
+  .reflection-demo { --demo-ink:#173c34; --demo-muted:#416155; --demo-coral:#b95037; margin:0; padding:24px; border-radius:24px 24px 24px 7px; background:#f7f0dc; color:var(--demo-ink); min-width:0; }
+  figcaption { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 14px; margin-bottom:17px; font-size:.72rem; font-weight:800; color:var(--demo-muted); }
+  figcaption > span:first-child { color:var(--demo-ink); font-size:.8rem; }
+  .demo-tabs { display:flex; gap:5px; background:#e6e6d5; padding:4px; border-radius:12px; margin-bottom:19px; }
+  .demo-tabs button { flex:1; border:0; border-radius:9px; padding:11px 10px; color:var(--demo-ink); background:transparent; font:850 .88rem/1.2 Nunito,sans-serif; cursor:pointer; }
+  .demo-tabs button[aria-selected="true"] { background:#173c34; color:#f7f0dc; }
+  .reflection-demo :focus-visible { outline:3px solid #173c34; outline-offset:3px; }
+  .example-panel h4 { margin:0 0 15px; font:650 clamp(1.2rem,2vw,1.45rem)/1.15 Fredoka,sans-serif; }
+  .chart-heading { display:flex; justify-content:space-between; gap:12px; font-size:.75rem; line-height:1.4; color:var(--demo-muted); margin-bottom:10px; }
+  .chart-heading > span:last-child { flex:none; }
+  .hourly-chart,.daily-chart { position:relative; height:175px; padding-left:34px; margin:0 0 25px; }
+  .chart-axis { position:absolute; inset:0 auto 0 0; width:29px; display:flex; flex-direction:column; justify-content:space-between; text-align:right; font-size:.63rem; line-height:1; color:var(--demo-muted); }
+  .hourly-plot,.daily-plot { position:relative; height:100%; }
+  .chart-grid { position:absolute; inset:0; border-block:1px solid #d3d8c6; background:linear-gradient(to bottom,transparent calc(50% - .5px),#d3d8c6 calc(50% - .5px),#d3d8c6 calc(50% + .5px),transparent calc(50% + .5px)); }
+  .hourly-plot > svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .watch-free-band { position:absolute; top:0; bottom:0; background:#f18e7655; border-inline:3px solid #b95037; display:flex; justify-content:space-between; }
+  .watch-free-band > span { width:5px; height:25px; position:relative; top:calc(50% - 12px); border-radius:3px; background:#b95037; margin-inline:-4px; }
+  .watch-free-band[data-coverage="all"] { background:#87bba577; border-color:#27614f; }
+  .watch-free-band[data-coverage="all"] > span { background:#27614f; }
+  .hour-labels { position:absolute; inset:auto -3px -24px; display:flex; justify-content:space-between; font-size:.63rem; color:var(--demo-muted); }
+  .chart-key { display:flex; flex-wrap:wrap; align-items:center; gap:5px 8px; margin:10px 0 18px; font-size:.65rem; line-height:1.4; color:var(--demo-muted); }
+  .key-item { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .key-dot { width:9px; height:9px; border-radius:3px; flex:none; }
+  .recorded-key { background:#78ae92; }
+  .band-key { background:#b95037; }
+  .band-key[data-coverage="all"] { background:#27614f; }
+  .key-line { display:inline-block; width:14px; height:0; border-top:2px solid #829687; }
+  .adjusted-key { border-top:3px dashed #b95037; }
+  fieldset { border:0; margin:0; padding:0; min-width:0; }
+  fieldset legend { font-size:.76rem; font-weight:850; margin-bottom:10px; padding:0; }
+  .pattern-controls { display:grid; grid-template-columns:1fr 1fr 1.3fr; gap:10px; }
+  .pattern-controls label { min-width:0; font-size:.65rem; font-weight:800; }
+  select { width:100%; margin-top:4px; min-height:40px; border:2px solid #bdcdb6; border-radius:8px; padding:5px 7px; color:#173c34; background:#fffdf5; font:800 .82rem/1.3 Nunito,sans-serif; }
+  .example-explanation { margin:13px 0 0; font-size:.83rem; line-height:1.5; color:var(--demo-ink); }
+  .daily-chart { margin-bottom:6px; }
+  .daily-bars { position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .day-column { position:relative; }
+  .recorded-bar { position:absolute; bottom:0; left:17%; width:66%; border-radius:7px 7px 0 0; background:#b9cfb7; }
+  .day-column[data-selected="true"] .recorded-bar { background:#629c7b; }
+  .recorded-bar > span { position:absolute; bottom:calc(100% + 5px); left:0; width:100%; text-align:center; font-size:.65rem; font-weight:800; color:#416155; }
+  .historic-limit { position:absolute; inset:50% 0 auto; border-top:2px solid #829687; z-index:1; }
+  .adjustment-fill { position:absolute; inset-inline:2px; background:repeating-linear-gradient(-45deg,#b9503720 0 3px,transparent 3px 7px); z-index:2; }
+  .adjusted-limit { position:absolute; inset-inline:2px; border-top:3px dashed #b95037; z-index:3; }
+  .day-picker { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding-left:34px; }
+  .day-picker button { border:0; border-radius:7px; background:transparent; color:#416155; font:800 .65rem/1 Nunito,sans-serif; padding:10px 0; min-width:0; cursor:pointer; }
+  .day-picker button[aria-pressed="true"] { background:#173c34; color:#f7f0dc; }
+  .daily-controls legend { width:100%; }
+  .daily-controls output { float:right; font-size:.86rem; }
+  .daily-controls input { width:100%; accent-color:#27614f; min-height:26px; margin:0; cursor:pointer; }
+  .range-labels { display:flex; justify-content:space-between; color:#416155; font-size:.63rem; }
+  .demo-footer { margin-top:18px; padding-top:12px; border-top:1px solid #ccd3c0; display:flex; align-items:center; justify-content:space-between; gap:14px; font-size:.65rem; line-height:1.4; color:#416155; }
+  .demo-footer button { border:0; background:transparent; color:#173c34; text-decoration:underline; text-underline-offset:3px; font:850 .72rem Nunito,sans-serif; padding:6px 0; cursor:pointer; }
+  .sr-only { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .reflection-demo [hidden] { display:none; }
+  @media (max-width:700px) { .reflection-demo { padding:20px; } .hourly-chart,.daily-chart { height:155px; } .pattern-controls { gap:7px; } }
+  @media (max-width:380px) { .reflection-demo { padding:17px 14px; } .demo-tabs button { font-size:.78rem; padding-inline:6px; } .pattern-controls { grid-template-columns:1fr 1fr; } .pattern-controls label:last-child { grid-column:1/-1; display:flex; align-items:center; gap:10px; } .pattern-controls label:last-child select { flex:1; margin:0; } .chart-key { gap:4px 6px; } .hourly-chart,.daily-chart,.day-picker { padding-left:28px; } .chart-axis { width:24px; } }
+</style>
